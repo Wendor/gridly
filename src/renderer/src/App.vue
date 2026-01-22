@@ -8,7 +8,7 @@
     <TheActivityBar @open-settings="tabStore.openSettingsTab()" />
 
     <div class="sidebar-container" :style="{ width: sidebarWidth + 'px' }">
-      <TheSidebar @open-create-modal="isModalOpen = true" />
+      <TheSidebar @open-create-modal="openCreateModal" @edit="openEditModal" />
     </div>
 
     <div class="resizer-vertical" @mousedown="startSidebarResize"></div>
@@ -19,8 +19,9 @@
 
     <ConnectionModal
       :is-open="isModalOpen"
+      :initial-data="editingConnection"
       @close="isModalOpen = false"
-      @save="connStore.addConnection"
+      @save="handleModalSave"
     />
   </div>
 
@@ -34,6 +35,7 @@ import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community'
 import { useConnectionStore } from './stores/connections'
 import { useTabStore } from './stores/tabs'
 import { useSettingsStore } from './stores/settings'
+import type { DbConnection } from '../../shared/types' // Убедитесь, что путь верный или используйте импорт из стора
 
 import TheActivityBar from './components/layout/TheActivityBar.vue'
 import TheSidebar from './components/layout/TheSidebar.vue'
@@ -54,6 +56,10 @@ const isModalOpen = ref(false)
 const sidebarWidth = ref(250)
 const isResizingSidebar = ref(false)
 
+// Состояние редактирования
+const editingConnection = ref<DbConnection | null>(null)
+const editingIndex = ref<number | null>(null)
+
 onMounted(() => {
   connStore.loadFromStorage()
   settingsStore.initTheme()
@@ -61,6 +67,35 @@ onMounted(() => {
   const savedWidth = localStorage.getItem('sidebar-width')
   if (savedWidth) sidebarWidth.value = parseInt(savedWidth)
 })
+
+// --- Modal Logic ---
+
+function openCreateModal(): void {
+  editingIndex.value = null
+  editingConnection.value = null
+  isModalOpen.value = true
+}
+
+function openEditModal(index: number): void {
+  const conn = connStore.savedConnections[index]
+  if (conn) {
+    editingIndex.value = index
+    // Клонируем объект, чтобы не менять стор напрямую до сохранения
+    editingConnection.value = JSON.parse(JSON.stringify(conn))
+    isModalOpen.value = true
+  }
+}
+
+function handleModalSave(conn: DbConnection): void {
+  if (editingIndex.value !== null) {
+    // Обновляем существующее
+    connStore.updateConnection(editingIndex.value, conn)
+  } else {
+    // Создаем новое
+    connStore.addConnection(conn)
+  }
+  isModalOpen.value = false
+}
 
 // --- Sidebar Resizing ---
 function startSidebarResize(): void {
@@ -76,7 +111,7 @@ function stopSidebarResize(): void {
 
 function doSidebarResize(e: MouseEvent): void {
   if (!isResizingSidebar.value) return
-  const w = e.clientX - 48 // Вычитаем ширину ActivityBar
+  const w = e.clientX - 48
   if (w > 150 && w < 800) {
     sidebarWidth.value = w
   }
@@ -84,6 +119,7 @@ function doSidebarResize(e: MouseEvent): void {
 </script>
 
 <style scoped>
+/* Стили без изменений */
 .workbench {
   display: flex;
   height: calc(100vh - var(--status-bar-height));

@@ -5,9 +5,10 @@
       :connections="connStore.savedConnections"
       :active-sidebar-id="connStore.activeId"
       :tables-cache="connStore.tablesCache"
-      @select="(id) => (connStore.activeId = id)"
+      @select="(id) => connStore.ensureConnection(id)"
       @expand="(id) => connStore.loadTables(id)"
       @delete="connStore.deleteConnection"
+      @edit="(id) => $emit('edit', id)"
       @open-create-modal="$emit('open-create-modal')"
       @table-click="handleTableClick"
     />
@@ -26,14 +27,15 @@
 <script setup lang="ts">
 import { useConnectionStore } from '../../stores/connections'
 import { useTabStore } from '../../stores/tabs'
-// Импорт стора UI для переключения
 import { useUIStore } from '../../stores/ui'
 
 import ConnectionSidebar from '../ConnectionSidebar.vue'
 import HistorySidebar from '../HistorySidebar.vue'
 
+// ДОБАВЛЕНО: 'edit' в список событий
 defineEmits<{
   (e: 'open-create-modal'): void
+  (e: 'edit', id: number): void
 }>()
 
 const connStore = useConnectionStore()

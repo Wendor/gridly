@@ -1,5 +1,5 @@
 <template>
-  <div class="sidebar">
+  <div class="sidebar" @click="closeCtxMenu">
     <div class="sidebar-header">
       <h3>НАВИГАТОР</h3>
       <button class="add-btn" title="Новое подключение" @click="$emit('open-create-modal')">
@@ -26,6 +26,7 @@
           class="saved-item"
           :class="{ active: activeSidebarId === index }"
           @click="onSelect(index)"
+          @contextmenu.prevent="onContextMenu($event, index)"
         >
           <div class="conn-main-row">
             <div class="arrow-wrapper" @click.stop="toggleExpand(index)">
@@ -123,11 +124,55 @@
         </div>
       </div>
     </div>
+
+    <div
+      v-if="ctxMenu.visible"
+      class="ctx-menu"
+      :style="{ top: ctxMenu.y + 'px', left: ctxMenu.x + 'px' }"
+      @click.stop
+    >
+      <div class="ctx-item" @click="handleEdit">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+        Редактировать
+      </div>
+      <div class="ctx-item delete" @click="handleDelete">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path
+            d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+          ></path>
+        </svg>
+        Удалить
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import type { DbConnection } from '../../../shared/types'
 
 defineProps<{
@@ -140,11 +185,49 @@ const emit = defineEmits<{
   (e: 'select', index: number): void
   (e: 'expand', index: number): void
   (e: 'delete', index: number): void
+  (e: 'edit', index: number): void // <-- НОВОЕ СОБЫТИЕ
   (e: 'open-create-modal'): void
   (e: 'table-click', table: string, index: number): void
 }>()
 
 const expandedIndices = ref<Set<number>>(new Set())
+
+// --- Логика контекстного меню ---
+const ctxMenu = reactive({
+  visible: false,
+  x: 0,
+  y: 0,
+  index: -1
+})
+
+function onContextMenu(event: MouseEvent, index: number): void {
+  ctxMenu.visible = true
+  ctxMenu.x = event.clientX
+  ctxMenu.y = event.clientY
+  ctxMenu.index = index
+}
+
+function closeCtxMenu(): void {
+  ctxMenu.visible = false
+}
+
+function handleEdit(): void {
+  if (ctxMenu.index !== -1) {
+    emit('edit', ctxMenu.index)
+  }
+  closeCtxMenu()
+}
+
+function handleDelete(): void {
+  if (ctxMenu.index !== -1) {
+    if (confirm('Вы уверены, что хотите удалить это подключение?')) {
+      emit('delete', ctxMenu.index)
+    }
+  }
+  closeCtxMenu()
+}
+// ------------------------------
+
 function isExpanded(index: number): boolean {
   return expandedIndices.value.has(index)
 }
@@ -166,6 +249,7 @@ function onSelect(index: number): void {
 </script>
 
 <style scoped>
+/* Стили остались прежними + добавлены стили для меню */
 .sidebar {
   height: 100%;
   display: flex;
@@ -173,6 +257,7 @@ function onSelect(index: number): void {
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border-color);
   overflow: hidden;
+  position: relative; /* Для позиционирования чего-либо внутри, если понадобится */
 }
 .sidebar-header {
   display: flex;
@@ -220,8 +305,8 @@ function onSelect(index: number): void {
   cursor: pointer;
   border-left: 3px solid transparent;
   user-select: none;
-  color: var(--text-primary); /* БЫЛО: text-secondary, СТАЛО: text-primary */
-  opacity: 0.9; /* Чуть прозрачности, но не сильно */
+  color: var(--text-primary);
+  opacity: 0.9;
 }
 
 .saved-item:hover {
@@ -279,7 +364,6 @@ function onSelect(index: number): void {
   text-overflow: ellipsis;
 }
 
-/* Иконки баз данных */
 .icon-wrapper {
   display: flex;
   align-items: center;
@@ -289,7 +373,7 @@ function onSelect(index: number): void {
 }
 .saved-item:hover .db-icon {
   color: var(--accent-primary);
-} /* При наведении красим базу в синий */
+}
 
 .del-btn {
   position: absolute;
@@ -328,9 +412,8 @@ function onSelect(index: number): void {
 
 .table-item {
   font-size: 13px;
-  /* Делаем текст таблиц тоже читаемым, но чуть тоньше или другого оттенка */
   color: var(--text-primary);
-  opacity: 0.8; /* Таблицы чуть тусклее баз данных, но ярче чем было */
+  opacity: 0.8;
   padding: 5px 0 5px 12px;
   cursor: pointer;
   display: flex;
@@ -348,5 +431,37 @@ function onSelect(index: number): void {
   opacity: 0.8;
   display: flex;
   align-items: center;
+}
+
+/* --- Контекстное меню --- */
+.ctx-menu {
+  position: fixed;
+  z-index: 9999;
+  background: var(--bg-app);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  padding: 4px 0;
+  min-width: 150px;
+}
+
+.ctx-item {
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+}
+
+.ctx-item:hover {
+  background: var(--list-hover-bg);
+  color: var(--text-white);
+}
+
+.ctx-item.delete:hover {
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.1);
 }
 </style>

@@ -2,7 +2,7 @@
   <div v-if="isOpen" class="modal-overlay" @click.self="close">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>Новое подключение</h3>
+        <h3>{{ isEditing ? 'Редактирование подключения' : 'Новое подключение' }}</h3>
         <button class="close-btn" @click="close">×</button>
       </div>
 
@@ -48,25 +48,32 @@
       </div>
 
       <div class="modal-footer">
-        <button class="btn save-btn" @click="save">Сохранить</button>
+        <button class="btn save-btn" @click="save">
+          {{ isEditing ? 'Сохранить изменения' : 'Создать' }}
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { reactive, computed, watch } from 'vue'
 import type { DbConnection } from '../../../shared/types'
 
-// Убрали "const props =", так как в скрипте оно не используется
-defineProps<{ isOpen: boolean }>()
+const props = defineProps<{
+  isOpen: boolean
+  initialData?: DbConnection | null // Данные для редактирования
+}>()
 
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'save', conn: DbConnection): void
 }>()
 
-const form = reactive<DbConnection>({
+const isEditing = computed(() => !!props.initialData)
+
+// Дефолтное состояние формы
+const defaultForm: DbConnection = {
   type: 'mysql',
   name: '',
   host: 'localhost',
@@ -80,11 +87,30 @@ const form = reactive<DbConnection>({
   sshUser: 'root',
   sshPassword: '',
   sshKeyPath: ''
-})
+}
+
+const form = reactive<DbConnection>({ ...defaultForm })
+
+// Следим за открытием окна
+watch(
+  () => props.isOpen,
+  (isOpen) => {
+    if (isOpen) {
+      if (props.initialData) {
+        // РЕЖИМ РЕДАКТИРОВАНИЯ: Копируем данные в форму
+        Object.assign(form, props.initialData)
+      } else {
+        // РЕЖИМ СОЗДАНИЯ: Сбрасываем форму
+        Object.assign(form, defaultForm)
+      }
+    }
+  }
+)
 
 function onTypeChange(): void {
-  if (form.type === 'mysql') form.port = '3306'
-  if (form.type === 'postgres') form.port = '5432'
+  // Меняем порт только если он дефолтный или пустой, чтобы не стереть пользовательский ввод
+  if (form.type === 'mysql' && (form.port === '5432' || !form.port)) form.port = '3306'
+  if (form.type === 'postgres' && (form.port === '3306' || !form.port)) form.port = '5432'
 }
 
 function close(): void {
@@ -94,13 +120,14 @@ function close(): void {
 function save(): void {
   const newConn = JSON.parse(JSON.stringify(form)) as DbConnection
   if (!newConn.name) newConn.name = `${newConn.type} @ ${newConn.host}`
+
   emit('save', newConn)
   close()
 }
 </script>
 
 <style scoped>
-/* Стили те же, что и были (с переменными) */
+/* Стили без изменений */
 .modal-overlay {
   position: fixed;
   top: 0;

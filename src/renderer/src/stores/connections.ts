@@ -115,6 +115,18 @@ export const useConnectionStore = defineStore('connections', () => {
     }
   }
 
+  function updateConnection(index: number, conn: DbConnection): void {
+    if (savedConnections.value[index]) {
+      savedConnections.value[index] = conn
+      saveToStorage()
+
+      // Если мы редактируем активное подключение, можно сбросить кеши
+      if (activeId.value === index) {
+        // Опционально: можно предложить переподключиться
+      }
+    }
+  }
+
   return {
     savedConnections,
     activeId,
@@ -130,6 +142,7 @@ export const useConnectionStore = defineStore('connections', () => {
     deleteConnection,
     ensureConnection,
     loadTables,
-    loadSchema // Экспортируем новый метод
+    loadSchema,
+    updateConnection
   }
 })
