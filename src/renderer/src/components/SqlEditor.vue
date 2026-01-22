@@ -203,10 +203,51 @@ onBeforeUnmount(() => {
   height: 100%;
   width: 100%;
   position: relative;
+  /* Скрываем всё, что вылезает за пределы контейнера компонента */
+  overflow: hidden;
 }
+
 .sql-editor {
   height: 100%;
   width: 100%;
   font-size: 14px;
+}
+
+/* --- МАГИЯ CODEMIRROR --- */
+
+/* 1. Заставляем сам редактор занимать всю высоту контейнера */
+:deep(.cm-editor) {
+  height: 100%;
+}
+
+/* 2. Включаем скролл внутри скроллера CodeMirror */
+:deep(.cm-scroller) {
+  overflow: auto;
+  font-family: 'Fira Code', 'Consolas', monospace; /* Опционально: красивый шрифт */
+}
+
+/* 3. Опционально: Стилизуем полосу прокрутки (для Webkit/Chrome/Electron) */
+:deep(.cm-scroller)::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+:deep(.cm-scroller)::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:deep(.cm-scroller)::-webkit-scrollbar-thumb {
+  background: var(--border-color); /* Или #555 */
+  border-radius: 5px;
+  border: 2px solid var(--bg-app); /* Отступ от края */
+}
+
+:deep(.cm-scroller)::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Исправляем активную строку, чтобы она не перекрывала границы */
+:deep(.cm-activeLine) {
+  background-color: rgba(255, 255, 255, 0.05);
 }
 </style>

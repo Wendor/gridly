@@ -130,7 +130,38 @@ async function copyValue(): Promise<void> {
 async function copyRow(): Promise<void> {
   if (!contextMenu.rowData) return
   try {
-    const json = JSON.stringify(contextMenu.rowData, null, 2)
+    // Добавляем replacer (второй аргумент), чтобы обработать бинарники
+    const json = JSON.stringify(
+      contextMenu.rowData,
+      (key, value) => {
+        // Проверяем, похоже ли значение на бинарный буфер (объект с ключами "0", "1", "2"...)
+        if (
+          value !== null &&
+          typeof value === 'object' &&
+          !Array.isArray(value) &&
+          Object.keys(value).every((k) => !isNaN(Number(k)))
+        ) {
+          // Превращаем объект {"0": 155, "1": 255...} в массив чисел
+          const bytes = Object.values(value) as number[]
+
+          // ВАРИАНТ 1: Если хотите вернуть красивую HEX строку (например "9be1...")
+          // Это идеально для checksum, hash и id
+          return bytes.map((b) => b.toString(16).padStart(2, '0')).join('')
+
+          // ВАРИАНТ 2: Если хотите просто массив чисел [155, 255, ...]
+          // return bytes
+        }
+
+        // Если это стандартный Node Buffer { type: 'Buffer', data: [...] }
+        if (value && value.type === 'Buffer' && Array.isArray(value.data)) {
+          return value.data.map((b: number) => b.toString(16).padStart(2, '0')).join('')
+        }
+
+        return value
+      },
+      2
+    )
+
     await navigator.clipboard.writeText(json)
   } catch (err) {
     console.error('Failed to copy row', err)

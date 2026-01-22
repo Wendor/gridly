@@ -184,8 +184,38 @@ export const useTabStore = defineStore('tabs', () => {
         currentTab.value.colDefs = res.columns.map((col: string) => ({
           field: col,
           headerName: col,
-          valueFormatter: (params: ValueFormatterParams): string =>
-            params.value === null ? '(NULL)' : String(params.value),
+          // ОБНОВЛЕННЫЙ valueFormatter
+          valueFormatter: (params: ValueFormatterParams): string => {
+            const val = params.value
+
+            if (val === null) return '(NULL)'
+
+            // Проверяем, является ли это объектом (но не null)
+            if (typeof val === 'object') {
+              // 1. Проверка на "странный" объект-буфер {"0": 155, "1": 255...}
+              // Если это не массив, но ключи - числа
+              if (!Array.isArray(val)) {
+                const keys = Object.keys(val)
+                // Эвристика: если есть ключи и они все числа — считаем это бинарником
+                if (keys.length > 0 && keys.every((k) => !isNaN(Number(k)))) {
+                  return Object.values(val)
+                    .map((b: any) => b.toString(16).padStart(2, '0'))
+                    .join('')
+                }
+              }
+
+              // 2. Если это Node Buffer { type: 'Buffer', data: [...] }
+              if (val.type === 'Buffer' && Array.isArray(val.data)) {
+                return val.data.map((b: number) => b.toString(16).padStart(2, '0')).join('')
+              }
+
+              // 3. Если это обычный JSON-объект или массив — показываем как JSON строку
+              return JSON.stringify(val)
+            }
+
+            // Все остальное (числа, строки, даты)
+            return String(val)
+          },
           cellClassRules: {
             'null-cell': (params: CellClassParams): boolean => params.value === null
           }
