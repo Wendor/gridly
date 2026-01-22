@@ -1,4 +1,4 @@
-import { IDbResult } from '../../shared/types'
+import { IDbResult, DbSchema } from '../../shared/types'
 
 export interface IDbService {
   connect(connString: string): Promise<string>
@@ -6,4 +6,5 @@ export interface IDbService {
   disconnect(): Promise<void>
   // НОВЫЙ МЕТОД
   getTables(): Promise<string[]>
+  getSchema(): Promise<DbSchema>
 }
