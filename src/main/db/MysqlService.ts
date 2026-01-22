@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import mysql from 'mysql2/promise'
-import { IDbResult } from '../../shared/types'
+import { DbSchema, IDbResult } from '../../shared/types'
 import { IDbService } from './IDbService' // Импорт интерфейса
 
 export class MysqlService implements IDbService {
@@ -71,5 +71,34 @@ export class MysqlService implements IDbService {
       console.error('Error fetching tables:', e)
       return []
     }
+  }
+
+  async getSchema(): Promise<DbSchema> {
+    if (!this.connection) return {}
+
+    // В MySQL DATABASE() возвращает имя текущей БД
+    const sql = `
+      SELECT TABLE_NAME, COLUMN_NAME
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+      ORDER BY TABLE_NAME, ORDINAL_POSITION;
+    `
+    const [rows] = (await this.connection.execute(sql)) as any[]
+
+    const schema: DbSchema = {}
+    rows.forEach((row: any) => {
+      // Ключи могут быть в разном регистре в зависимости от драйвера/настроек
+      const tableName = row.TABLE_NAME || row.table_name
+      const colName = row.COLUMN_NAME || row.column_name
+
+      if (tableName && colName) {
+        if (!schema[tableName]) {
+          schema[tableName] = []
+        }
+        schema[tableName].push(colName)
+      }
+    })
+
+    return schema
   }
 }

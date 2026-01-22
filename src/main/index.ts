@@ -2,15 +2,17 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { DbConnection, IDataRequest, IDbResult } from '../shared/types'
+import { DbConnection, IDataRequest, IDbResult, DbSchema } from '../shared/types'
 import { SshTunnelService } from './db/SshTunnelService'
 import { MysqlService } from './db/MysqlService'
 import { PostgresService } from './db/PostgresService'
 
+// ОБНОВЛЕННЫЙ ИНТЕРФЕЙС
 interface IDbService {
   connect(connectionString: string): Promise<string>
   disconnect(): Promise<void>
   execute(sql: string): Promise<IDbResult>
+  getSchema(): Promise<DbSchema> // <-- Добавили
 }
 
 let currentDbService: IDbService | null = null
@@ -106,7 +108,6 @@ app.whenReady().then(() => {
   ipcMain.handle('db:query', async (_event, sql: string) => {
     try {
       if (!currentDbService) throw new Error('No active connection')
-      // 2. ВЫЗЫВАЕМ EXECUTE ВМЕСТО QUERY
       return await currentDbService.execute(sql)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -125,9 +126,7 @@ app.whenReady().then(() => {
 
       const res = await currentDbService.execute(showTablesSql)
       if (res.rows) {
-        // Получаем массив строк
         const tables = res.rows.map((r) => Object.values(r)[0] as string)
-        // ДОБАВЛЯЕМ СОРТИРОВКУ:
         return tables.sort()
       }
       return []
@@ -144,18 +143,27 @@ app.whenReady().then(() => {
       let sql = `SELECT * FROM ${req.tableName}`
 
       if (req.sort && req.sort.length > 0) {
-        const orderClauses = req.sort.map((s) => `${s.colId} ${s.sort.toUpperCase()}`)
+        const orderClauses = req.sort.map((s) => `"${s.colId}" ${s.sort.toUpperCase()}`)
         sql += ` ORDER BY ${orderClauses.join(', ')}`
       }
 
       sql += ` LIMIT ${req.limit} OFFSET ${req.offset}`
 
-      console.log('Grid Query:', sql)
-      // Вызываем execute
       return await currentDbService.execute(sql)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       return { rows: [], columns: [], error: msg, duration: 0 }
+    }
+  })
+
+  // НОВЫЙ ХЕНДЛЕР: Получение схемы
+  ipcMain.handle('db:get-schema', async () => {
+    try {
+      if (!currentDbService) throw new Error('No active connection')
+      return await currentDbService.getSchema()
+    } catch (e: unknown) {
+      console.error('Failed to get schema:', e)
+      return {}
     }
   })
 

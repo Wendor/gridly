@@ -1,59 +1,212 @@
 <template>
-  <codemirror
-    :key="settingsStore.activeTheme.type"
-    v-model="code"
-    placeholder="Введите SQL запрос..."
-    :style="{
-      height: '100%',
-      fontSize: '14px',
-      backgroundColor: 'var(--bg-app)',
-      color: 'var(--text-primary)'
-    }"
-    :autofocus="true"
-    :indent-with-tab="true"
-    :tab-size="2"
-    :extensions="extensions"
-    @keydown.ctrl.enter="$emit('run')"
-    @keydown.meta.enter="$emit('run')"
-  />
+  <div class="editor-container">
+    <div ref="editorRef" class="sql-editor"></div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { Codemirror } from 'vue-codemirror'
-import { sql } from '@codemirror/lang-sql'
+import { ref, onMounted, onBeforeUnmount, watch, computed, watchEffect } from 'vue'
+import { EditorState, Compartment } from '@codemirror/state'
+import { EditorView, keymap, lineNumbers, highlightActiveLineGutter } from '@codemirror/view'
+import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+import {
+  autocompletion,
+  CompletionContext,
+  CompletionResult,
+  completeFromList
+} from '@codemirror/autocomplete'
+import { sql, MySQL, PostgreSQL } from '@codemirror/lang-sql'
 import { oneDark } from '@codemirror/theme-one-dark'
-import type { Extension } from '@codemirror/state' // Импортируем тип
-import { useSettingsStore } from '../stores/settings'
+import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language'
+
+import { useTabStore } from '../stores/tabs'
+import { useConnectionStore } from '../stores/connections'
+import { DbSchema } from '../../../shared/types'
 
 const props = defineProps<{ modelValue: string }>()
-const emit = defineEmits<{
-  (e: 'update:modelValue', val: string): void
-  (e: 'run'): void
-}>()
+const emit = defineEmits<{ (e: 'update:modelValue', val: string): void; (e: 'run'): void }>()
 
-const settingsStore = useSettingsStore()
+const tabStore = useTabStore()
+const connStore = useConnectionStore()
+const editorRef = ref<HTMLElement | null>(null)
+let view: EditorView | null = null
+const languageConf = new Compartment()
 
-const code = computed({
-  get: () => props.modelValue,
-  set: (val) => emit('update:modelValue', val)
+const SQL_KEYWORDS = [
+  'SELECT',
+  'FROM',
+  'WHERE',
+  'INSERT',
+  'UPDATE',
+  'DELETE',
+  'JOIN',
+  'LEFT',
+  'RIGHT',
+  'INNER',
+  'OUTER',
+  'GROUP',
+  'BY',
+  'ORDER',
+  'HAVING',
+  'LIMIT',
+  'OFFSET',
+  'AS',
+  'ON',
+  'AND',
+  'OR',
+  'NOT',
+  'NULL',
+  'VALUES',
+  'SET',
+  'CREATE',
+  'TABLE',
+  'DROP',
+  'ALTER',
+  'distinct',
+  'count',
+  'max',
+  'min',
+  'avg',
+  'sum'
+].map((label) => ({ label, type: 'keyword', boost: 0 }))
+
+const currentDialect = computed(() => {
+  const connId = tabStore.currentTab?.connectionId
+  if (typeof connId === 'number' && connStore.savedConnections[connId]?.type === 'postgres') {
+    return PostgreSQL
+  }
+  return MySQL
 })
 
-// Явно указываем тип Extension[]
-const extensions = computed<Extension[]>(() => {
-  const exts: Extension[] = [sql()]
-  if (settingsStore.activeTheme.type === 'dark') {
-    exts.push(oneDark)
+const simpleSchema = computed(() => {
+  const connId = tabStore.currentTab?.connectionId
+  if (connId == null) return {}
+  return JSON.parse(JSON.stringify(connStore.schemaCache[connId] || {})) as DbSchema
+})
+
+// FIX 2: Расширяем возвращаемый тип (добавляем Promise)
+function customCompletionSource(
+  context: CompletionContext
+): CompletionResult | null | Promise<CompletionResult | null> {
+  const word = context.matchBefore(/[\w"']+/)
+  if (!word || (word.from === word.to && !context.explicit)) return null
+
+  const dbSchema = simpleSchema.value
+  const docText = context.state.doc.toString()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const options: any[] = [...SQL_KEYWORDS]
+
+  Object.keys(dbSchema).forEach((tableName) => {
+    options.push({
+      label: tableName,
+      type: 'class',
+      boost: 50
+    })
+  })
+
+  const tableMatches = [...docText.matchAll(/(?:FROM|JOIN)\s+([a-zA-Z0-9_]+)/gi)]
+
+  tableMatches.forEach((match) => {
+    const tableName = match[1]
+
+    // FIX 1: Проверяем, что tableName существует и является ключом в dbSchema
+    if (tableName && Object.prototype.hasOwnProperty.call(dbSchema, tableName)) {
+      const columns = dbSchema[tableName]
+
+      if (columns) {
+        columns.forEach((col) => {
+          const needsQuotes = currentDialect.value === PostgreSQL && /[A-Z]/.test(col)
+          const insertText = needsQuotes ? `"${col}"` : col
+
+          options.push({
+            label: col,
+            type: 'property',
+            detail: tableName,
+            apply: insertText,
+            boost: 99
+          })
+        })
+      }
+    }
+  })
+
+  return completeFromList(options)(context)
+}
+
+onMounted(() => {
+  if (!editorRef.value) return
+
+  const startState = EditorState.create({
+    doc: props.modelValue,
+    extensions: [
+      lineNumbers(),
+      highlightActiveLineGutter(),
+      history(),
+      autocompletion({
+        override: [customCompletionSource]
+      }),
+      keymap.of([
+        ...defaultKeymap,
+        ...historyKeymap,
+        {
+          key: 'Mod-Enter',
+          run: () => {
+            emit('run')
+            return true
+          }
+        }
+      ]),
+      oneDark,
+      syntaxHighlighting(defaultHighlightStyle),
+
+      languageConf.of(sql({ dialect: currentDialect.value, schema: simpleSchema.value })),
+
+      EditorView.updateListener.of((update) => {
+        if (update.docChanged) emit('update:modelValue', update.state.doc.toString())
+      })
+    ]
+  })
+
+  view = new EditorView({ state: startState, parent: editorRef.value })
+})
+
+watchEffect(() => {
+  if (view) {
+    view.dispatch({
+      effects: languageConf.reconfigure(
+        sql({
+          dialect: currentDialect.value,
+          schema: simpleSchema.value
+        })
+      )
+    })
   }
-  return exts
+})
+
+watch(
+  () => props.modelValue,
+  (newVal) => {
+    if (view && newVal !== view.state.doc.toString()) {
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: newVal } })
+    }
+  }
+)
+
+onBeforeUnmount(() => {
+  if (view) view.destroy()
 })
 </script>
 
-<style>
-.cm-editor {
-  height: 100% !important;
+<style scoped>
+.editor-container {
+  height: 100%;
+  width: 100%;
+  position: relative;
 }
-.cm-scroller {
-  overflow: auto !important;
+.sql-editor {
+  height: 100%;
+  width: 100%;
+  font-size: 14px;
 }
 </style>

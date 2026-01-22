@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Client } from 'pg'
-import { IDbResult } from '../../shared/types'
+import { DbSchema, IDbResult } from '../../shared/types'
 import { IDbService } from './IDbService'
 
 export class PostgresService implements IDbService {
@@ -70,5 +70,31 @@ export class PostgresService implements IDbService {
       console.error('Error fetching tables:', e)
       return []
     }
+  }
+
+  async getSchema(): Promise<DbSchema> {
+    if (!this.client) return {}
+
+    const sql = `
+      SELECT table_name, column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+      ORDER BY table_name, ordinal_position;
+    `
+    const res = await this.client.query(sql)
+
+    // Преобразуем плоский список в объект { users: ['id', 'name'], ... }
+    const schema: DbSchema = {}
+    for (const row of res.rows) {
+      const tableName = row.table_name
+      const colName = row.column_name
+
+      if (!schema[tableName]) {
+        schema[tableName] = []
+      }
+      schema[tableName].push(colName)
+    }
+
+    return schema
   }
 }

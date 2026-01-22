@@ -158,14 +158,18 @@ export const useTabStore = defineStore('tabs', () => {
 
       let finalSql = currentTab.value.sql.trim()
 
+      // Парсим имя таблицы для возможного COUNT(*)
       const tableMatch = finalSql.match(/FROM\s+([`'"]?[\w.]+[`'"]?)/i)
       const tableName = tableMatch ? tableMatch[1] : null
+
+      // Проверяем, является ли запрос "простым" (без WHERE/JOIN), чтобы безопасно вызвать COUNT(*)
       const isSimpleSelect =
         /^SELECT\s+\*\s+FROM/i.test(finalSql) && !/WHERE|JOIN|GROUP/i.test(finalSql)
 
+      // Обработка LIMIT / OFFSET
       const hasLimit = /LIMIT\s+\d+/i.test(finalSql)
-
       if (!hasLimit) {
+        // Убираем точку с запятой в конце, если есть
         finalSql = finalSql.replace(/;$/, '')
         finalSql += ` LIMIT ${currentTab.value.pagination.limit} OFFSET ${currentTab.value.pagination.offset}`
       }
@@ -176,10 +180,10 @@ export const useTabStore = defineStore('tabs', () => {
         connectionStore.error = res.error
         historyStore.addEntry(currentTab.value.sql, 'error', 0)
       } else {
-        // --- ВОТ ЗДЕСЬ ИСПРАВЛЕНИЕ ---
+        // Формируем колонки
         currentTab.value.colDefs = res.columns.map((col: string) => ({
           field: col,
-          headerName: col, // <--- Явно задаем имя заголовка равным имени поля из БД
+          headerName: col,
           valueFormatter: (params: ValueFormatterParams): string =>
             params.value === null ? '(NULL)' : String(params.value),
           cellClassRules: {
@@ -192,22 +196,39 @@ export const useTabStore = defineStore('tabs', () => {
 
         historyStore.addEntry(currentTab.value.sql, 'success', res.duration)
 
-        if (
-          tableName &&
-          isSimpleSelect &&
-          (currentTab.value.pagination.total === null || currentTab.value.pagination.offset === 0)
-        ) {
-          try {
-            const countSql = `SELECT COUNT(*) as total FROM ${tableName}`
-            const countRes = await window.dbApi.query(countSql)
+        // --- ИСПРАВЛЕННАЯ ЛОГИКА ПОДСЧЕТА TOTAL ---
 
-            if (countRes.rows.length > 0) {
-              const firstRow = countRes.rows[0]
-              const countVal = Object.values(firstRow)[0]
-              currentTab.value.pagination.total = Number(countVal)
+        if (tableName && isSimpleSelect) {
+          // СЦЕНАРИЙ 1: Простой просмотр всей таблицы.
+          // Делаем отдельный запрос COUNT(*), если total еще не известен или это первая страница
+          if (
+            currentTab.value.pagination.total === null ||
+            currentTab.value.pagination.offset === 0
+          ) {
+            try {
+              const countSql = `SELECT COUNT(*) as total FROM ${tableName}`
+              const countRes = await window.dbApi.query(countSql)
+              if (countRes.rows.length > 0) {
+                const val = Object.values(countRes.rows[0])[0]
+                currentTab.value.pagination.total = Number(val)
+              }
+            } catch (e) {
+              console.error('Count failed', e)
             }
-          } catch (e) {
-            console.error('Failed to count rows', e)
+          }
+        } else {
+          // СЦЕНАРИЙ 2: Кастомный запрос (с WHERE, JOIN и т.д.)
+
+          // Если мы получили меньше строк, чем запрашивали (лимит),
+          // значит мы достигли конца выборки.
+          if (res.rows.length < currentTab.value.pagination.limit) {
+            // Точный total = текущее смещение + сколько реально пришло строк
+            currentTab.value.pagination.total = currentTab.value.pagination.offset + res.rows.length
+          } else {
+            // Если пришла полная пачка (например, 100 из 100), мы не знаем, сколько там дальше.
+            // Сбрасываем total в null, чтобы пагинатор не показывал неверное "of 58".
+            // (В UI это будет выглядеть как "1-100" вместо "1-100 of ???")
+            currentTab.value.pagination.total = null
           }
         }
       }

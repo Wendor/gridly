@@ -128,7 +128,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { DbConnection } from '../stores/connections'
+import type { DbConnection } from '../../../shared/types'
 
 defineProps<{
   connections: DbConnection[]

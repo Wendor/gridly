@@ -56,7 +56,7 @@
 
 <script setup lang="ts">
 import { reactive } from 'vue'
-import type { DbConnection } from '../stores/connections'
+import type { DbConnection } from '../../../shared/types'
 
 // Убрали "const props =", так как в скрипте оно не используется
 defineProps<{ isOpen: boolean }>()

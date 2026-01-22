@@ -22,7 +22,6 @@ export interface IDbResult {
   duration: number
 }
 
-// ЭТОТ ИНТЕРФЕЙС БЫЛ ПОТЕРЯН, ДОБАВЬТЕ ЕГО:
 export interface IDataRequest {
   tableName: string
   offset: number
@@ -30,9 +29,15 @@ export interface IDataRequest {
   sort?: { colId: string; sort: 'asc' | 'desc' }[]
 }
 
+// НОВЫЙ ТИП: Схема базы данных для автокомплита
+// Ключ = имя таблицы, Значение = массив имен колонок
+export type DbSchema = Record<string, string[]>
+
 export interface IElectronAPI {
   connect: (config: DbConnection) => Promise<string>
   query: (sql: string) => Promise<IDbResult>
   getTables: () => Promise<string[]>
   getTableData: (req: IDataRequest) => Promise<IDbResult>
+  // НОВЫЙ МЕТОД
+  getSchema: () => Promise<DbSchema>
 }

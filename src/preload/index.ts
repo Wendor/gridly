@@ -7,8 +7,8 @@ const api: IElectronAPI = {
   connect: (config) => ipcRenderer.invoke('db:connect', config),
   query: (sql) => ipcRenderer.invoke('db:query', sql),
   getTables: () => ipcRenderer.invoke('db:get-tables'),
-  // Прокидываем новый запрос
-  getTableData: (req) => ipcRenderer.invoke('db:get-table-data', req)
+  getTableData: (req) => ipcRenderer.invoke('db:get-table-data', req),
+  getSchema: () => ipcRenderer.invoke('db:get-schema')
 }
 
 if (process.contextIsolated) {

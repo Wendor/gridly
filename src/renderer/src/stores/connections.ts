@@ -1,36 +1,25 @@
 import { defineStore } from 'pinia'
 import { ref, reactive } from 'vue'
-
-// 1. Описываем интерфейс подключения (вместо any)
-export interface DbConnection {
-  type: 'mysql' | 'postgres'
-  name: string
-  host: string
-  port: string
-  user: string
-  password?: string
-  database: string
-  useSsh?: boolean
-  sshHost?: string
-  sshPort?: string
-  sshUser?: string
-  sshPassword?: string
-  sshKeyPath?: string
-}
+import { DbConnection, DbSchema } from '../../../shared/types'
 
 export const useConnectionStore = defineStore('connections', () => {
   // State
-  // Вместо any[] используем типизированный массив
   const savedConnections = ref<DbConnection[]>([])
 
   const activeId = ref<number | null>(null)
   const connectedId = ref<number | null>(null)
   const isConnected = ref(false)
+
+  // Кеш списка таблиц (для сайдбара)
   const tablesCache = reactive<Record<number, string[]>>({})
+
+  // НОВОЕ: Кеш схемы для автокомплита (Таблица -> Колонки)
+  const schemaCache = reactive<Record<number, DbSchema>>({})
+
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  // Actions: Везде добавляем : void или : Promise<void>
+  // Actions
 
   function loadFromStorage(): void {
     const data = localStorage.getItem('db-connections')
@@ -49,12 +38,20 @@ export const useConnectionStore = defineStore('connections', () => {
   function deleteConnection(index: number): void {
     savedConnections.value.splice(index, 1)
     saveToStorage()
+    // Чистим кеши при удалении
     delete tablesCache[index]
+    delete schemaCache[index]
+
     if (activeId.value === index) activeId.value = null
+    if (connectedId.value === index) {
+      connectedId.value = null
+      isConnected.value = false
+    }
   }
 
   async function ensureConnection(targetId: number | null): Promise<void> {
     if (targetId === null) return
+    // Если уже подключены к этой базе, не переподключаемся
     if (connectedId.value === targetId && isConnected.value) return
 
     // Глубокое копирование, чтобы разорвать реактивность перед отправкой в Electron
@@ -63,11 +60,16 @@ export const useConnectionStore = defineStore('connections', () => {
     try {
       loading.value = true
       error.value = null
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (window as any).dbApi.connect(config)
+
+      // ИСПОЛЬЗУЕМ ТИПИЗИРОВАННЫЙ API (window.dbApi вместо any)
+      await window.dbApi.connect(config)
 
       isConnected.value = true
       connectedId.value = targetId
+
+      // При успешном подключении можно сразу подгрузить схему в фоне,
+      // чтобы автокомплит заработал быстрее
+      loadSchema(targetId)
     } catch (e) {
       isConnected.value = false
       connectedId.value = null
@@ -79,12 +81,12 @@ export const useConnectionStore = defineStore('connections', () => {
   }
 
   async function loadTables(index: number): Promise<void> {
+    // Если кеш есть, не грузим (можно добавить кнопку refresh позже)
     if (tablesCache[index]?.length) return
 
     try {
       await ensureConnection(index)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const tables = await (window as any).dbApi.getTables()
+      const tables = await window.dbApi.getTables()
       tablesCache[index] = tables
     } catch (e) {
       console.error(e)
@@ -94,12 +96,32 @@ export const useConnectionStore = defineStore('connections', () => {
     }
   }
 
+  // НОВЫЙ МЕТОД: Загрузка схемы для автокомплита
+  async function loadSchema(index: number): Promise<void> {
+    // Если схема уже в кеше, выходим
+    if (schemaCache[index] && Object.keys(schemaCache[index]).length > 0) return
+
+    try {
+      // Убеждаемся, что подключение активно
+      await ensureConnection(index)
+
+      const schema = await window.dbApi.getSchema()
+      schemaCache[index] = schema
+
+      console.log(`Schema loaded for connection ${index}:`, Object.keys(schema).length, 'tables')
+    } catch (e) {
+      console.error('Failed to load schema', e)
+      // Не блокируем UI ошибкой схемы, просто логируем
+    }
+  }
+
   return {
     savedConnections,
     activeId,
     connectedId,
     isConnected,
     tablesCache,
+    schemaCache, // Экспортируем новый стейт
     loading,
     error,
     loadFromStorage,
@@ -107,6 +129,7 @@ export const useConnectionStore = defineStore('connections', () => {
     addConnection,
     deleteConnection,
     ensureConnection,
-    loadTables
+    loadTables,
+    loadSchema // Экспортируем новый метод
   }
 })

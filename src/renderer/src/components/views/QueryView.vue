@@ -1,5 +1,5 @@
 <template>
-  <div class="query-view">
+  <div class="query-view" @click="closeContextMenu">
     <div class="toolbar">
       <div class="toolbar-left">
         <select
@@ -52,16 +52,29 @@
         :column-defs="tabStore.currentTab.colDefs"
         :row-data="tabStore.currentTab.rows"
         :default-col-def="defaultColDef"
+        :enable-cell-text-selection="true"
+        :ensure-dom-order="true"
         @sort-changed="onGridSortChanged"
+        @cell-context-menu="onCellContextMenu"
       />
+
+      <div
+        v-if="contextMenu.visible"
+        class="ctx-menu"
+        :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }"
+        @click.stop
+      >
+        <div class="ctx-item" @click="copyValue">Copy Value</div>
+        <div class="ctx-item" @click="copyRow">Copy Row (JSON)</div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, reactive } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { SortChangedEvent, GridApi, ColumnState } from 'ag-grid-community'
+import { SortChangedEvent, GridApi, ColumnState, CellContextMenuEvent } from 'ag-grid-community'
 
 import { useTabStore } from '../../stores/tabs'
 import { useConnectionStore } from '../../stores/connections'
@@ -75,6 +88,55 @@ const settingsStore = useSettingsStore()
 const editorHeight = ref(300)
 const isResizing = ref(false)
 const defaultColDef = { sortable: true, filter: false, resizable: true }
+
+const contextMenu = reactive({
+  visible: false,
+  x: 0,
+  y: 0,
+  value: null as unknown,
+  rowData: null as unknown
+})
+
+// FIX: Добавлен возвращаемый тип void
+function onCellContextMenu(params: CellContextMenuEvent): void {
+  contextMenu.value = params.value
+  contextMenu.rowData = params.data
+
+  const event = params.event as MouseEvent
+  if (event) {
+    contextMenu.x = event.clientX
+    contextMenu.y = event.clientY
+    contextMenu.visible = true
+  }
+}
+
+// FIX: Добавлен возвращаемый тип void
+function closeContextMenu(): void {
+  contextMenu.visible = false
+}
+
+// FIX: Добавлен возвращаемый тип Promise<void>
+async function copyValue(): Promise<void> {
+  const val = contextMenu.value === null ? '(NULL)' : String(contextMenu.value)
+  try {
+    await navigator.clipboard.writeText(val)
+  } catch (err) {
+    console.error('Failed to copy', err)
+  }
+  closeContextMenu()
+}
+
+// FIX: Добавлен возвращаемый тип Promise<void>
+async function copyRow(): Promise<void> {
+  if (!contextMenu.rowData) return
+  try {
+    const json = JSON.stringify(contextMenu.rowData, null, 2)
+    await navigator.clipboard.writeText(json)
+  } catch (err) {
+    console.error('Failed to copy row', err)
+  }
+  closeContextMenu()
+}
 
 async function onTabConnectionChange(): Promise<void> {
   if (tabStore.currentTab?.type === 'query' && tabStore.currentTab.connectionId !== null) {
@@ -109,18 +171,12 @@ function onGridSortChanged(event: SortChangedEvent): void {
       let newSql = `SELECT * FROM ${tableName}`
 
       if (sortModel.length > 0) {
-        // Добавляем кавычки для Postgres
         const sortPart = sortModel.map((s) => `"${s.colId}" ${s.sort!.toUpperCase()}`).join(', ')
         newSql += ` ORDER BY ${sortPart}`
       }
 
-      // ИЗМЕНЕНИЕ 1: Убрали 'LIMIT 100', чтобы не мешать пагинации из tabs.ts
-      // newSql += ' LIMIT 100;'
-
       if (tabStore.currentTab.sql !== newSql) {
-        // ИЗМЕНЕНИЕ 2: Сбрасываем пагинацию на первую страницу при сортировке
         tabStore.currentTab.pagination.offset = 0
-
         tabStore.currentTab.sql = newSql
         tabStore.runQuery()
       }
@@ -160,7 +216,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Стили остались как в твоем оригинале */
 .query-view {
   display: flex;
   flex-direction: column;
@@ -255,5 +310,27 @@ onMounted(() => {
   margin-top: 10px;
   padding: 5px 10px;
   cursor: pointer;
+}
+
+.ctx-menu {
+  position: fixed;
+  z-index: 9999;
+  background: var(--bg-app);
+  border: 1px solid var(--border-color);
+  /* FIX: Исправлены пробелы в rgba */
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  padding: 4px 0;
+  min-width: 150px;
+}
+.ctx-item {
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.ctx-item:hover {
+  background: var(--list-hover-bg);
+  color: var(--text-white);
 }
 </style>
