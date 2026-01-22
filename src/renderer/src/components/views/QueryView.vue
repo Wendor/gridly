@@ -61,7 +61,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-// 1. ИМПОРТИРУЕМ ВСЕ НУЖНЫЕ ТИПЫ
 import { SortChangedEvent, GridApi, ColumnState } from 'ag-grid-community'
 
 import { useTabStore } from '../../stores/tabs'
@@ -87,20 +86,14 @@ async function onTabConnectionChange(): Promise<void> {
   }
 }
 
-// --- ИСПРАВЛЕННАЯ ЛОГИКА СОРТИРОВКИ (БЕЗ ANY) ---
 function onGridSortChanged(event: SortChangedEvent): void {
-  // 2. Приводим api к типу GridApi (без as any)
   const api = event.api as GridApi
-
-  // 3. Получаем состояние колонок, типизированное как ColumnState[]
   const allState: ColumnState[] = api.getColumnState()
 
-  // 4. Теперь TypeScript знает, что `col` — это ColumnState, и не требует any
   const sortModel = allState
     .filter((col) => col.sort != null)
     .map((col) => ({
       colId: col.colId,
-      // col.sort может быть undefined, поэтому используем optional chaining или утверждение
       sort: col.sort
     }))
 
@@ -121,9 +114,13 @@ function onGridSortChanged(event: SortChangedEvent): void {
         newSql += ` ORDER BY ${sortPart}`
       }
 
-      newSql += ' LIMIT 100;'
+      // ИЗМЕНЕНИЕ 1: Убрали 'LIMIT 100', чтобы не мешать пагинации из tabs.ts
+      // newSql += ' LIMIT 100;'
 
       if (tabStore.currentTab.sql !== newSql) {
+        // ИЗМЕНЕНИЕ 2: Сбрасываем пагинацию на первую страницу при сортировке
+        tabStore.currentTab.pagination.offset = 0
+
         tabStore.currentTab.sql = newSql
         tabStore.runQuery()
       }
@@ -163,6 +160,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Стили остались как в твоем оригинале */
 .query-view {
   display: flex;
   flex-direction: column;

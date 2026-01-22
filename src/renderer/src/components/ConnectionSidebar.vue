@@ -220,10 +220,15 @@ function onSelect(index: number): void {
   cursor: pointer;
   border-left: 3px solid transparent;
   user-select: none;
+  color: var(--text-primary); /* БЫЛО: text-secondary, СТАЛО: text-primary */
+  opacity: 0.9; /* Чуть прозрачности, но не сильно */
 }
+
 .saved-item:hover {
   background: var(--list-hover-bg);
+  opacity: 1;
 }
+
 .saved-item.active {
   background: var(--list-active-bg);
   border-left-color: var(--focus-border);
@@ -263,7 +268,7 @@ function onSelect(index: number): void {
 }
 .conn-name {
   font-size: 13px;
-  color: var(--text-primary);
+  color: inherit;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -323,16 +328,20 @@ function onSelect(index: number): void {
 
 .table-item {
   font-size: 13px;
-  color: var(--text-secondary);
+  /* Делаем текст таблиц тоже читаемым, но чуть тоньше или другого оттенка */
+  color: var(--text-primary);
+  opacity: 0.8; /* Таблицы чуть тусклее баз данных, но ярче чем было */
   padding: 5px 0 5px 12px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;
 }
+
 .table-item:hover {
-  color: var(--text-primary);
+  color: var(--text-white);
   background: var(--list-hover-bg);
+  opacity: 1;
 }
 .table-icon {
   color: var(--accent-primary);

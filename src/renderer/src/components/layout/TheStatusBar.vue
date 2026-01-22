@@ -1,19 +1,73 @@
 <template>
-  <div class="status-bar-global" :class="{ loading: connStore.loading }">
-    <div class="sb-item">
-      {{ tabStore.currentTab?.type === 'settings' ? 'Settings' : 'Ready' }}
+  <div class="status-bar-global">
+    <div class="sb-section left">
+      <div class="sb-item status-text">
+        <span v-if="connStore.loading" class="loading-label">Executing...</span>
+        <span v-else>{{ tabStore.currentTab?.type === 'settings' ? 'Settings' : 'Ready' }}</span>
+      </div>
     </div>
 
-    <div v-if="connStore.loading" class="sb-item">Running... ⏳</div>
+    <div class="sb-section center">
+      <div v-if="tabStore.currentTab?.type === 'query'" class="pagination-controls">
+        <button
+          class="pg-btn"
+          :disabled="tabStore.currentTab.pagination.offset === 0 || connStore.loading"
+          title="Previous Page"
+          @click="tabStore.prevPage"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
 
-    <div class="spacer"></div>
+        <span class="pg-text">
+          {{ startRow }} - {{ endRow }}
+          <span v-if="tabStore.currentTab.pagination.total !== null" class="total-count">
+            of {{ tabStore.currentTab.pagination.total }}
+          </span>
+        </span>
 
-    <div v-if="tabStore.currentTab?.meta && !connStore.loading" class="sb-item">
-      ⏱ {{ tabStore.currentTab.meta.duration }} ms | {{ tabStore.currentTab.rows.length }} rows
+        <button
+          class="pg-btn"
+          :disabled="isNextDisabled || connStore.loading"
+          title="Next Page"
+          @click="tabStore.nextPage"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+      </div>
     </div>
 
-    <div class="sb-item connection-status" :class="{ active: isTabConnected }">
-      {{ isTabConnected ? `Connected: ${currentConnectionName}` : 'Disconnected' }}
+    <div class="sb-section right">
+      <div class="sb-item meta-info" :style="{ opacity: connStore.loading ? 0.5 : 1 }">
+        <span v-if="tabStore.currentTab?.meta"> ⏱ {{ tabStore.currentTab.meta.duration }} ms </span>
+      </div>
+
+      <div class="sb-item connection-status" :class="{ active: isTabConnected }">
+        {{ isTabConnected ? `${currentConnectionName}` : 'Disconnected' }}
+      </div>
     </div>
   </div>
 </template>
@@ -26,64 +80,138 @@ import { useConnectionStore } from '../../stores/connections'
 const tabStore = useTabStore()
 const connStore = useConnectionStore()
 
-const isTabConnected = computed<boolean>(() => {
-  return !!(
-    tabStore.currentTab &&
-    tabStore.currentTab.type === 'query' &&
-    tabStore.currentTab.connectionId !== null &&
-    connStore.connectedId === tabStore.currentTab.connectionId &&
-    connStore.isConnected
-  )
+const isTabConnected = computed(() => {
+  return tabStore.currentTab?.type === 'query' && tabStore.currentTab.connectionId !== null
 })
 
-const currentConnectionName = computed<string>(() => {
-  if (
-    !tabStore.currentTab ||
-    tabStore.currentTab.type !== 'query' ||
-    tabStore.currentTab.connectionId === null
-  )
-    return ''
-  return connStore.savedConnections[tabStore.currentTab.connectionId]?.name || 'Unknown'
+const currentConnectionName = computed(() => {
+  if (!isTabConnected.value) return ''
+  const conn = connStore.savedConnections[tabStore.currentTab!.connectionId!]
+  return conn ? conn.name : 'Unknown'
+})
+
+// Вычисляемые свойства для пагинации
+const startRow = computed(() => (tabStore.currentTab?.pagination.offset || 0) + 1)
+const endRow = computed(() => {
+  if (!tabStore.currentTab) return 0
+  return (tabStore.currentTab.pagination.offset || 0) + tabStore.currentTab.rows.length
+})
+
+const isNextDisabled = computed(() => {
+  if (!tabStore.currentTab) return true
+  // Если загрузили меньше лимита, значит это конец
+  if (tabStore.currentTab.rows.length < tabStore.currentTab.pagination.limit) return true
+  // Если знаем тотал, проверяем по нему
+  if (tabStore.currentTab.pagination.total !== null) {
+    return endRow.value >= tabStore.currentTab.pagination.total
+  }
+  return false
 })
 </script>
 
 <style scoped>
+/* ПЕРЕХОД НА CSS GRID */
 .status-bar-global {
   height: var(--status-bar-height);
-  background: var(--accent-primary);
-  color: white;
-  display: flex;
+  background: #007acc;
+  color: #ffffff;
+  font-size: 12px;
+  user-select: none;
+
+  /* GRID LAYOUT: 3 колонки. Центр (auto) занимает ровно сколько надо, края (1fr) делят остаток */
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   padding: 0 10px;
-  font-size: 12px;
-  /* Убрали fixed позиционирование, теперь это часть flex-контейнера в App.vue */
-  width: 100%;
-  box-sizing: border-box;
-  transition: background 0.3s;
 }
+
 .status-bar-global.loading {
-  background: #005f9e; /* Чуть светлее или другой оттенок при загрузке */
+  background: #005f9e;
+}
+
+/* Секции для выравнивания */
+.sb-section {
+  display: flex;
+  align-items: center;
+}
+
+.sb-section.left {
+  justify-content: flex-start;
+}
+.sb-section.center {
+  justify-content: center;
+}
+.sb-section.right {
+  justify-content: flex-end;
+  gap: 15px; /* Отступ между таймером и статусом */
 }
 
 .sb-item {
-  margin-right: 15px;
   display: flex;
   align-items: center;
-  gap: 5px;
+  white-space: nowrap; /* Чтобы текст не переносился и не менял высоту */
 }
-.spacer {
-  flex: 1;
-}
+
 .connection-status {
-  background: rgba(0, 0, 0, 0.2);
-  padding: 0 8px;
-  height: 100%;
-  font-size: 11px;
   display: flex;
   align-items: center;
+  font-weight: 500;
 }
-.connection-status.active {
-  background: rgba(0, 0, 0, 0.4);
-  font-weight: bold;
+.connection-status::before {
+  content: '';
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ccc;
+  margin-right: 6px;
+}
+.connection-status.active::before {
+  background: #89d185; /* Зеленая точка */
+}
+
+/* Пагинация */
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pg-btn {
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+}
+.pg-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+  opacity: 1;
+}
+.pg-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.pg-text {
+  font-variant-numeric: tabular-nums; /* Фиксированная ширина цифр */
+  text-align: center;
+  /* Минимальная ширина, чтобы не дергалось при смене 9 -> 10 */
+  min-width: 100px;
+  display: inline-block;
+}
+
+.total-count {
+  opacity: 0.8;
+  margin-left: 2px;
+}
+
+.loading-label {
+  font-style: italic;
+  opacity: 0.8;
 }
 </style>
