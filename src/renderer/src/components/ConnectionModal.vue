@@ -49,9 +49,15 @@
 
       <div class="test-feedback" v-if="testStatus">
         <div class="feedback-msg" :class="testStatus.type">
-          <span v-if="testStatus.type === 'loading'">⏳</span>
-          <span v-if="testStatus.type === 'success'">✅</span>
-          <span v-if="testStatus.type === 'error'">❌</span>
+          <span v-if="testStatus.type === 'loading'">
+            <BaseIcon name="loader" class="spin" />
+          </span>
+          <span v-if="testStatus.type === 'success'">
+            <BaseIcon name="check" />
+          </span>
+          <span v-if="testStatus.type === 'error'">
+            <BaseIcon name="cross" />
+          </span>
           {{ testStatus.message }}
         </div>
       </div>
@@ -71,6 +77,7 @@
 <script setup lang="ts">
 import { reactive, computed, watch, ref } from 'vue'
 import type { DbConnection } from '../../../shared/types'
+import BaseIcon from './ui/BaseIcon.vue'
 
 const props = defineProps<{
   isOpen: boolean

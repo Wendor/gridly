@@ -32,10 +32,32 @@ export class PostgresService implements IDbService {
 
       const res = await this.client.query(sql)
 
-      // Формат ответа у PG отличается от MySQL
+      // pg возвращает массив результатов, если было несколько запросов
+      // или один результат, если запрос был один
+
+      let rows: any[] = []
+      let columns: string[] = []
+
+      if (Array.isArray(res)) {
+        // Множественные запросы
+        // Ищем последний непустой SELECT (command === 'SELECT')
+        for (let i = res.length - 1; i >= 0; i--) {
+          const r = res[i]
+          if (r.command === 'SELECT') {
+            rows = r.rows
+            columns = r.fields.map((f: any) => f.name)
+            break
+          }
+        }
+      } else {
+        // Одиночный запрос
+        rows = res.rows
+        columns = res.fields.map((f) => f.name)
+      }
+
       return {
-        rows: res.rows,
-        columns: res.fields.map((f) => f.name),
+        rows,
+        columns,
         duration: Math.round(performance.now() - start)
       }
     } catch (err: any) {

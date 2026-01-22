@@ -2,7 +2,9 @@
   <div class="history-sidebar">
     <div class="header">
       <span class="title">History</span>
-      <button class="clear-btn" title="Clear History" @click="historyStore.clearHistory">🗑</button>
+      <button class="clear-btn" title="Clear History" @click="historyStore.clearHistory">
+        <BaseIcon name="trash" />
+      </button>
     </div>
 
     <div class="list">
@@ -34,6 +36,7 @@
 <script setup lang="ts">
 import { useHistoryStore } from '../stores/history'
 import { useTabStore } from '../stores/tabs'
+import BaseIcon from './ui/BaseIcon.vue'
 
 const historyStore = useHistoryStore()
 const tabStore = useTabStore()

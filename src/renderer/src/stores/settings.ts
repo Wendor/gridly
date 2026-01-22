@@ -18,11 +18,21 @@ export const useSettingsStore = defineStore('settings', () => {
     root.setAttribute('data-theme', theme.type)
   }
 
+  const fontSize = ref(14)
+
+  function setFontSize(size: number): void {
+    fontSize.value = size
+    localStorage.setItem('editor-font-size', String(size))
+  }
+
   function initTheme(): void {
     const saved = localStorage.getItem('app-theme')
     if (saved && themes.find((t) => t.id === saved)) {
       currentThemeId.value = saved
     }
+    const savedFont = localStorage.getItem('editor-font-size')
+    if (savedFont) fontSize.value = parseInt(savedFont)
+
     applyTheme()
   }
 
@@ -37,7 +47,9 @@ export const useSettingsStore = defineStore('settings', () => {
     currentThemeId,
     activeTheme,
     themesList: themes,
+    fontSize,
     initTheme,
-    setTheme
+    setTheme,
+    setFontSize
   }
 })

@@ -1,6 +1,10 @@
 <template>
   <div class="editor-container">
-    <div ref="editorRef" class="sql-editor"></div>
+    <div
+      ref="editorRef"
+      class="sql-editor"
+      :style="{ fontSize: settingsStore.fontSize + 'px' }"
+    ></div>
   </div>
 </template>
 
@@ -21,6 +25,7 @@ import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language'
 
 import { useTabStore } from '../stores/tabs'
 import { useConnectionStore } from '../stores/connections'
+import { useSettingsStore } from '../stores/settings'
 import { DbSchema } from '../../../shared/types'
 
 const props = defineProps<{ modelValue: string }>()
@@ -28,6 +33,7 @@ const emit = defineEmits<{ (e: 'update:modelValue', val: string): void; (e: 'run
 
 const tabStore = useTabStore()
 const connStore = useConnectionStore()
+const settingsStore = useSettingsStore()
 const editorRef = ref<HTMLElement | null>(null)
 let view: EditorView | null = null
 const languageConf = new Compartment()

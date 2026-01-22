@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useConnectionStore } from './connections'
 import { useHistoryStore } from './history'
 import type { ValueFormatterParams, CellClassParams } from 'ag-grid-community'
@@ -270,6 +270,65 @@ export const useTabStore = defineStore('tabs', () => {
     } finally {
       connectionStore.loading = false
     }
+  }
+
+  // --- PERSISTENCE LOGIC ---
+  function saveToStorage(): void {
+    const dataToSave = tabs.value.map((t) => ({
+      id: t.id,
+      type: t.type,
+      name: t.name,
+      connectionId: t.connectionId,
+      sql: t.sql,
+      // Не сохраняем rows, colDefs и meta, чтобы не забивать localStorage
+      meta: null,
+      pagination: t.pagination
+    }))
+    localStorage.setItem('tabs-state', JSON.stringify(dataToSave))
+    localStorage.setItem('active-tab-id', String(activeTabId.value))
+    localStorage.setItem('next-tab-id', String(nextTabId.value))
+  }
+
+  function loadFromStorage(): void {
+    const saved = localStorage.getItem('tabs-state')
+    const savedActive = localStorage.getItem('active-tab-id')
+    const savedNext = localStorage.getItem('next-tab-id')
+
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        tabs.value = parsed.map((t: any) => ({
+          ...t,
+          rows: [], // Восстанавливаем пустыми
+          colDefs: [],
+          meta: null
+        }))
+      } catch (e) {
+        console.error('Failed to load tabs', e)
+      }
+    }
+
+    if (savedActive) activeTabId.value = parseInt(savedActive)
+    if (savedNext) nextTabId.value = parseInt(savedNext)
+  }
+
+  // Автосохранение при изменениях
+  watch(
+    () => tabs.value,
+    () => {
+      saveToStorage()
+    },
+    { deep: true }
+  )
+
+  watch(activeTabId, () => {
+    saveToStorage()
+  })
+
+  // Инициализация
+  loadFromStorage()
+  if (tabs.value.length === 0) {
+     addTab()
   }
 
   return {

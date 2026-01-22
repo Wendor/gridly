@@ -12,15 +12,30 @@
             {{ conn.name }}
           </option>
         </select>
+
+        <button class="icon-btn" title="Format SQL" @click="formatCurrentSql">
+          <BaseIcon name="sparkles" /> Format
+        </button>
       </div>
 
-      <button
-        class="run-btn"
-        :disabled="connStore.loading || tabStore.currentTab!.connectionId === null"
-        @click="tabStore.runQuery"
-      >
-        ▶ Run (Ctrl+Enter)
-      </button>
+      <div class="toolbar-right">
+        <button
+          class="icon-btn"
+          title="Export to CSV"
+          :disabled="!tabStore.currentTab?.rows?.length"
+          @click="exportCsv"
+        >
+          <BaseIcon name="download" /> Export CSV
+        </button>
+
+        <button
+          class="run-btn"
+          :disabled="connStore.loading || tabStore.currentTab!.connectionId === null"
+          @click="tabStore.runQuery"
+        >
+          <BaseIcon name="play" /> Run (Ctrl+Enter)
+        </button>
+      </div>
     </div>
 
     <div class="editor-wrapper" :style="{ height: editorHeight + 'px' }">
@@ -80,6 +95,7 @@ import { useTabStore } from '../../stores/tabs'
 import { useConnectionStore } from '../../stores/connections'
 import { useSettingsStore } from '../../stores/settings'
 import SqlEditor from '../SqlEditor.vue'
+import BaseIcon from '../ui/BaseIcon.vue'
 
 const tabStore = useTabStore()
 const connStore = useConnectionStore()
@@ -167,6 +183,53 @@ async function copyRow(): Promise<void> {
     console.error('Failed to copy row', err)
   }
   closeContextMenu()
+}
+
+import { format } from 'sql-formatter'
+
+async function formatCurrentSql(): Promise<void> {
+  if (!tabStore.currentTab) return
+  try {
+    const formatted = format(tabStore.currentTab.sql, {
+      language:
+        connStore.savedConnections[tabStore.currentTab.connectionId || 0]?.type === 'postgres'
+          ? 'postgresql'
+          : 'mysql',
+      keywordCase: 'upper'
+    })
+    tabStore.currentTab.sql = formatted
+  } catch (e) {
+    console.error('Format error', e)
+  }
+}
+
+function exportCsv(): void {
+  if (!tabStore.currentTab || !tabStore.currentTab.rows.length) return
+
+  const rows = tabStore.currentTab.rows
+  if (rows.length === 0) return
+
+  const header = Object.keys(rows[0]).join(',')
+  const csvContent = rows
+    .map((row) => {
+      return Object.values(row)
+        .map((val) => {
+          if (val === null) return ''
+          const str = String(val).replace(/"/g, '""') // Escape quotes
+          return `"${str}"`
+        })
+        .join(',')
+    })
+    .join('\n')
+
+  const blob = new Blob([header + '\n' + csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', `export_${Date.now()}.csv`)
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
 }
 
 async function onTabConnectionChange(): Promise<void> {
@@ -263,11 +326,17 @@ onMounted(() => {
   background: var(--bg-app);
   flex-shrink: 0;
 }
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .conn-select {
   background: var(--bg-input);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  padding: 4px 8px;
+  height: 28px; /* Фиксированная высота */
+  padding: 0 8px;
   border-radius: 2px;
   font-size: 13px;
   min-width: 200px;
@@ -280,11 +349,16 @@ onMounted(() => {
   background: var(--accent-primary);
   color: var(--text-white);
   border: none;
-  padding: 6px 16px;
+  height: 28px; /* Фиксированная высота */
+  padding: 0 16px;
   border-radius: 2px;
   cursor: pointer;
   font-weight: 500;
   font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 .run-btn:disabled {
   background: var(--bg-input);
@@ -293,6 +367,34 @@ onMounted(() => {
 }
 .run-btn:hover:not(:disabled) {
   background: var(--accent-hover);
+}
+.toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.icon-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    height: 28px; /* Фиксированная высота */
+    padding: 0 12px;
+    border-radius: 2px;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.icon-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.05);
+}
+.icon-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.icon {
+    font-family: inherit;
 }
 .editor-wrapper {
   overflow: hidden;

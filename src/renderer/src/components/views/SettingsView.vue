@@ -29,8 +29,15 @@
       </div>
 
       <div class="section">
-        <h2>Editor (Coming Soon)</h2>
-        <p class="desc">Font size, word wrap, etc.</p>
+        <h2>Editor</h2>
+        <div class="setting-item">
+          <label>Font Size</label>
+          <div class="font-controls">
+            <button class="btn" @click="settings.setFontSize(settings.fontSize - 1)">-</button>
+            <span class="value">{{ settings.fontSize }}px</span>
+            <button class="btn" @click="settings.setFontSize(settings.fontSize + 1)">+</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -126,5 +133,36 @@ h2 {
   font-size: 13px;
   background: var(--bg-input);
   color: var(--text-primary);
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.font-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn:hover {
+  border-color: var(--focus-border);
+}
+.value {
+  min-width: 40px;
+  text-align: center;
+  font-family: var(--font-mono);
 }
 </style>

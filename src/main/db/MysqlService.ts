@@ -10,7 +10,10 @@ export class MysqlService implements IDbService {
   async connect(connectionUri: string): Promise<string> {
     try {
       await this.disconnect() // Сначала отключаемся, если были подключены
-      this.connection = await mysql.createConnection(connectionUri)
+      this.connection = await mysql.createConnection({
+        uri: connectionUri,
+        multipleStatements: true
+      })
       console.log('MySQL Connected')
       return 'MySQL Connected!'
     } catch (err: any) {
@@ -28,15 +31,51 @@ export class MysqlService implements IDbService {
 
       console.log('Executing SQL:', sql)
 
-      // @ts-ignore: mysql2 types definitions are sometimes incorrect for array results
-      const [rows, fields] = await this.connection.execute(sql)
+      // @ts-ignore
+      const [results, fields] = await this.connection.query(sql)
 
-      console.log('Rows found:', Array.isArray(rows) ? rows.length : 0)
+      console.log('Results type:', typeof results, 'IsArray:', Array.isArray(results))
+      console.log('Fields type:', typeof fields, 'IsArray:', Array.isArray(fields))
 
-      const columns = Array.isArray(fields) ? fields.map((f) => f.name) : []
+      // Если это массив результатов (multistatement)
+      // Мы берем ПОСЛЕДНИЙ результат, который является массивом (т.е. SELECT, а не OkPacket)
+      let rows: any[] = []
+      let columns: string[] = []
+
+      if (Array.isArray(results) && results.length > 0 && Array.isArray(results[0])) {
+        console.log('Handling multiple statements')
+        // Найдем последний SELECT результат
+        for (let i = results.length - 1; i >= 0; i--) {
+          console.log(`Checking result ${i}: type=${typeof results[i]}, isArray=${Array.isArray(results[i])}`)
+          if (Array.isArray(results[i])) {
+            rows = results[i] as any[]
+            
+            // Safe fields access
+            if (Array.isArray(fields)) {
+               const currentFields = (fields as any[])[i]
+               console.log(`Checking fields ${i}: type=${typeof currentFields}, isArray=${Array.isArray(currentFields)}`)
+               
+               if (Array.isArray(currentFields)) {
+                 columns = currentFields.map((f: any) => f.name)
+               }
+            }
+            break
+          }
+        }
+      } else if (Array.isArray(results)) {
+        console.log('Handling single statement')
+        // Одиночный SELECT
+        rows = results
+        if (Array.isArray(fields)) {
+           columns = fields.map((f: any) => f.name)
+        }
+      }
+      // Если это OkPacket (INSERT/UPDATE), rows останется [], columns []
+
+      console.log('Rows found:', rows.length)
 
       return {
-        rows: Array.isArray(rows) ? rows : [],
+        rows,
         columns,
         duration: Math.round(performance.now() - start)
       }
