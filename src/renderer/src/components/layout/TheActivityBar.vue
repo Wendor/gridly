@@ -1,6 +1,11 @@
 <template>
   <div class="activity-bar">
-    <div class="icon active" title="Database Explorer">
+    <div
+      class="ab-item"
+      :class="{ active: uiStore.activeSidebar === 'connections' }"
+      title="Database Connections"
+      @click="uiStore.setSidebar('connections')"
+    >
       <svg
         xmlns="http://www.w3.org/2000/svg"
         width="24"
@@ -12,13 +17,18 @@
         stroke-linecap="round"
         stroke-linejoin="round"
       >
-        <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
-        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
-        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+        <path d="M3 6h18" />
+        <path d="M3 12h18" />
+        <path d="M3 18h18" />
       </svg>
     </div>
 
-    <div class="icon" title="History (Coming soon)">
+    <div
+      class="ab-item"
+      :class="{ active: uiStore.activeSidebar === 'history' }"
+      title="Query History"
+      @click="uiStore.setSidebar('history')"
+    >
       <svg
         xmlns="http://www.w3.org/2000/svg"
         width="24"
@@ -30,14 +40,18 @@
         stroke-linecap="round"
         stroke-linejoin="round"
       >
-        <circle cx="12" cy="12" r="10"></circle>
-        <polyline points="12 6 12 12 16 14"></polyline>
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
       </svg>
     </div>
 
     <div class="spacer"></div>
 
-    <div class="icon" title="Settings" @click="$emit('open-settings')">
+    <div
+      class="ab-item"
+      :class="{ active: uiStore.activeSidebar === 'settings' }"
+      @click="uiStore.setSidebar('settings')"
+    >
       <svg
         xmlns="http://www.w3.org/2000/svg"
         width="24"
@@ -49,63 +63,50 @@
         stroke-linecap="round"
         stroke-linejoin="round"
       >
+        <circle cx="12" cy="12" r="3" />
         <path
-          d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.35a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
-        ></path>
-        <circle cx="12" cy="12" r="3"></circle>
+          d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+        />
       </svg>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-// Объявляем событие
-defineEmits<{
-  (e: 'open-settings'): void
-}>()
+import { useUIStore } from '../../stores/ui'
+
+const uiStore = useUIStore()
 </script>
 
 <style scoped>
-.activity-bar {
-  width: var(--activity-bar-width);
-  background: var(--bg-activity-bar);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 10px;
-  border-right: 1px solid var(--border-color);
-  flex-shrink: 0;
-  z-index: 20;
-}
-
-.icon {
+/* Стиль для активной иконки (белая полоска слева + цвет) */
+.ab-item {
   width: 48px;
   height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #858585; /* text-secondary */
   cursor: pointer;
-
-  /* Цвет иконок берется из переменных */
-  color: var(--text-secondary);
-  opacity: 0.7;
-
-  transition: all 0.2s;
-  border-left: 2px solid transparent;
+  position: relative;
 }
 
-.icon:hover {
-  opacity: 1;
-  color: var(--text-primary); /* При наведении иконка становится ярче */
+.ab-item:hover {
+  color: #ffffff;
 }
 
-.icon.active {
-  opacity: 1;
-  border-left-color: var(--text-primary); /* Активная полоска слева */
-  color: var(--text-primary);
+.ab-item.active {
+  color: #ffffff;
 }
 
-.spacer {
-  flex: 1;
+/* Белая полоска слева для активного элемента */
+.ab-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent-primary);
 }
 </style>

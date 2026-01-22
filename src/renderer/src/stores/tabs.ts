@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useConnectionStore } from './connections'
+import { useHistoryStore } from './history'
 import type { ValueFormatterParams, CellClassParams } from 'ag-grid-community'
 
 export interface Tab {
@@ -10,20 +11,19 @@ export interface Tab {
   connectionId: number | null
   sql: string
   rows: Record<string, unknown>[]
-  colDefs: { field: string }[]
+  colDefs: { field: string; headerName?: string }[]
   meta: { duration: number } | null
-  // Состояние пагинации для каждой вкладки
   pagination: {
     limit: number
     offset: number
-    total: number | null // Общее количество строк в таблице
+    total: number | null
   }
 }
 
 export const useTabStore = defineStore('tabs', () => {
   const connectionStore = useConnectionStore()
+  const historyStore = useHistoryStore()
 
-  // Начальное состояние
   const tabs = ref<Tab[]>([
     {
       id: 1,
@@ -42,8 +42,6 @@ export const useTabStore = defineStore('tabs', () => {
   const nextTabId = ref(2)
 
   const currentTab = computed(() => tabs.value.find((t) => t.id === activeTabId.value))
-
-  // --- ACTIONS ---
 
   function addTab(initialConnId: number | null = null): void {
     const id = nextTabId.value++
@@ -69,7 +67,6 @@ export const useTabStore = defineStore('tabs', () => {
   }
 
   function openTableTab(connectionId: number, tableName: string): void {
-    // 1. Проверяем, открыта ли уже эта таблица
     const existingTab = tabs.value.find(
       (t) => t.type === 'query' && t.connectionId === connectionId && t.name === tableName
     )
@@ -79,7 +76,6 @@ export const useTabStore = defineStore('tabs', () => {
       return
     }
 
-    // 2. Если нет — создаем новую
     const id = nextTabId.value++
 
     tabs.value.push({
@@ -87,7 +83,6 @@ export const useTabStore = defineStore('tabs', () => {
       type: 'query',
       name: tableName,
       connectionId,
-      // Чистый SQL без LIMIT (LIMIT добавится автоматически при запуске)
       sql: `SELECT * FROM ${tableName}`,
       rows: [],
       colDefs: [],
@@ -96,7 +91,6 @@ export const useTabStore = defineStore('tabs', () => {
     })
 
     activeTabId.value = id
-    // Сразу запускаем
     runQuery()
   }
 
@@ -131,8 +125,6 @@ export const useTabStore = defineStore('tabs', () => {
     }
   }
 
-  // --- PAGINATION ACTIONS ---
-
   function nextPage(): void {
     if (!currentTab.value) return
     currentTab.value.pagination.offset += currentTab.value.pagination.limit
@@ -150,8 +142,6 @@ export const useTabStore = defineStore('tabs', () => {
     runQuery()
   }
 
-  // --- CORE LOGIC ---
-
   async function runQuery(): Promise<void> {
     if (
       !currentTab.value ||
@@ -168,41 +158,30 @@ export const useTabStore = defineStore('tabs', () => {
 
       let finalSql = currentTab.value.sql.trim()
 
-      // 1. Пытаемся определить имя таблицы для подсчета Total
-      // Ищем паттерн: FROM "tableName" или FROM tableName
       const tableMatch = finalSql.match(/FROM\s+([`'"]?[\w.]+[`'"]?)/i)
       const tableName = tableMatch ? tableMatch[1] : null
-
-      // Простая проверка, что это SELECT * (чтобы не ломать сложные JOIN/GROUP BY подсчетом)
       const isSimpleSelect =
         /^SELECT\s+\*\s+FROM/i.test(finalSql) && !/WHERE|JOIN|GROUP/i.test(finalSql)
 
-      // 2. Обработка LIMIT / OFFSET
-      // Проверяем, написал ли пользователь LIMIT вручную
       const hasLimit = /LIMIT\s+\d+/i.test(finalSql)
 
       if (!hasLimit) {
-        // Если нет, убираем ; в конце и добавляем нашу пагинацию
         finalSql = finalSql.replace(/;$/, '')
         finalSql += ` LIMIT ${currentTab.value.pagination.limit} OFFSET ${currentTab.value.pagination.offset}`
-      } else {
-        // Если пользователь сам написал LIMIT, сбрасываем нашу пагинацию, чтобы не путать UI
-        // (Опционально, можно парсить его лимит, но пока просто не вмешиваемся)
       }
 
-      // 3. Выполняем основной запрос
       const res = await window.dbApi.query(finalSql)
 
       if (res.error) {
         connectionStore.error = res.error
+        historyStore.addEntry(currentTab.value.sql, 'error', 0)
       } else {
-        // Генерация колонок для Ag-Grid
+        // --- ВОТ ЗДЕСЬ ИСПРАВЛЕНИЕ ---
         currentTab.value.colDefs = res.columns.map((col: string) => ({
           field: col,
-          // Форматтер для отображения (NULL)
+          headerName: col, // <--- Явно задаем имя заголовка равным имени поля из БД
           valueFormatter: (params: ValueFormatterParams): string =>
             params.value === null ? '(NULL)' : String(params.value),
-          // CSS класс для серых NULL
           cellClassRules: {
             'null-cell': (params: CellClassParams): boolean => params.value === null
           }
@@ -211,35 +190,31 @@ export const useTabStore = defineStore('tabs', () => {
         currentTab.value.rows = res.rows
         currentTab.value.meta = { duration: res.duration }
 
-        // 4. Подсчет общего количества строк (Total Count)
-        // Запускаем только если:
-        // - Нашли имя таблицы
-        // - Это простой запрос
-        // - Либо мы еще не знаем total, либо мы на первой странице (могли добавиться данные)
+        historyStore.addEntry(currentTab.value.sql, 'success', res.duration)
+
         if (
           tableName &&
           isSimpleSelect &&
           (currentTab.value.pagination.total === null || currentTab.value.pagination.offset === 0)
         ) {
           try {
-            // COUNT(*) работает быстро на большинстве БД
             const countSql = `SELECT COUNT(*) as total FROM ${tableName}`
             const countRes = await window.dbApi.query(countSql)
 
             if (countRes.rows.length > 0) {
-              // Postgres возвращает string "500", MySQL number 500. Приводим к Number safely.
               const firstRow = countRes.rows[0]
               const countVal = Object.values(firstRow)[0]
               currentTab.value.pagination.total = Number(countVal)
             }
           } catch (e) {
-            console.error('Failed to count rows, ignoring', e)
+            console.error('Failed to count rows', e)
           }
         }
       }
     } catch (e) {
       if (e instanceof Error) {
         connectionStore.error = e.message
+        historyStore.addEntry(currentTab.value.sql, 'error', 0)
       }
     } finally {
       connectionStore.loading = false
