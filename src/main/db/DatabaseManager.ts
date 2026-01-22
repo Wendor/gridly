@@ -91,4 +91,52 @@ export class DatabaseManager {
   isPostgres(): boolean {
     return this.currentService instanceof PostgresService
   }
+
+  async testConnection(config: DbConnection): Promise<string> {
+    let tempService: IDbService | null = null
+    const sshService = new SshTunnelService()
+
+    try {
+      let dbHost = config.host
+      let dbPort = parseInt(config.port)
+      const user = config.user
+      const password = config.password
+      const database = config.database
+      const type = config.type
+
+      if (config.useSsh && config.sshHost && config.sshPort && config.sshUser) {
+        const localPort = await sshService.createTunnel(
+          {
+            host: config.sshHost,
+            port: parseInt(config.sshPort),
+            username: config.sshUser,
+            password: config.sshPassword,
+            privateKeyPath: config.sshKeyPath
+          },
+          { host: dbHost, port: dbPort }
+        )
+        dbHost = '127.0.0.1'
+        dbPort = localPort
+      }
+
+      const protocol = type === 'postgres' ? 'postgresql' : 'mysql'
+      const connStr = `${protocol}://${user}:${password}@${dbHost}:${dbPort}/${database}`
+
+      if (type === 'mysql') {
+        tempService = new MysqlService()
+      } else {
+        tempService = new PostgresService()
+      }
+
+      const result = await tempService.connect(connStr)
+      await tempService.disconnect()
+      sshService.close()
+      return result
+    } catch (e: unknown) {
+      if (tempService) await tempService.disconnect()
+      sshService.close()
+      const msg = e instanceof Error ? e.message : String(e)
+      throw new Error(msg)
+    }
+  }
 }

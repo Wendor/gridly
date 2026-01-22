@@ -8,7 +8,8 @@ const api: IElectronAPI = {
   query: (sql) => ipcRenderer.invoke('db:query', sql),
   getTables: () => ipcRenderer.invoke('db:get-tables'),
   getTableData: (req) => ipcRenderer.invoke('db:get-table-data', req),
-  getSchema: () => ipcRenderer.invoke('db:get-schema')
+  getSchema: () => ipcRenderer.invoke('db:get-schema'),
+  testConnection: (config) => ipcRenderer.invoke('db:test-connection', config)
 }
 
 if (process.contextIsolated) {

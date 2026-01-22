@@ -47,8 +47,20 @@
         </div>
       </div>
 
+      <div class="test-feedback" v-if="testStatus">
+        <div class="feedback-msg" :class="testStatus.type">
+          <span v-if="testStatus.type === 'loading'">⏳</span>
+          <span v-if="testStatus.type === 'success'">✅</span>
+          <span v-if="testStatus.type === 'error'">❌</span>
+          {{ testStatus.message }}
+        </div>
+      </div>
+
       <div class="modal-footer">
-        <button class="btn save-btn" @click="save">
+        <button class="btn test-btn" @click="testConnection" :disabled="testStatus?.type === 'loading'">
+          Test Connection
+        </button>
+        <button class="btn save-btn" @click="save" :disabled="testStatus?.type === 'loading'">
           {{ isEditing ? 'Сохранить изменения' : 'Создать' }}
         </button>
       </div>
@@ -57,7 +69,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, computed, watch } from 'vue'
+import { reactive, computed, watch, ref } from 'vue'
 import type { DbConnection } from '../../../shared/types'
 
 const props = defineProps<{
@@ -90,12 +102,14 @@ const defaultForm: DbConnection = {
 }
 
 const form = reactive<DbConnection>({ ...defaultForm })
+const testStatus = ref<{ type: 'loading' | 'success' | 'error'; message: string } | null>(null)
 
 // Следим за открытием окна
 watch(
   () => props.isOpen,
   (isOpen) => {
     if (isOpen) {
+      testStatus.value = null // Сброс статуса
       if (props.initialData) {
         // РЕЖИМ РЕДАКТИРОВАНИЯ: Копируем данные в форму
         Object.assign(form, props.initialData)
@@ -115,6 +129,17 @@ function onTypeChange(): void {
 
 function close(): void {
   emit('close')
+}
+
+async function testConnection(): Promise<void> {
+  testStatus.value = { type: 'loading', message: 'Testing connection...' }
+  try {
+    const successMsg = await window.dbApi.testConnection({ ...form })
+    testStatus.value = { type: 'success', message: successMsg }
+  } catch (e: any) {
+    const msg = e.message || String(e)
+    testStatus.value = { type: 'error', message: msg }
+  }
 }
 
 function save(): void {
@@ -210,6 +235,13 @@ function save(): void {
   gap: 5px;
   cursor: pointer;
 }
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .save-btn {
   background: var(--accent-primary);
   color: var(--text-white);
@@ -221,5 +253,51 @@ function save(): void {
 }
 .save-btn:hover {
   background: var(--accent-hover);
+}
+.save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.test-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.test-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.test-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.test-feedback {
+    margin-top: 5px;
+}
+.feedback-msg {
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.feedback-msg.error {
+    background: rgba(255, 70, 70, 0.1);
+    color: #ff6b6b;
+    border: 1px solid rgba(255, 70, 70, 0.2);
+}
+.feedback-msg.success {
+    background: rgba(70, 255, 70, 0.1);
+    color: #6bff6b;
+    border: 1px solid rgba(70, 255, 70, 0.2);
+}
+.feedback-msg.loading {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
 }
 </style>

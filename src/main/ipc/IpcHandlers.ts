@@ -84,4 +84,12 @@ export function setupIpcHandlers(dbManager: DatabaseManager): void {
   ipcMain.handle('db:get-schema', async () => {
     return await dbManager.getSchema()
   })
+
+  ipcMain.handle('db:test-connection', async (_event, config: DbConnection) => {
+    try {
+      return await dbManager.testConnection(config)
+    } catch (e: unknown) {
+      throw e // Let the renderer handle the error
+    }
+  })
 }

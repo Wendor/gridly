@@ -133,7 +133,7 @@ async function copyRow(): Promise<void> {
     // Добавляем replacer (второй аргумент), чтобы обработать бинарники
     const json = JSON.stringify(
       contextMenu.rowData,
-      (key, value) => {
+      (_key, value) => {
         // Проверяем, похоже ли значение на бинарный буфер (объект с ключами "0", "1", "2"...)
         if (
           value !== null &&
