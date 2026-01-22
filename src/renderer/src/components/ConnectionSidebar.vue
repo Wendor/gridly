@@ -81,7 +81,7 @@ import { ref, reactive } from 'vue'
 import type { DbConnection } from '../../../shared/types'
 import BaseIcon from './ui/BaseIcon.vue'
 
-defineProps<{
+const props = defineProps<{
   connections: DbConnection[]
   activeSidebarId: number | null
   tablesCache: Record<number, string[]>
@@ -152,6 +152,80 @@ function onSelect(index: number): void {
     emit('expand', index)
   }
 }
+
+// --- PERSISTENCE ---
+import { watch } from 'vue'
+
+const STORAGE_KEY = 'sidebar-expanded-connections'
+
+function saveExpandedState(): void {
+  // Сохраняем ИМЕНА подключений, так как индексы могут меняться
+  const expandedNames = Array.from(expandedIndices.value)
+    .map((idx) => props.connections[idx]?.name)
+    .filter(Boolean)
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(expandedNames))
+}
+
+function restoreExpandedState(): void {
+  const saved = localStorage.getItem(STORAGE_KEY)
+  if (!saved) return
+
+  try {
+    const names = JSON.parse(saved) as string[]
+    if (!Array.isArray(names)) return
+
+    const newSet = new Set<number>()
+    // Ищем индексы по именам
+    names.forEach((name) => {
+      const idx = props.connections.findIndex((c) => c.name === name)
+      if (idx !== -1) {
+        newSet.add(idx)
+        // Важно: эмитим expand, чтобы родитель мог подгрузить таблицы если надо
+        // Но делаем это аккуратно, возможно стоит просто пометить как expanded
+        // А подгрузку оставим на совести родителя или ленивой загрузки?
+        // В текущей реализации родитель грузит таблицы по событию 'expand'
+        // Поэтому здесь нужно будет эмитить
+        emit('expand', idx)
+      }
+    })
+    expandedIndices.value = newSet
+  } catch (e) {
+    console.error('Failed to restore sidebar state', e)
+  }
+}
+
+// Следим за изменениями expandedIndices и сохраняем
+watch(
+  () => expandedIndices.value,
+  () => {
+    saveExpandedState()
+  },
+  { deep: true }
+)
+
+// Следим за списком подключений, чтобы восстановить состояние при их загрузке?
+// Или просто при маунте?
+// Если подключения грузятся асинхронно, нам нужно ждать их появления.
+watch(
+  () => props.connections,
+  (newConns) => {
+    if (newConns.length > 0) {
+      // Попытка восстановить состояние, если оно еще не восстановлено или если список обновился
+      // Но аккуратно, чтобы не сбросить текущее (если пользователь уже накликал)
+      // В данном случае, просто один раз при старте достаточно, если connections уже есть?
+      // Нет, connections приходят из пропсов.
+
+      // Простейшая стратегия:
+      // Мы восстанавливаем один раз, когда список перестает быть пустым?
+      // Или каждый раз пытаемся смапить сохраненные имена на новые индексы?
+
+      // Давайте восстановим
+      restoreExpandedState()
+    }
+  },
+  { immediate: true }
+)
 </script>
 
 <style scoped>
@@ -197,8 +271,8 @@ function onSelect(index: number): void {
 }
 .add-btn:hover {
   border-color: var(--focus-border);
-  background: var(--focus-border);
-  color: var(--text-white);
+  background: var(--bg-input);
+  color: var(--text-primary);
 }
 
 .saved-list {

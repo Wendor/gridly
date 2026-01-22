@@ -31,7 +31,7 @@ export class MysqlService implements IDbService {
 
       console.log('Executing SQL:', sql)
 
-      // @ts-ignore
+      // @ts-ignore: execute signatures are complex and return type inference needs help
       const [results, fields] = await this.connection.query(sql)
 
       console.log('Results type:', typeof results, 'IsArray:', Array.isArray(results))
@@ -46,18 +46,22 @@ export class MysqlService implements IDbService {
         console.log('Handling multiple statements')
         // Найдем последний SELECT результат
         for (let i = results.length - 1; i >= 0; i--) {
-          console.log(`Checking result ${i}: type=${typeof results[i]}, isArray=${Array.isArray(results[i])}`)
+          console.log(
+            `Checking result ${i}: type=${typeof results[i]}, isArray=${Array.isArray(results[i])}`
+          )
           if (Array.isArray(results[i])) {
             rows = results[i] as any[]
-            
+
             // Safe fields access
             if (Array.isArray(fields)) {
-               const currentFields = (fields as any[])[i]
-               console.log(`Checking fields ${i}: type=${typeof currentFields}, isArray=${Array.isArray(currentFields)}`)
-               
-               if (Array.isArray(currentFields)) {
-                 columns = currentFields.map((f: any) => f.name)
-               }
+              const currentFields = (fields as any[])[i]
+              console.log(
+                `Checking fields ${i}: type=${typeof currentFields}, isArray=${Array.isArray(currentFields)}`
+              )
+
+              if (Array.isArray(currentFields)) {
+                columns = currentFields.map((f: any) => f.name)
+              }
             }
             break
           }
@@ -67,7 +71,7 @@ export class MysqlService implements IDbService {
         // Одиночный SELECT
         rows = results
         if (Array.isArray(fields)) {
-           columns = fields.map((f: any) => f.name)
+          columns = fields.map((f: any) => f.name)
         }
       }
       // Если это OkPacket (INSERT/UPDATE), rows останется [], columns []

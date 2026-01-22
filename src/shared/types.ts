@@ -40,6 +40,5 @@ export interface IElectronAPI {
   getTableData: (req: IDataRequest) => Promise<IDbResult>
   // НОВЫЙ МЕТОД
   getSchema: () => Promise<DbSchema>
-  
   testConnection: (config: DbConnection) => Promise<string>
 }

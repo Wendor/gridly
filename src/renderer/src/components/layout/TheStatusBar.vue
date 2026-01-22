@@ -113,8 +113,8 @@ const isNextDisabled = computed(() => {
 /* ПЕРЕХОД НА CSS GRID */
 .status-bar-global {
   height: var(--status-bar-height);
-  background: #007acc;
-  color: #ffffff;
+  background: var(--bg-status-bar);
+  color: var(--fg-status-bar);
   font-size: 12px;
   user-select: none;
 

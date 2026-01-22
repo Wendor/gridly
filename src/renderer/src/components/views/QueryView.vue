@@ -369,32 +369,32 @@ onMounted(() => {
   background: var(--accent-hover);
 }
 .toolbar-right {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 .icon-btn {
-    background: transparent;
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
-    height: 28px; /* Фиксированная высота */
-    padding: 0 12px;
-    border-radius: 2px;
-    cursor: pointer;
-    font-size: 13px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  height: 28px; /* Фиксированная высота */
+  padding: 0 12px;
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .icon-btn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.05);
 }
 .icon-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .icon {
-    font-family: inherit;
+  font-family: inherit;
 }
 .editor-wrapper {
   overflow: hidden;

@@ -167,8 +167,12 @@ export const useTabStore = defineStore('tabs', () => {
         /^SELECT\s+\*\s+FROM/i.test(finalSql) && !/WHERE|JOIN|GROUP/i.test(finalSql)
 
       // Обработка LIMIT / OFFSET
+      // Добавляем пагинацию ТОЛЬКО для SELECT запросов,
+      // исключая SHOW, DESCRIBE, EXPLAIN и сложные запросы, где LIMIT уже есть
+      const isSelect = /^SELECT\s/i.test(finalSql)
       const hasLimit = /LIMIT\s+\d+/i.test(finalSql)
-      if (!hasLimit) {
+
+      if (isSelect && !hasLimit) {
         // Убираем точку с запятой в конце, если есть
         finalSql = finalSql.replace(/;$/, '')
         finalSql += ` LIMIT ${currentTab.value.pagination.limit} OFFSET ${currentTab.value.pagination.offset}`
@@ -199,7 +203,7 @@ export const useTabStore = defineStore('tabs', () => {
                 // Эвристика: если есть ключи и они все числа — считаем это бинарником
                 if (keys.length > 0 && keys.every((k) => !isNaN(Number(k)))) {
                   return Object.values(val)
-                    .map((b: any) => b.toString(16).padStart(2, '0'))
+                    .map((b: unknown) => Number(b).toString(16).padStart(2, '0'))
                     .join('')
                 }
               }
@@ -297,7 +301,7 @@ export const useTabStore = defineStore('tabs', () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
-        tabs.value = parsed.map((t: any) => ({
+        tabs.value = parsed.map((t: Tab) => ({
           ...t,
           rows: [], // Восстанавливаем пустыми
           colDefs: [],
@@ -328,7 +332,7 @@ export const useTabStore = defineStore('tabs', () => {
   // Инициализация
   loadFromStorage()
   if (tabs.value.length === 0) {
-     addTab()
+    addTab()
   }
 
   return {

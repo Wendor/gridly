@@ -19,6 +19,8 @@ export interface Theme {
     '--tab-active-fg': string
     '--list-hover-bg': string
     '--list-active-bg': string
+    '--bg-status-bar': string
+    '--fg-status-bar': string
   }
 }
 
@@ -44,7 +46,9 @@ export const themes: Theme[] = [
       '--tab-active-bg': '#1e1e1e',
       '--tab-active-fg': '#ffffff',
       '--list-hover-bg': '#2a2d2e',
-      '--list-active-bg': '#37373d'
+      '--list-active-bg': '#37373d',
+      '--bg-status-bar': '#007acc',
+      '--fg-status-bar': '#ffffff'
     }
   },
   // 2. GITHUB LIGHT
@@ -68,7 +72,9 @@ export const themes: Theme[] = [
       '--tab-active-bg': '#ffffff',
       '--tab-active-fg': '#24292f',
       '--list-hover-bg': '#ebf0f4',
-      '--list-active-bg': '#e6ebf1'
+      '--list-active-bg': '#e6ebf1',
+      '--bg-status-bar': '#0969da',
+      '--fg-status-bar': '#ffffff'
     }
   },
   // 3. DRACULA (Новая)
@@ -79,12 +85,12 @@ export const themes: Theme[] = [
     colors: {
       '--bg-app': '#282a36',
       '--bg-sidebar': '#21222c',
-      '--bg-activity-bar': '#191a21', // Самый темный
+      '--bg-activity-bar': '#191a21',
       '--bg-panel-header': '#282a36',
       '--bg-input': '#44475a',
-      '--border-color': '#6272a4', // Фиолетово-серый
-      '--accent-primary': '#bd93f9', // Dracula Purple
-      '--accent-hover': '#ff79c6', // Dracula Pink
+      '--border-color': '#6272a4',
+      '--accent-primary': '#bd93f9',
+      '--accent-hover': '#ff79c6',
       '--focus-border': '#bd93f9',
       '--text-primary': '#f8f8f2',
       '--text-secondary': '#6272a4',
@@ -92,7 +98,9 @@ export const themes: Theme[] = [
       '--tab-active-bg': '#282a36',
       '--tab-active-fg': '#bd93f9',
       '--list-hover-bg': '#44475a',
-      '--list-active-bg': '#44475a'
+      '--list-active-bg': '#44475a',
+      '--bg-status-bar': '#bd93f9',
+      '--fg-status-bar': '#282a36'
     }
   },
   // 4. MONOKAI (Новая)
@@ -107,8 +115,8 @@ export const themes: Theme[] = [
       '--bg-panel-header': '#272822',
       '--bg-input': '#414339',
       '--border-color': '#1e1f1c',
-      '--accent-primary': '#a6e22e', // Green
-      '--accent-hover': '#f92672', // Pink
+      '--accent-primary': '#a6e22e',
+      '--accent-hover': '#f92672',
       '--focus-border': '#a6e22e',
       '--text-primary': '#f8f8f2',
       '--text-secondary': '#75715e',
@@ -116,7 +124,9 @@ export const themes: Theme[] = [
       '--tab-active-bg': '#272822',
       '--tab-active-fg': '#a6e22e',
       '--list-hover-bg': '#3e3d32',
-      '--list-active-bg': '#49483e'
+      '--list-active-bg': '#49483e',
+      '--bg-status-bar': '#414339',
+      '--fg-status-bar': '#f8f8f2'
     }
   },
   // 5. SOLARIZED LIGHT (Новая)
@@ -125,22 +135,57 @@ export const themes: Theme[] = [
     name: 'Solarized Light',
     type: 'light',
     colors: {
-      '--bg-app': '#fdf6e3', // Base3 (Cream)
-      '--bg-sidebar': '#eee8d5', // Base2
-      '--bg-activity-bar': '#d3c6aa', // Немного темнее Base2
+      '--bg-app': '#fdf6e3',
+      '--bg-sidebar': '#eee8d5',
+      '--bg-activity-bar': '#d3c6aa',
       '--bg-panel-header': '#eee8d5',
       '--bg-input': '#fdf6e3',
       '--border-color': '#d3c6aa',
-      '--accent-primary': '#2aa198', // Cyan
-      '--accent-hover': '#268bd2', // Blue
+      '--accent-primary': '#2aa198',
+      '--accent-hover': '#268bd2',
       '--focus-border': '#2aa198',
-      '--text-primary': '#657b83', // Base00
-      '--text-secondary': '#93a1a1', // Base1
+      '--text-primary': '#657b83',
+      '--text-secondary': '#93a1a1',
       '--text-white': '#ffffff',
       '--tab-active-bg': '#fdf6e3',
-      '--tab-active-fg': '#b58900', // Yellow
+      '--tab-active-fg': '#b58900',
       '--list-hover-bg': '#e0d8c0',
-      '--list-active-bg': '#d3c6aa'
+      '--list-active-bg': '#d3c6aa',
+      '--bg-status-bar': '#eee8d5',
+      '--fg-status-bar': '#657b83'
+    }
+  },
+  // 6. ATOM ONE DARK (Refined)
+  {
+    id: 'atom-one-dark',
+    name: 'Atom One Dark',
+    type: 'dark',
+    colors: {
+      '--bg-app': '#282c34', // Editor BG
+      '--bg-sidebar': '#21252b', // Sidebar
+      '--bg-activity-bar': '#333842',
+      '--bg-panel-header': '#21252b',
+      '--bg-input': '#353b45', // Lighter than BG, good for contrast against #282c34.
+      // User said "buttons strongly light". If buttons use bg-input, and it was #1d1f23 (dark),
+      // maybe they meant text? Or borders?
+      // Let's try standard Atom colors.
+      // Atom One Dark uses #353b45 or #1d1f23 for inputs.
+      // Let's set border to #181a1f (too black).
+      // Let's set border to #3e4451 (Soft Grey).
+      '--border-color': '#3e4451',
+
+      '--accent-primary': '#4e78cc', // User preference
+      '--accent-hover': '#5a84d8', // Slightly lighter version of #4e78cc for hover
+      '--focus-border': '#4e78cc',
+      '--text-primary': '#abb2bf', // Standard Atom Text
+      '--text-secondary': '#5c6370',
+      '--text-white': '#dcdfe4',
+      '--tab-active-bg': '#282c34',
+      '--tab-active-fg': '#dcdfe4', // Using text-white for visibility
+      '--list-hover-bg': '#2c313a',
+      '--list-active-bg': '#3a404b',
+      '--bg-status-bar': '#21252b', // Dark, matching sidebar
+      '--fg-status-bar': '#abb2bf' // Standard text color
     }
   }
 ]

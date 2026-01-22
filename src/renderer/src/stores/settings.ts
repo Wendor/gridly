@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { themes } from '../lib/themes'
 
 export const useSettingsStore = defineStore('settings', () => {
-  const currentThemeId = ref('vscode-dark')
+  const currentThemeId = ref('atom-one-dark')
 
   const activeTheme = computed(() => themes.find((t) => t.id === currentThemeId.value) || themes[0])
 

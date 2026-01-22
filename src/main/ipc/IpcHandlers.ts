@@ -53,12 +53,12 @@ export function setupIpcHandlers(dbManager: DatabaseManager): void {
 
       if (req.sort && req.sort.length > 0) {
         const orderClauses = req.sort.map((s) => {
-            // SECURITY: Basic sanitization for column names
-            // Ensure no quote chars that could break out
-            if (s.colId.includes(quoteChar)) {
-                throw new Error(`Invalid column name: ${s.colId}`)
-            }
-            return `${quoteChar}${s.colId}${quoteChar} ${s.sort.toUpperCase()}`
+          // SECURITY: Basic sanitization for column names
+          // Ensure no quote chars that could break out
+          if (s.colId.includes(quoteChar)) {
+            throw new Error(`Invalid column name: ${s.colId}`)
+          }
+          return `${quoteChar}${s.colId}${quoteChar} ${s.sort.toUpperCase()}`
         })
         sql += ` ORDER BY ${orderClauses.join(', ')}`
       }
@@ -67,9 +67,9 @@ export function setupIpcHandlers(dbManager: DatabaseManager): void {
       // ensure they are numbers at runtime to be sure
       const limit = Number(req.limit)
       const offset = Number(req.offset)
-      
+
       if (isNaN(limit) || isNaN(offset)) {
-         throw new Error('Invalid limit/offset')
+        throw new Error('Invalid limit/offset')
       }
 
       sql += ` LIMIT ${limit} OFFSET ${offset}`
@@ -86,10 +86,6 @@ export function setupIpcHandlers(dbManager: DatabaseManager): void {
   })
 
   ipcMain.handle('db:test-connection', async (_event, config: DbConnection) => {
-    try {
-      return await dbManager.testConnection(config)
-    } catch (e: unknown) {
-      throw e // Let the renderer handle the error
-    }
+    return await dbManager.testConnection(config)
   })
 }

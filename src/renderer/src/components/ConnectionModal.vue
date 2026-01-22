@@ -47,7 +47,7 @@
         </div>
       </div>
 
-      <div class="test-feedback" v-if="testStatus">
+      <div v-if="testStatus" class="test-feedback">
         <div class="feedback-msg" :class="testStatus.type">
           <span v-if="testStatus.type === 'loading'">
             <BaseIcon name="loader" class="spin" />
@@ -63,10 +63,14 @@
       </div>
 
       <div class="modal-footer">
-        <button class="btn test-btn" @click="testConnection" :disabled="testStatus?.type === 'loading'">
+        <button
+          class="btn test-btn"
+          :disabled="testStatus?.type === 'loading'"
+          @click="testConnection"
+        >
           Test Connection
         </button>
-        <button class="btn save-btn" @click="save" :disabled="testStatus?.type === 'loading'">
+        <button class="btn save-btn" :disabled="testStatus?.type === 'loading'" @click="save">
           {{ isEditing ? 'Сохранить изменения' : 'Создать' }}
         </button>
       </div>
@@ -143,8 +147,8 @@ async function testConnection(): Promise<void> {
   try {
     const successMsg = await window.dbApi.testConnection({ ...form })
     testStatus.value = { type: 'success', message: successMsg }
-  } catch (e: any) {
-    const msg = e.message || String(e)
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
     testStatus.value = { type: 'error', message: msg }
   }
 }
@@ -278,33 +282,33 @@ function save(): void {
   background: rgba(255, 255, 255, 0.05);
 }
 .test-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .test-feedback {
-    margin-top: 5px;
+  margin-top: 5px;
 }
 .feedback-msg {
-    padding: 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .feedback-msg.error {
-    background: rgba(255, 70, 70, 0.1);
-    color: #ff6b6b;
-    border: 1px solid rgba(255, 70, 70, 0.2);
+  background: rgba(255, 70, 70, 0.1);
+  color: #ff6b6b;
+  border: 1px solid rgba(255, 70, 70, 0.2);
 }
 .feedback-msg.success {
-    background: rgba(70, 255, 70, 0.1);
-    color: #6bff6b;
-    border: 1px solid rgba(70, 255, 70, 0.2);
+  background: rgba(70, 255, 70, 0.1);
+  color: #6bff6b;
+  border: 1px solid rgba(70, 255, 70, 0.2);
 }
 .feedback-msg.loading {
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
 }
 </style>
