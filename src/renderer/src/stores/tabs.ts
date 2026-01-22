@@ -182,7 +182,7 @@ export const useTabStore = defineStore('tabs', () => {
 
       if (res.error) {
         connectionStore.error = res.error
-        historyStore.addEntry(currentTab.value.sql, 'error', 0)
+        historyStore.addEntry(currentTab.value.sql, 'error', 0, currentTab.value.connectionId)
       } else {
         // Формируем колонки
         currentTab.value.colDefs = res.columns.map((col: string) => ({
@@ -228,7 +228,12 @@ export const useTabStore = defineStore('tabs', () => {
         currentTab.value.rows = res.rows
         currentTab.value.meta = { duration: res.duration }
 
-        historyStore.addEntry(currentTab.value.sql, 'success', res.duration)
+        historyStore.addEntry(
+          currentTab.value.sql,
+          'success',
+          res.duration,
+          currentTab.value.connectionId
+        )
 
         // --- ИСПРАВЛЕННАЯ ЛОГИКА ПОДСЧЕТА TOTAL ---
 
@@ -269,7 +274,7 @@ export const useTabStore = defineStore('tabs', () => {
     } catch (e) {
       if (e instanceof Error) {
         connectionStore.error = e.message
-        historyStore.addEntry(currentTab.value.sql, 'error', 0)
+        historyStore.addEntry(currentTab.value.sql, 'error', 0, currentTab.value.connectionId)
       }
     } finally {
       connectionStore.loading = false

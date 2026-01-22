@@ -12,7 +12,7 @@
         v-for="item in historyStore.items"
         :key="item.id"
         class="history-item"
-        @click="restoreQuery(item.sql)"
+        @click="restoreQuery(item)"
       >
         <div class="item-header">
           <div class="left-meta">
@@ -50,15 +50,35 @@ function formatTime(ts: number): string {
   })
 }
 
-function restoreQuery(sql: string): void {
-  if (tabStore.currentTab && tabStore.currentTab.type === 'query') {
-    tabStore.currentTab.sql = sql
-  } else {
-    tabStore.addTab()
-    setTimeout(() => {
-      if (tabStore.currentTab) tabStore.currentTab.sql = sql
-    }, 0)
+function restoreQuery(item: { sql: string; connectionId: number | null }): void {
+  const current = tabStore.currentTab
+
+  // 1. Проверяем, можно ли использовать текущий таб
+  // Он должен быть типа 'query', иметь то же подключение, и быть (желательно) пустым или немодифицированным
+  // Для упрощения: если SQL в табе пустой или дефолтный 'SELECT 1;', то перезаписываем.
+  // Иначе — открываем новый.
+  if (current && current.type === 'query' && current.connectionId === item.connectionId) {
+    // 1a. Если в текущем табе УЖЕ этот запрос — ничего не делаем (мы уже здесь)
+    if (current.sql === item.sql) return
+
+    // 1b. Если таб пустой — используем его
+    const isCurrentEmpty =
+      !current.sql || current.sql.trim() === '' || current.sql.trim() === 'SELECT 1;'
+
+    if (isCurrentEmpty) {
+      current.sql = item.sql
+      return
+    }
   }
+
+  // 2. Иначе открываем новый таб
+  tabStore.addTab(item.connectionId)
+
+  setTimeout(() => {
+    if (tabStore.currentTab) {
+      tabStore.currentTab.sql = item.sql
+    }
+  }, 0)
 }
 </script>
 

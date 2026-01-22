@@ -4,6 +4,7 @@ import { ref } from 'vue'
 export interface HistoryItem {
   id: string
   sql: string
+  connectionId: number | null // New field
   timestamp: number
   status: 'success' | 'error'
   duration: number
@@ -22,7 +23,12 @@ export const useHistoryStore = defineStore('history', () => {
     }
   }
 
-  function addEntry(sql: string, status: 'success' | 'error', duration: number): void {
+  function addEntry(
+    sql: string,
+    status: 'success' | 'error',
+    duration: number,
+    connectionId: number | null
+  ): void {
     // Не сохраняем пустые или слишком короткие запросы
     if (!sql || sql.trim().length < 2) return
 
@@ -30,6 +36,8 @@ export const useHistoryStore = defineStore('history', () => {
     if (items.value.length > 0 && items.value[0].sql === sql) {
       // Можно просто обновить время последнего
       items.value[0].timestamp = Date.now()
+      // Update connection ID if it changed for the same query (unlikely but possible)
+      items.value[0].connectionId = connectionId
       save()
       return
     }
@@ -37,6 +45,7 @@ export const useHistoryStore = defineStore('history', () => {
     const newItem: HistoryItem = {
       id: crypto.randomUUID(),
       sql,
+      connectionId,
       timestamp: Date.now(),
       status,
       duration

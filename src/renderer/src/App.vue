@@ -1,31 +1,34 @@
 <template>
-  <div
-    class="workbench"
-    :class="{ 'is-resizing': isResizingSidebar }"
-    @mouseup="stopSidebarResize"
-    @mousemove="doSidebarResize"
-  >
-    <TheActivityBar @open-settings="tabStore.openSettingsTab()" />
+  <div class="app-wrapper">
+    <TheTitleBar />
+    <div
+      class="workbench"
+      :class="{ 'is-resizing': isResizingSidebar }"
+      @mouseup="stopSidebarResize"
+      @mousemove="doSidebarResize"
+    >
+      <TheActivityBar @open-settings="tabStore.openSettingsTab()" />
 
-    <div class="sidebar-container" :style="{ width: sidebarWidth + 'px' }">
-      <TheSidebar @open-create-modal="openCreateModal" @edit="openEditModal" />
+      <div class="sidebar-container" :style="{ width: sidebarWidth + 'px' }">
+        <TheSidebar @open-create-modal="openCreateModal" @edit="openEditModal" />
+      </div>
+
+      <div class="resizer-vertical" @mousedown="startSidebarResize"></div>
+
+      <div class="main-container">
+        <TheEditorArea />
+      </div>
+
+      <ConnectionModal
+        :is-open="isModalOpen"
+        :initial-data="editingConnection"
+        @close="isModalOpen = false"
+        @save="handleModalSave"
+      />
     </div>
 
-    <div class="resizer-vertical" @mousedown="startSidebarResize"></div>
-
-    <div class="main-container">
-      <TheEditorArea />
-    </div>
-
-    <ConnectionModal
-      :is-open="isModalOpen"
-      :initial-data="editingConnection"
-      @close="isModalOpen = false"
-      @save="handleModalSave"
-    />
+    <TheStatusBar />
   </div>
-
-  <TheStatusBar />
 </template>
 
 <script setup lang="ts">
@@ -35,8 +38,9 @@ import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community'
 import { useConnectionStore } from './stores/connections'
 import { useTabStore } from './stores/tabs'
 import { useSettingsStore } from './stores/settings'
-import type { DbConnection } from '../../shared/types' // Убедитесь, что путь верный или используйте импорт из стора
+import type { DbConnection } from '../../shared/types'
 
+import TheTitleBar from './components/layout/TheTitleBar.vue'
 import TheActivityBar from './components/layout/TheActivityBar.vue'
 import TheSidebar from './components/layout/TheSidebar.vue'
 import TheEditorArea from './components/layout/TheEditorArea.vue'
@@ -119,14 +123,21 @@ function doSidebarResize(e: MouseEvent): void {
 </script>
 
 <style scoped>
-/* Стили без изменений */
-.workbench {
+.app-wrapper {
   display: flex;
-  height: calc(100vh - var(--status-bar-height));
+  flex-direction: column;
+  height: 100vh;
   width: 100vw;
   background: var(--bg-app);
   font-family: var(--font-main);
   color: var(--text-primary);
+  overflow: hidden;
+}
+
+.workbench {
+  display: flex;
+  flex: 1; /* Occupy remaining space */
+  width: 100vw;
   overflow: hidden;
 }
 
