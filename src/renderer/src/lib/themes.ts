@@ -23,6 +23,7 @@ export interface Theme {
     '--fg-status-bar': string
     '--scrollbar-thumb': string
     '--scrollbar-thumb-hover': string
+    '--list-hover-fg': string
   }
 }
 
@@ -52,7 +53,8 @@ export const themes: Theme[] = [
       '--bg-status-bar': '#007acc',
       '--fg-status-bar': '#ffffff',
       '--scrollbar-thumb': '#424242',
-      '--scrollbar-thumb-hover': '#4f4f4f'
+      '--scrollbar-thumb-hover': '#4f4f4f',
+      '--list-hover-fg': '#ffffff'
     }
   },
   // 2. GITHUB LIGHT
@@ -80,7 +82,8 @@ export const themes: Theme[] = [
       '--bg-status-bar': '#0969da',
       '--fg-status-bar': '#ffffff',
       '--scrollbar-thumb': '#d0d7de',
-      '--scrollbar-thumb-hover': '#959da5'
+      '--scrollbar-thumb-hover': '#959da5',
+      '--list-hover-fg': '#24292f'
     }
   },
   // 3. DRACULA (Новая)
@@ -108,7 +111,8 @@ export const themes: Theme[] = [
       '--bg-status-bar': '#bd93f9',
       '--fg-status-bar': '#282a36',
       '--scrollbar-thumb': '#44475a',
-      '--scrollbar-thumb-hover': '#6272a4'
+      '--scrollbar-thumb-hover': '#6272a4',
+      '--list-hover-fg': '#ffffff'
     }
   },
   // 4. MONOKAI (Новая)
@@ -136,7 +140,8 @@ export const themes: Theme[] = [
       '--bg-status-bar': '#414339',
       '--fg-status-bar': '#f8f8f2',
       '--scrollbar-thumb': '#3e3d32',
-      '--scrollbar-thumb-hover': '#75715e'
+      '--scrollbar-thumb-hover': '#75715e',
+      '--list-hover-fg': '#ffffff'
     }
   },
   // 5. SOLARIZED LIGHT (Новая)
@@ -164,7 +169,8 @@ export const themes: Theme[] = [
       '--bg-status-bar': '#eee8d5',
       '--fg-status-bar': '#657b83',
       '--scrollbar-thumb': '#d3c6aa',
-      '--scrollbar-thumb-hover': '#93a1a1'
+      '--scrollbar-thumb-hover': '#93a1a1',
+      '--list-hover-fg': '#657b83'
     }
   },
   // 6. ATOM ONE DARK (Refined)
@@ -199,7 +205,8 @@ export const themes: Theme[] = [
       '--bg-status-bar': '#21252b', // Dark, matching sidebar
       '--fg-status-bar': '#abb2bf', // Standard text color
       '--scrollbar-thumb': '#3e4451',
-      '--scrollbar-thumb-hover': '#5c6370'
+      '--scrollbar-thumb-hover': '#5c6370',
+      '--list-hover-fg': '#ffffff'
     }
   }
 ]

@@ -402,7 +402,7 @@ watch(
 }
 
 .table-item:hover {
-  color: var(--text-white);
+  color: var(--list-hover-fg);
   background: var(--list-hover-bg);
   opacity: 1;
 }
@@ -437,7 +437,7 @@ watch(
 
 .ctx-item:hover {
   background: var(--list-hover-bg);
-  color: var(--text-white);
+  color: var(--list-hover-fg);
 }
 
 .ctx-item.delete:hover {

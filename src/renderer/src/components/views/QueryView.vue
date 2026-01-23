@@ -477,6 +477,6 @@ onMounted(() => {
 }
 .ctx-item:hover {
   background: var(--list-hover-bg);
-  color: var(--text-white);
+  color: var(--list-hover-fg);
 }
 </style>
