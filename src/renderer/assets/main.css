@@ -118,6 +118,13 @@ body {
   opacity: 0.6;
 }
 
+/* Binary стили */
+.binary-cell {
+  color: var(--text-secondary);
+  font-style: italic;
+  opacity: 0.8;
+}
+
 /* Исправление фона CodeMirror, чтобы он не был синим */
 .cm-editor {
   background-color: var(--bg-app) !important;
@@ -139,14 +146,14 @@ body {
 }
 
 /* Пункты списка */
-.cm-tooltip-autocomplete > ul > li {
+.cm-tooltip-autocomplete>ul>li {
   padding: 4px 8px !important;
   font-family: var(--font-mono) !important;
   font-size: 12px !important;
 }
 
 /* Активный пункт */
-.cm-tooltip-autocomplete > ul > li[aria-selected='true'] {
+.cm-tooltip-autocomplete>ul>li[aria-selected='true'] {
   background-color: var(--accent-primary) !important;
   color: #fff !important;
 }

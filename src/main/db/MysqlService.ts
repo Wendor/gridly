@@ -1,17 +1,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import mysql from 'mysql2/promise'
-import { DbSchema, IDbResult } from '../../shared/types'
+import { DbSchema, IDbResult, DbConnection, IDataRequest } from '../../shared/types'
 import { IDbService } from './IDbService'
+
 
 export class MysqlService implements IDbService {
   private connection: mysql.Connection | null = null
 
-  async connect(connectionUri: string): Promise<string> {
+  async connect(config: DbConnection): Promise<string> {
     try {
       await this.disconnect()
+      const connectionUri = `mysql://${config.user}:${config.password}@${config.host}:${config.port}/${config.database}`
       this.connection = await mysql.createConnection({
         uri: connectionUri,
-        multipleStatements: true
+        multipleStatements: true,
+        dateStrings: true
       })
       return 'MySQL Connected!'
     } catch (err: any) {
@@ -108,5 +111,41 @@ export class MysqlService implements IDbService {
       }
     })
     return schema
+  }
+
+  async getTableData(req: IDataRequest): Promise<IDbResult> {
+    if (!this.connection) return { rows: [], columns: [], duration: 0, error: 'Not connected' }
+    try {
+      const tables = await this.getTables()
+      if (!tables.includes(req.tableName)) {
+        throw new Error(`Invalid table name: ${req.tableName}`)
+      }
+
+      const quoteChar = '`'
+      let sql = `SELECT * FROM ${quoteChar}${req.tableName}${quoteChar}`
+
+      if (req.sort && req.sort.length > 0) {
+        const orderClauses = req.sort.map((s) => {
+          if (s.colId.includes(quoteChar)) {
+            throw new Error(`Invalid column name: ${s.colId}`)
+          }
+          return `${quoteChar}${s.colId}${quoteChar} ${s.sort.toUpperCase()}`
+        })
+        sql += ` ORDER BY ${orderClauses.join(', ')}`
+      }
+
+      const limit = Number(req.limit)
+      const offset = Number(req.offset)
+
+      if (isNaN(limit) || isNaN(offset)) {
+        throw new Error('Invalid limit/offset')
+      }
+
+      sql += ` LIMIT ${limit} OFFSET ${offset}`
+
+      return await this.execute(sql)
+    } catch (e: any) {
+      return { rows: [], columns: [], error: e.message, duration: 0 }
+    }
   }
 }

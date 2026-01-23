@@ -23,13 +23,8 @@ export class DatabaseManager {
       // Если для этого ID уже есть соединение — разрываем его перед новым
       await this.disconnect(id)
 
-      let dbHost = config.host
-      let dbPort = parseInt(config.port)
-      const user = config.user
-      const password = config.password
-      const database = config.database
-      const type = config.type
-
+      let activeConfig = { ...config }
+      
       // Обработка SSH
       if (config.useSsh && config.sshHost && config.sshPort && config.sshUser) {
         console.log(`[Conn ${id}] Starting SSH Tunnel...`)
@@ -43,28 +38,25 @@ export class DatabaseManager {
             password: config.sshPassword,
             privateKeyPath: config.sshKeyPath
           },
-          { host: dbHost, port: dbPort }
+          { host: config.host, port: parseInt(config.port) }
         )
 
         // Сохраняем SSH сервис для этого ID
         this.sshServices.set(id, sshService)
 
-        dbHost = '127.0.0.1'
-        dbPort = localPort
+        activeConfig.host = '127.0.0.1'
+        activeConfig.port = localPort.toString()
       }
 
-      const protocol = type === 'postgres' ? 'postgresql' : 'mysql'
-      const connStr = `${protocol}://${user}:${password}@${dbHost}:${dbPort}/${database}`
-
       let newService: IDbService
-      if (type === 'mysql') {
+      if (config.type === 'mysql') {
         newService = new MysqlService()
       } else {
         newService = new PostgresService()
       }
 
-      console.log(`[Conn ${id}] Connecting to DB (${type}) via ${dbHost}:${dbPort}...`)
-      const result = await newService.connect(connStr)
+      console.log(`[Conn ${id}] Connecting to DB (${config.type}) via ${activeConfig.host}:${activeConfig.port}...`)
+      const result = await newService.connect(activeConfig)
 
       // Сохраняем активный сервис
       this.services.set(id, newService)
@@ -103,16 +95,45 @@ export class DatabaseManager {
   }
 
   async execute(id: number, sql: string): Promise<IDbResult> {
-    return await this.getService(id).execute(sql)
+    const result = await this.getService(id).execute(sql)
+    return this.processResult(result)
+  }
+
+  private processResult(result: IDbResult): IDbResult {
+    const processValue = (val: any): unknown => {
+      if (val === null || val === undefined) return val
+      if (val instanceof Date) {
+        return `${val.toISOString()}`
+      }
+      if (typeof val === 'string') {
+        return val.length > 512
+          ? { __isWrapped: true, display: val.substring(0, 512) + '...', raw: val }
+          : val
+      }
+      if (Buffer.isBuffer(val)) {
+        return { __isWrapped: true, display: '(binary)', raw: val }
+      }
+      return val
+    }
+
+    const newRows = result.rows.map((row) => {
+      if (Array.isArray(row)) {
+        return row.map(processValue)
+      } else if (typeof row === 'object' && row !== null) {
+        const newRow: any = {}
+        for (const k in row) {
+          newRow[k] = processValue(row[k])
+        }
+        return newRow
+      }
+      return row
+    })
+
+    return { ...result, rows: newRows }
   }
 
   async getSchema(id: number): Promise<DbSchema> {
     return await this.getService(id).getSchema()
-  }
-
-  isPostgres(id: number): boolean {
-    const service = this.services.get(id)
-    return service instanceof PostgresService
   }
 
   // Тест соединения остается без изменений, так как он создает временные сервисы
@@ -121,12 +142,7 @@ export class DatabaseManager {
     const sshService = new SshTunnelService()
 
     try {
-      let dbHost = config.host
-      let dbPort = parseInt(config.port)
-      const user = config.user
-      const password = config.password
-      const database = config.database
-      const type = config.type
+      let activeConfig = { ...config }
 
       if (config.useSsh && config.sshHost && config.sshPort && config.sshUser) {
         const localPort = await sshService.createTunnel(
@@ -137,22 +153,19 @@ export class DatabaseManager {
             password: config.sshPassword,
             privateKeyPath: config.sshKeyPath
           },
-          { host: dbHost, port: dbPort }
+          { host: config.host, port: parseInt(config.port) }
         )
-        dbHost = '127.0.0.1'
-        dbPort = localPort
+        activeConfig.host = '127.0.0.1'
+        activeConfig.port = localPort.toString()
       }
 
-      const protocol = type === 'postgres' ? 'postgresql' : 'mysql'
-      const connStr = `${protocol}://${user}:${password}@${dbHost}:${dbPort}/${database}`
-
-      if (type === 'mysql') {
+      if (config.type === 'mysql') {
         tempService = new MysqlService()
       } else {
         tempService = new PostgresService()
       }
 
-      const result = await tempService.connect(connStr)
+      const result = await tempService.connect(activeConfig)
       await tempService.disconnect()
       sshService.close()
       return result
@@ -171,47 +184,11 @@ export class DatabaseManager {
 
   async getTableData(connectionId: number, req: IDataRequest): Promise<IDbResult> {
     try {
-      // SECURITY: Validate tableName
-      const tables = await this.getTables(connectionId)
-      if (!tables.includes(req.tableName)) {
-        throw new Error(`Invalid table name: ${req.tableName}`)
-      }
-
-      // SECURITY: Construct SQL safely
-      // We use string concatenation because we need dynamic identifiers (table/col)
-      // which parameterization (usually) doesn't support for table/col names.
-      // But we validated tableName against the system catalog.
-
-      const isPostgres = this.isPostgres(connectionId)
-      const quoteChar = isPostgres ? '"' : '`'
-
-      // Re-quote table name with correct char
-      let sql = `SELECT * FROM ${quoteChar}${req.tableName}${quoteChar}`
-
-      if (req.sort && req.sort.length > 0) {
-        const orderClauses = req.sort.map((s) => {
-          // SECURITY: Basic sanitization for column names
-          // Ensure no quote chars that could break out
-          if (s.colId.includes(quoteChar)) {
-            throw new Error(`Invalid column name: ${s.colId}`)
-          }
-          return `${quoteChar}${s.colId}${quoteChar} ${s.sort.toUpperCase()}`
-        })
-        sql += ` ORDER BY ${orderClauses.join(', ')}`
-      }
-
-      // SECURITY: limit/offset are numbers in TypeScript interface
-      // ensure they are numbers at runtime to be sure
-      const limit = Number(req.limit)
-      const offset = Number(req.offset)
-
-      if (isNaN(limit) || isNaN(offset)) {
-        throw new Error('Invalid limit/offset')
-      }
-
-      sql += ` LIMIT ${limit} OFFSET ${offset}`
-
-      return await this.execute(connectionId, sql)
+      const service = this.getService(connectionId)
+      // Check tables (security check still useful here, or move entirely to service?)
+      // Service now handles it.
+      const result = await service.getTableData(req)
+      return this.processResult(result)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       return { rows: [], columns: [], error: msg, duration: 0 }

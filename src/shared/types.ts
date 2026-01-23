@@ -44,3 +44,14 @@ export interface IElectronAPI {
   getSchema: (id: number) => Promise<DbSchema>
   testConnection: (config: DbConnection) => Promise<string>
 }
+export interface WrappedDbValue {
+  __isWrapped: true
+  display: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  raw: any
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function isWrappedValue(val: any): val is WrappedDbValue {
+  return typeof val === 'object' && val !== null && val.__isWrapped === true
+}

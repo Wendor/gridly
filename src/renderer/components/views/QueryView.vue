@@ -86,6 +86,7 @@ import { ref, onMounted, reactive, computed } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
 import { SortChangedEvent, GridApi, CellContextMenuEvent } from 'ag-grid-community'
 import { format } from 'sql-formatter'
+import { isWrappedValue } from '../../../shared/types'
 
 import { useTabStore } from '../../stores/tabs'
 import { useConnectionStore } from '../../stores/connections'
@@ -128,14 +129,32 @@ function closeContextMenu(): void {
 }
 
 async function copyValue(): Promise<void> {
-  const val = contextMenu.value === null ? '(NULL)' : String(contextMenu.value)
+  const raw = contextMenu.value
+  let val = ''
+  if (raw === null) {
+    val = '(NULL)'
+  } else if (isWrappedValue(raw)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    val = typeof raw.raw === 'string' ? raw.raw : JSON.stringify(raw.raw)
+  } else {
+    val = String(raw)
+  }
   await navigator.clipboard.writeText(val)
   closeContextMenu()
 }
 
 async function copyRow(): Promise<void> {
   if (!contextMenu.rowData) return
-  const json = JSON.stringify(contextMenu.rowData, null, 2)
+  // Un-wrap values for JSON copy
+  const cleanRow = {} as Record<string, unknown>
+  for (const [k, v] of Object.entries(contextMenu.rowData as Record<string, unknown>)) {
+    if (isWrappedValue(v)) {
+      cleanRow[k] = v.raw
+    } else {
+      cleanRow[k] = v
+    }
+  }
+  const json = JSON.stringify(cleanRow, null, 2)
   await navigator.clipboard.writeText(json)
   closeContextMenu()
 }

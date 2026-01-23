@@ -2,7 +2,8 @@ import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { useConnectionStore } from './connections'
 import { useHistoryStore } from './history'
-import type { ValueFormatterParams, CellClassParams } from 'ag-grid-community'
+import type { CellClassParams, ValueFormatterParams } from 'ag-grid-community'
+import { isWrappedValue } from '../../shared/types'
 
 export interface Tab {
   id: number
@@ -187,32 +188,19 @@ export const useTabStore = defineStore('tabs', () => {
         currentTab.value.colDefs = res.columns.map((col: string) => ({
           field: col,
           headerName: col,
+          cellClassRules: {
+            'null-cell': (params: CellClassParams): boolean => params.value === null,
+            'binary-cell': (params: CellClassParams): boolean => {
+              const val = params.value
+              if (isWrappedValue(val)) return val.display === '(binary)'
+              return val === '(binary)'
+            }
+          },
           valueFormatter: (params: ValueFormatterParams): string => {
             const val = params.value
-
             if (val === null) return '(NULL)'
-
-            if (typeof val === 'object') {
-              if (!Array.isArray(val)) {
-                const keys = Object.keys(val)
-                if (keys.length > 0 && keys.every((k) => !isNaN(Number(k)))) {
-                  return Object.values(val)
-                    .map((b: unknown) => Number(b).toString(16).padStart(2, '0'))
-                    .join('')
-                }
-              }
-
-              if (val.type === 'Buffer' && Array.isArray(val.data)) {
-                return val.data.map((b: number) => b.toString(16).padStart(2, '0')).join('')
-              }
-
-              return JSON.stringify(val)
-            }
-
+            if (isWrappedValue(val)) return val.display
             return String(val)
-          },
-          cellClassRules: {
-            'null-cell': (params: CellClassParams): boolean => params.value === null
           }
         }))
 

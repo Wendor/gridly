@@ -1,18 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Client } from 'pg'
-import { DbSchema, IDbResult } from '../../shared/types'
+import { DbSchema, IDbResult, DbConnection, IDataRequest } from '../../shared/types'
 import { IDbService } from './IDbService'
+
 
 export class PostgresService implements IDbService {
   private client: Client | null = null
 
-  async connect(connectionUri: string): Promise<string> {
+  async connect(config: DbConnection): Promise<string> {
     try {
       await this.disconnect()
-      const validUri = connectionUri.startsWith('postgres://')
-        ? connectionUri.replace('postgres://', 'postgresql://')
-        : connectionUri
-      this.client = new Client({ connectionString: validUri })
+      const connectionUri = `postgresql://${config.user}:${config.password}@${config.host}:${config.port}/${config.database}`
+      this.client = new Client({ connectionString: connectionUri })
       await this.client.connect()
       return 'PostgreSQL Connected!'
     } catch (err: any) {
@@ -102,5 +101,43 @@ export class PostgresService implements IDbService {
       schema[tableName].push(colName)
     }
     return schema
+  }
+
+  async getTableData(req: IDataRequest): Promise<IDbResult> {
+    if (!this.client) return { rows: [], columns: [], duration: 0, error: 'Not connected' }
+    try {
+      // For Postgres, we check against the current search path, typically public
+      // But getTables() is returning tables. We should verify.
+      const tables = await this.getTables()
+      if (!tables.includes(req.tableName)) {
+         throw new Error(`Invalid table name: ${req.tableName}`)
+      }
+
+      const quoteChar = '"'
+      let sql = `SELECT * FROM ${quoteChar}${req.tableName}${quoteChar}`
+
+      if (req.sort && req.sort.length > 0) {
+        const orderClauses = req.sort.map((s) => {
+          if (s.colId.includes(quoteChar)) {
+            throw new Error(`Invalid column name: ${s.colId}`)
+          }
+          return `${quoteChar}${s.colId}${quoteChar} ${s.sort.toUpperCase()}`
+        })
+        sql += ` ORDER BY ${orderClauses.join(', ')}`
+      }
+
+      const limit = Number(req.limit)
+      const offset = Number(req.offset)
+
+      if (isNaN(limit) || isNaN(offset)) {
+         throw new Error('Invalid limit/offset')
+      }
+
+      sql += ` LIMIT ${limit} OFFSET ${offset}`
+
+      return await this.execute(sql)
+    } catch (e: any) {
+      return { rows: [], columns: [], error: e.message, duration: 0 }
+    }
   }
 }
