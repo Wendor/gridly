@@ -22,6 +22,7 @@
       <ConnectionModal
         :is-open="isModalOpen"
         :initial-data="editingConnection"
+        :available-databases="modalAvailableDatabases"
         @close="isModalOpen = false"
         @save="handleModalSave"
       />
@@ -63,6 +64,7 @@ const isResizingSidebar = ref(false)
 // Состояние редактирования
 const editingConnection = ref<DbConnection | null>(null)
 const editingIndex = ref<number | null>(null)
+const modalAvailableDatabases = ref<string[]>([])
 
 onMounted(() => {
   connStore.loadFromStorage()
@@ -77,15 +79,29 @@ onMounted(() => {
 function openCreateModal(): void {
   editingIndex.value = null
   editingConnection.value = null
+  modalAvailableDatabases.value = []
   isModalOpen.value = true
 }
 
-function openEditModal(index: number): void {
+async function openEditModal(index: number): Promise<void> {
   const conn = connStore.savedConnections[index]
   if (conn) {
     editingIndex.value = index
+    modalAvailableDatabases.value = []
+
     // Клонируем объект, чтобы не менять стор напрямую до сохранения
     editingConnection.value = JSON.parse(JSON.stringify(conn))
+
+    // Если подключение активно, загружаем список ВСЕХ баз (без excludeList)
+    if (connStore.isConnected(index)) {
+      try {
+        const dbs = await window.dbApi.getDatabases(index, '')
+        modalAvailableDatabases.value = dbs.sort()
+      } catch (e) {
+        console.error('Failed to load databases for modal:', e)
+      }
+    }
+
     isModalOpen.value = true
   }
 }

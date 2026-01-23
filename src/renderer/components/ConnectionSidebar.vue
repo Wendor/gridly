@@ -122,6 +122,20 @@
       :y="ctxMenu.y"
       @close="closeCtxMenu"
     >
+      <div v-if="!connStore.isConnected(ctxMenu.index)" class="ctx-item" @click="handleConnect">
+        <span class="ctx-icon connect-icon">
+          <BaseIcon name="play" />
+        </span>
+        Подключиться
+      </div>
+
+      <div v-if="connStore.isConnected(ctxMenu.index)" class="ctx-item" @click="handleRefresh">
+        <span class="ctx-icon refresh-icon">
+          <BaseIcon name="refresh" />
+        </span>
+        Обновить схему
+      </div>
+
       <div v-if="connStore.isConnected(ctxMenu.index)" class="ctx-item" @click="handleDisconnect">
         <span class="ctx-icon disconnect-icon">×</span>
         Отключиться
@@ -200,6 +214,28 @@ function handleDelete(): void {
 async function handleDisconnect(): Promise<void> {
   if (ctxMenu.index !== -1) {
     connStore.activeConnectionIds.delete(ctxMenu.index)
+  }
+  closeCtxMenu()
+}
+
+async function handleConnect(): Promise<void> {
+  if (ctxMenu.index !== -1) {
+    // Используем loadDatabases для подключения и загрузки списка баз
+    connStore.loadDatabases(ctxMenu.index)
+    // Также разворачиваем, если свернуто
+    if (!expandedIndices.value.has(ctxMenu.index)) {
+      expandedIndices.value.add(ctxMenu.index)
+    }
+  }
+  closeCtxMenu()
+}
+
+async function handleRefresh(): Promise<void> {
+  if (ctxMenu.index !== -1) {
+    // Принудительно обновляем список баз
+    await connStore.loadDatabases(ctxMenu.index, true)
+    // Если развернуто соединение, и мы обновили базы, возможно стоит обновить и активную базу, но это сложнее.
+    // Пока ограничимся списком баз.
   }
   closeCtxMenu()
 }
@@ -528,5 +564,13 @@ watch(
 .disconnect-icon {
   color: #ffaa00;
   font-size: 16px;
+}
+.connect-icon {
+  color: #4caf50;
+  display: flex;
+}
+.refresh-icon {
+  color: var(--text-secondary);
+  display: flex;
 }
 </style>

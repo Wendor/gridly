@@ -29,7 +29,23 @@
 
       <BaseInput v-model="form.database" label="База данных" placeholder="my_app_db" />
 
+      <div v-if="availableDatabases && availableDatabases.length > 0" class="exclude-section">
+        <label class="section-label">Исключить базы/схемы</label>
+        <div class="db-list">
+          <label v-for="db in availableDatabases" :key="db" class="db-check-item">
+            <input
+              type="checkbox"
+              :checked="isExcluded(db)"
+              @change="toggleDbExclusion(db)"
+            />
+            {{ db }}
+          </label>
+        </div>
+        <div class="help-text">Отмеченные базы будут скрыты из списка</div>
+      </div>
+
       <BaseInput
+        v-else
         v-model="form.excludeList"
         label="Исключить базы/схемы"
         placeholder="information_schema, sys..."
@@ -101,6 +117,7 @@ import BaseSelect from './ui/BaseSelect.vue'
 const props = defineProps<{
   isOpen: boolean
   initialData?: DbConnection | null
+  availableDatabases?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -129,6 +146,40 @@ const defaultForm: DbConnection = {
 
 const form = reactive<DbConnection>({ ...defaultForm })
 const testStatus = ref<{ type: 'loading' | 'success' | 'error'; message: string } | null>(null)
+
+// Для работы с чекбоксами (computed set/get)
+// Превращаем строку CSV в Set для удобной проверки
+const excludedDbSet = computed({
+  get() {
+    if (!form.excludeList) return new Set<string>()
+    return new Set(
+      form.excludeList
+        .split(',')
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean)
+    )
+  },
+  set(newSet: Set<string>) {
+    // При изменении сета обновляем строку
+    form.excludeList = Array.from(newSet).join(', ')
+  }
+})
+
+function toggleDbExclusion(db: string) {
+  const current = new Set(excludedDbSet.value)
+  const lower = db.toLowerCase()
+  if (current.has(lower)) {
+    current.delete(lower)
+  } else {
+    current.add(lower)
+  }
+  // Trigger setter
+  excludedDbSet.value = current
+}
+
+function isExcluded(db: string): boolean {
+  return excludedDbSet.value.has(db.toLowerCase())
+}
 
 watch(
   () => props.isOpen,
@@ -235,5 +286,50 @@ function save(): void {
   background: rgba(70, 255, 70, 0.1);
   color: #6bff6b;
   border: 1px solid rgba(70, 255, 70, 0.2);
+}
+
+.exclude-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.section-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.db-list {
+  max-height: 150px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  border-radius: 4px;
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.db-check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 4px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.db-check-item:hover {
+  background: var(--list-hover-bg);
+}
+
+.help-text {
+  font-size: 11px;
+  color: var(--text-secondary);
+  opacity: 0.8;
 }
 </style>
