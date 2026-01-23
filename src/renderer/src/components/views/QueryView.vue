@@ -3,7 +3,7 @@
     <div class="toolbar">
       <div class="toolbar-left">
         <select
-          v-model="tabStore.currentTab!.connectionId"
+          :value="tabStore.currentTab?.connectionId"
           class="conn-select"
           @change="onTabConnectionChange"
         >
@@ -97,6 +97,9 @@ import { useSettingsStore } from '../../stores/settings'
 import SqlEditor from '../SqlEditor.vue'
 import BaseIcon from '../ui/BaseIcon.vue'
 
+// Import sql-formatter only where needed to avoid large bundle at start
+import { format } from 'sql-formatter'
+
 const tabStore = useTabStore()
 const connStore = useConnectionStore()
 const settingsStore = useSettingsStore()
@@ -113,7 +116,6 @@ const contextMenu = reactive({
   rowData: null as unknown
 })
 
-// FIX: Добавлен возвращаемый тип void
 function onCellContextMenu(params: CellContextMenuEvent): void {
   contextMenu.value = params.value
   contextMenu.rowData = params.data
@@ -126,12 +128,10 @@ function onCellContextMenu(params: CellContextMenuEvent): void {
   }
 }
 
-// FIX: Добавлен возвращаемый тип void
 function closeContextMenu(): void {
   contextMenu.visible = false
 }
 
-// FIX: Добавлен возвращаемый тип Promise<void>
 async function copyValue(): Promise<void> {
   const val = contextMenu.value === null ? '(NULL)' : String(contextMenu.value)
   try {
@@ -142,33 +142,22 @@ async function copyValue(): Promise<void> {
   closeContextMenu()
 }
 
-// FIX: Добавлен возвращаемый тип Promise<void>
 async function copyRow(): Promise<void> {
   if (!contextMenu.rowData) return
   try {
-    // Добавляем replacer (второй аргумент), чтобы обработать бинарники
     const json = JSON.stringify(
       contextMenu.rowData,
       (_key, value) => {
-        // Проверяем, похоже ли значение на бинарный буфер (объект с ключами "0", "1", "2"...)
         if (
           value !== null &&
           typeof value === 'object' &&
           !Array.isArray(value) &&
           Object.keys(value).every((k) => !isNaN(Number(k)))
         ) {
-          // Превращаем объект {"0": 155, "1": 255...} в массив чисел
           const bytes = Object.values(value) as number[]
-
-          // ВАРИАНТ 1: Если хотите вернуть красивую HEX строку (например "9be1...")
-          // Это идеально для checksum, hash и id
           return bytes.map((b) => b.toString(16).padStart(2, '0')).join('')
-
-          // ВАРИАНТ 2: Если хотите просто массив чисел [155, 255, ...]
-          // return bytes
         }
 
-        // Если это стандартный Node Buffer { type: 'Buffer', data: [...] }
         if (value && value.type === 'Buffer' && Array.isArray(value.data)) {
           return value.data.map((b: number) => b.toString(16).padStart(2, '0')).join('')
         }
@@ -184,8 +173,6 @@ async function copyRow(): Promise<void> {
   }
   closeContextMenu()
 }
-
-import { format } from 'sql-formatter'
 
 async function formatCurrentSql(): Promise<void> {
   if (!tabStore.currentTab) return
@@ -215,7 +202,7 @@ function exportCsv(): void {
       return Object.values(row)
         .map((val) => {
           if (val === null) return ''
-          const str = String(val).replace(/"/g, '""') // Escape quotes
+          const str = String(val).replace(/"/g, '""')
           return `"${str}"`
         })
         .join(',')
@@ -232,10 +219,15 @@ function exportCsv(): void {
   document.body.removeChild(link)
 }
 
-async function onTabConnectionChange(): Promise<void> {
-  if (tabStore.currentTab?.type === 'query' && tabStore.currentTab.connectionId !== null) {
+// ИЗМЕНЕНИЕ: Обработчик смены соединения в тулбаре
+async function onTabConnectionChange(event: Event): Promise<void> {
+  const select = event.target as HTMLSelectElement
+  if (tabStore.currentTab && select.value !== '') {
+    const connId = Number(select.value)
+    tabStore.currentTab.connectionId = connId
+
     try {
-      await connStore.ensureConnection(tabStore.currentTab!.connectionId)
+      await connStore.ensureConnection(connId)
     } catch (e) {
       console.error(e)
     }
@@ -289,8 +281,6 @@ function startResize(e: MouseEvent): void {
   document.addEventListener('mousemove', doResize)
   document.addEventListener('mouseup', stopResize)
   document.body.style.cursor = 'row-resize'
-
-  // Prevent text selection during drag
   e.preventDefault()
 }
 
@@ -310,7 +300,6 @@ function doResize(e: MouseEvent): void {
   const delta = e.clientY - startY.value
   const newHeight = startHeight.value + delta
 
-  // Constraints
   if (newHeight > 50 && newHeight < window.innerHeight - 150) {
     editorHeight.value = newHeight
   }
@@ -348,7 +337,7 @@ onMounted(() => {
   background: var(--bg-input);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  height: 28px; /* Фиксированная высота */
+  height: 28px;
   padding: 0 8px;
   border-radius: 2px;
   font-size: 13px;
@@ -362,7 +351,7 @@ onMounted(() => {
   background: var(--accent-primary);
   color: var(--text-white);
   border: none;
-  height: 28px; /* Фиксированная высота */
+  height: 28px;
   padding: 0 16px;
   border-radius: 2px;
   cursor: pointer;
@@ -390,7 +379,7 @@ onMounted(() => {
   background: transparent;
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  height: 28px; /* Фиксированная высота */
+  height: 28px;
   padding: 0 12px;
   border-radius: 2px;
   cursor: pointer;
@@ -463,7 +452,6 @@ onMounted(() => {
   z-index: 9999;
   background: var(--bg-app);
   border: 1px solid var(--border-color);
-  /* FIX: Исправлены пробелы в rgba */
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
   border-radius: 4px;
   padding: 4px 0;

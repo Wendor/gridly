@@ -55,7 +55,7 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
-  dbManager.disconnect()
+  dbManager.disconnectAll()
   if (process.platform !== 'darwin') {
     app.quit()
   }

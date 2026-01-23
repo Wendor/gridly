@@ -150,11 +150,13 @@ export const useTabStore = defineStore('tabs', () => {
     )
       return
 
+    const connId = currentTab.value.connectionId
+
     try {
       connectionStore.loading = true
       connectionStore.error = null
 
-      await connectionStore.ensureConnection(currentTab.value.connectionId)
+      await connectionStore.ensureConnection(connId)
 
       let finalSql = currentTab.value.sql.trim()
 
@@ -162,45 +164,37 @@ export const useTabStore = defineStore('tabs', () => {
       const tableMatch = finalSql.match(/FROM\s+([`'"]?[\w.]+[`'"]?)/i)
       const tableName = tableMatch ? tableMatch[1] : null
 
-      // Проверяем, является ли запрос "простым" (без WHERE/JOIN), чтобы безопасно вызвать COUNT(*)
       const isSimpleSelect =
         /^SELECT\s+\*\s+FROM/i.test(finalSql) && !/WHERE|JOIN|GROUP/i.test(finalSql)
 
       // Обработка LIMIT / OFFSET
-      // Добавляем пагинацию ТОЛЬКО для SELECT запросов,
-      // исключая SHOW, DESCRIBE, EXPLAIN и сложные запросы, где LIMIT уже есть
       const isSelect = /^SELECT\s/i.test(finalSql)
       const hasLimit = /LIMIT\s+\d+/i.test(finalSql)
 
       if (isSelect && !hasLimit) {
-        // Убираем точку с запятой в конце, если есть
         finalSql = finalSql.replace(/;$/, '')
         finalSql += ` LIMIT ${currentTab.value.pagination.limit} OFFSET ${currentTab.value.pagination.offset}`
       }
 
-      const res = await window.dbApi.query(finalSql)
+      // ИЗМЕНЕНИЕ: Передаем connId первым аргументом
+      const res = await window.dbApi.query(connId, finalSql)
 
       if (res.error) {
         connectionStore.error = res.error
-        historyStore.addEntry(currentTab.value.sql, 'error', 0, currentTab.value.connectionId)
+        historyStore.addEntry(currentTab.value.sql, 'error', 0, connId)
       } else {
         // Формируем колонки
         currentTab.value.colDefs = res.columns.map((col: string) => ({
           field: col,
           headerName: col,
-          // ОБНОВЛЕННЫЙ valueFormatter
           valueFormatter: (params: ValueFormatterParams): string => {
             const val = params.value
 
             if (val === null) return '(NULL)'
 
-            // Проверяем, является ли это объектом (но не null)
             if (typeof val === 'object') {
-              // 1. Проверка на "странный" объект-буфер {"0": 155, "1": 255...}
-              // Если это не массив, но ключи - числа
               if (!Array.isArray(val)) {
                 const keys = Object.keys(val)
-                // Эвристика: если есть ключи и они все числа — считаем это бинарником
                 if (keys.length > 0 && keys.every((k) => !isNaN(Number(k)))) {
                   return Object.values(val)
                     .map((b: unknown) => Number(b).toString(16).padStart(2, '0'))
@@ -208,16 +202,13 @@ export const useTabStore = defineStore('tabs', () => {
                 }
               }
 
-              // 2. Если это Node Buffer { type: 'Buffer', data: [...] }
               if (val.type === 'Buffer' && Array.isArray(val.data)) {
                 return val.data.map((b: number) => b.toString(16).padStart(2, '0')).join('')
               }
 
-              // 3. Если это обычный JSON-объект или массив — показываем как JSON строку
               return JSON.stringify(val)
             }
 
-            // Все остальное (числа, строки, даты)
             return String(val)
           },
           cellClassRules: {
@@ -228,25 +219,19 @@ export const useTabStore = defineStore('tabs', () => {
         currentTab.value.rows = res.rows
         currentTab.value.meta = { duration: res.duration }
 
-        historyStore.addEntry(
-          currentTab.value.sql,
-          'success',
-          res.duration,
-          currentTab.value.connectionId
-        )
+        historyStore.addEntry(currentTab.value.sql, 'success', res.duration, connId)
 
-        // --- ИСПРАВЛЕННАЯ ЛОГИКА ПОДСЧЕТА TOTAL ---
+        // --- ЛОГИКА ПОДСЧЕТА TOTAL ---
 
         if (tableName && isSimpleSelect) {
-          // СЦЕНАРИЙ 1: Простой просмотр всей таблицы.
-          // Делаем отдельный запрос COUNT(*), если total еще не известен или это первая страница
           if (
             currentTab.value.pagination.total === null ||
             currentTab.value.pagination.offset === 0
           ) {
             try {
               const countSql = `SELECT COUNT(*) as total FROM ${tableName}`
-              const countRes = await window.dbApi.query(countSql)
+              // ИЗМЕНЕНИЕ: Передаем connId и сюда
+              const countRes = await window.dbApi.query(connId, countSql)
               if (countRes.rows.length > 0) {
                 const val = Object.values(countRes.rows[0])[0]
                 currentTab.value.pagination.total = Number(val)
@@ -256,17 +241,9 @@ export const useTabStore = defineStore('tabs', () => {
             }
           }
         } else {
-          // СЦЕНАРИЙ 2: Кастомный запрос (с WHERE, JOIN и т.д.)
-
-          // Если мы получили меньше строк, чем запрашивали (лимит),
-          // значит мы достигли конца выборки.
           if (res.rows.length < currentTab.value.pagination.limit) {
-            // Точный total = текущее смещение + сколько реально пришло строк
             currentTab.value.pagination.total = currentTab.value.pagination.offset + res.rows.length
           } else {
-            // Если пришла полная пачка (например, 100 из 100), мы не знаем, сколько там дальше.
-            // Сбрасываем total в null, чтобы пагинатор не показывал неверное "of 58".
-            // (В UI это будет выглядеть как "1-100" вместо "1-100 of ???")
             currentTab.value.pagination.total = null
           }
         }
@@ -274,7 +251,7 @@ export const useTabStore = defineStore('tabs', () => {
     } catch (e) {
       if (e instanceof Error) {
         connectionStore.error = e.message
-        historyStore.addEntry(currentTab.value.sql, 'error', 0, currentTab.value.connectionId)
+        historyStore.addEntry(currentTab.value.sql, 'error', 0, connId)
       }
     } finally {
       connectionStore.loading = false
@@ -289,7 +266,6 @@ export const useTabStore = defineStore('tabs', () => {
       name: t.name,
       connectionId: t.connectionId,
       sql: t.sql,
-      // Не сохраняем rows, colDefs и meta, чтобы не забивать localStorage
       meta: null,
       pagination: t.pagination
     }))
@@ -308,7 +284,7 @@ export const useTabStore = defineStore('tabs', () => {
         const parsed = JSON.parse(saved)
         tabs.value = parsed.map((t: Tab) => ({
           ...t,
-          rows: [], // Восстанавливаем пустыми
+          rows: [],
           colDefs: [],
           meta: null
         }))
@@ -321,7 +297,6 @@ export const useTabStore = defineStore('tabs', () => {
     if (savedNext) nextTabId.value = parseInt(savedNext)
   }
 
-  // Автосохранение при изменениях
   watch(
     () => tabs.value,
     () => {
@@ -334,7 +309,6 @@ export const useTabStore = defineStore('tabs', () => {
     saveToStorage()
   })
 
-  // Инициализация
   loadFromStorage()
   if (tabs.value.length === 0) {
     addTab()

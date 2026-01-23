@@ -1,27 +1,39 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import { IElectronAPI } from '../shared/types'
+import { DbConnection, IDataRequest } from '../shared/types'
 
-// Реализуем типизированный API
-const api: IElectronAPI = {
-  connect: (config) => ipcRenderer.invoke('db:connect', config),
-  query: (sql) => ipcRenderer.invoke('db:query', sql),
-  getTables: () => ipcRenderer.invoke('db:get-tables'),
-  getTableData: (req) => ipcRenderer.invoke('db:get-table-data', req),
-  getSchema: () => ipcRenderer.invoke('db:get-schema'),
-  testConnection: (config) => ipcRenderer.invoke('db:test-connection', config)
+const dbApi = {
+  connect: (id: number, config: DbConnection): Promise<string> => {
+    return ipcRenderer.invoke('db:connect', { id, config })
+  },
+  query: (id: number, sql: string) => {
+    return ipcRenderer.invoke('db:query', { id, sql })
+  },
+  getTables: (id: number) => {
+    return ipcRenderer.invoke('db:get-tables', id)
+  },
+  getTableData: (connectionId: number, req: IDataRequest) => {
+    return ipcRenderer.invoke('db:get-table-data', { connectionId, req })
+  },
+  getSchema: (id: number) => {
+    return ipcRenderer.invoke('db:get-schema', id)
+  },
+  testConnection: (config: DbConnection) => {
+    return ipcRenderer.invoke('db:test-connection', config)
+  }
 }
 
+// Экспортируем API в renderer
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('dbApi', api)
+    contextBridge.exposeInMainWorld('dbApi', dbApi)
   } catch (error) {
     console.error(error)
   }
 } else {
-  // @ts-ignore (define in dts)
+  // @ts-ignore (define in d.ts)
   window.electron = electronAPI
-  // @ts-ignore (define in dts)
-  window.dbApi = api
+  // @ts-ignore (define in d.ts)
+  window.dbApi = dbApi
 }
