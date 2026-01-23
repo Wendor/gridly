@@ -278,11 +278,20 @@ function onGridSortChanged(event: SortChangedEvent): void {
   }
 }
 
-function startResize(): void {
+const startY = ref(0)
+const startHeight = ref(0)
+
+function startResize(e: MouseEvent): void {
   isResizing.value = true
+  startY.value = e.clientY
+  startHeight.value = editorHeight.value
+  
   document.addEventListener('mousemove', doResize)
   document.addEventListener('mouseup', stopResize)
   document.body.style.cursor = 'row-resize'
+  
+  // Prevent text selection during drag
+  e.preventDefault()
 }
 
 function stopResize(): void {
@@ -297,9 +306,13 @@ function stopResize(): void {
 
 function doResize(e: MouseEvent): void {
   if (!isResizing.value) return
-  const h = e.clientY - 40 - 35
-  if (h > 50 && h < window.innerHeight - 150) {
-    editorHeight.value = h
+  
+  const delta = e.clientY - startY.value
+  const newHeight = startHeight.value + delta
+  
+  // Constraints
+  if (newHeight > 50 && newHeight < window.innerHeight - 150) {
+    editorHeight.value = newHeight
   }
 }
 
