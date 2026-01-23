@@ -36,7 +36,6 @@
                     title="Connected"
                   ></div>
                 </div>
-
                 <span class="name-text">{{ conn.name }}</span>
               </div>
             </div>
@@ -47,20 +46,58 @@
           </div>
         </div>
 
-        <div v-if="isExpanded(index)" class="tables-tree">
-          <div v-if="!tablesCache[index]" class="loading-state">Загрузка...</div>
-          <div v-else-if="tablesCache[index].length === 0" class="empty-tables">Нет таблиц</div>
+        <div v-if="isExpanded(index)" class="databases-tree">
+          <div v-if="connStore.databasesError?.[index]" class="error-state">
+            Ошибка: {{ connStore.databasesError[index] }}
+          </div>
+          <div v-else-if="!connStore.databasesCache[index]" class="loading-state">
+            Загрузка баз...
+          </div>
+          <div v-else-if="connStore.databasesCache[index].length === 0" class="empty-state">
+            Нет баз
+          </div>
+
           <div
-            v-for="table in tablesCache[index]"
+            v-for="dbName in connStore.databasesCache[index]"
             v-else
-            :key="table"
-            class="table-item"
-            @click.stop="$emit('table-click', table, index)"
+            :key="dbName"
+            class="db-node"
           >
-            <span class="table-icon">
-              <BaseIcon name="table" />
-            </span>
-            {{ table }}
+            <div class="db-item" @click.stop="toggleDbExpand(index, dbName)">
+              <BaseIcon
+                name="chevronRight"
+                class="arrow-icon-small"
+                :class="{ rotated: isDbExpanded(index, dbName) }"
+              />
+              <span class="db-icon-small">
+                <BaseIcon name="database" />
+              </span>
+              <span class="db-name-text">{{ dbName }}</span>
+            </div>
+
+            <div v-if="isDbExpanded(index, dbName)" class="tables-tree">
+              <div v-if="!connStore.tablesCache[`${index}-${dbName}`]" class="loading-state">
+                Загрузка...
+              </div>
+              <div
+                v-else-if="connStore.tablesCache[`${index}-${dbName}`].length === 0"
+                class="empty-tables"
+              >
+                Нет таблиц
+              </div>
+              <div
+                v-for="table in connStore.tablesCache[`${index}-${dbName}`]"
+                v-else
+                :key="table"
+                class="table-item"
+                @click.stop="$emit('table-click', table, index, dbName)"
+              >
+                <span class="table-icon">
+                  <BaseIcon name="table" />
+                </span>
+                <span class="table-name-text">{{ table }}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -98,24 +135,21 @@ import { useConnectionStore } from '../stores/connections'
 const props = defineProps<{
   connections: DbConnection[]
   activeSidebarId: number | null
-  tablesCache: Record<number, string[]>
 }>()
 
 const emit = defineEmits<{
   (e: 'select', index: number): void
-  (e: 'expand', index: number): void
   (e: 'delete', index: number): void
   (e: 'edit', index: number): void
   (e: 'open-create-modal'): void
-  (e: 'table-click', table: string, index: number): void
+  (e: 'table-click', table: string, index: number, dbName: string): void
 }>()
 
-// Подключаем стор, чтобы проверять статус isConnected(index)
 const connStore = useConnectionStore()
 
 const expandedIndices = ref<Set<number>>(new Set())
+const expandedDbs = ref<Set<string>>(new Set())
 
-// --- Логика контекстного меню ---
 const ctxMenu = reactive({
   visible: false,
   x: 0,
@@ -135,9 +169,7 @@ function closeCtxMenu(): void {
 }
 
 function handleEdit(): void {
-  if (ctxMenu.index !== -1) {
-    emit('edit', ctxMenu.index)
-  }
+  if (ctxMenu.index !== -1) emit('edit', ctxMenu.index)
   closeCtxMenu()
 }
 
@@ -150,25 +182,12 @@ function handleDelete(): void {
   closeCtxMenu()
 }
 
-// НОВОЕ: Ручное отключение
 async function handleDisconnect(): Promise<void> {
   if (ctxMenu.index !== -1) {
-    // В сторе пока нет явного метода disconnect, но мы можем удалить ID из активных
-    // Лучше добавить метод disconnect(id) в стор, но пока можно сделать так:
-    // (По-хорошему нужно добавить disconnect в connections.ts, который вызывает ipcRenderer)
-
-    // Пока сбросим состояние в UI (это не разорвет соединение на бэке, если там нет метода)
-    // Давайте лучше вызовем хак через activeConnectionIds,
-    // но правильнее будет, если вы добавите `disconnect` в API позже.
-
-    // В текущей реализации DatabaseManager разрывает соединение при connect.
-    // Если нужно явное отключение, нужно добавить метод в Store и API.
-    // Пока просто уберем из активных в UI, чтобы пользователь видел реакцию
     connStore.activeConnectionIds.delete(ctxMenu.index)
   }
   closeCtxMenu()
 }
-// ------------------------------
 
 function isExpanded(index: number): boolean {
   return expandedIndices.value.has(index)
@@ -179,20 +198,31 @@ function toggleExpand(index: number): void {
     expandedIndices.value.delete(index)
   } else {
     expandedIndices.value.add(index)
-    emit('expand', index)
+    connStore.loadDatabases(index)
+  }
+}
+
+function isDbExpanded(index: number, dbName: string): boolean {
+  return expandedDbs.value.has(`${index}-${dbName}`)
+}
+
+function toggleDbExpand(index: number, dbName: string): void {
+  const key = `${index}-${dbName}`
+  if (expandedDbs.value.has(key)) {
+    expandedDbs.value.delete(key)
+  } else {
+    expandedDbs.value.add(key)
+    connStore.loadTables(index, dbName) // Теперь принимает 2 аргумента
   }
 }
 
 function onSelect(index: number): void {
   emit('select', index)
-  // При клике на само подключение тоже раскрываем
   if (!expandedIndices.value.has(index)) {
-    expandedIndices.value.add(index)
-    emit('expand', index)
+    toggleExpand(index)
   }
 }
 
-// --- PERSISTENCE ---
 const STORAGE_KEY = 'sidebar-expanded-connections'
 
 function saveExpandedState(): void {
@@ -213,7 +243,7 @@ function restoreExpandedState(): void {
       const idx = props.connections.findIndex((c) => c.name === name)
       if (idx !== -1) {
         newSet.add(idx)
-        emit('expand', idx)
+        connStore.loadDatabases(idx)
       }
     })
     expandedIndices.value = newSet
@@ -224,25 +254,35 @@ function restoreExpandedState(): void {
 
 watch(
   () => expandedIndices.value,
-  () => {
-    saveExpandedState()
-  },
+  () => saveExpandedState(),
   { deep: true }
 )
 
 watch(
   () => props.connections,
   (newConns) => {
-    if (newConns.length > 0) {
-      restoreExpandedState()
-    }
+    if (newConns.length > 0) restoreExpandedState()
   },
   { immediate: true }
+)
+
+watch(
+  () => props.connections,
+  (newConns) => {
+    newConns.forEach((_, index) => {
+      // Если соединение раскрыто, но кэша нет (он был сброшен при updateConnection),
+      // то перезагружаем список баз.
+      if (isExpanded(index) && !connStore.databasesCache[index]) {
+        connStore.loadDatabases(index)
+      }
+    })
+  },
+  { deep: true }
 )
 </script>
 
 <style scoped>
-/* Стили остались прежними + индикатор */
+/* Стили из предыдущего ответа остаются актуальными */
 .sidebar {
   height: 100%;
   display: flex;
@@ -321,9 +361,6 @@ watch(
   cursor: pointer;
   opacity: 0.7;
 }
-.arrow-wrapper:hover {
-  opacity: 1;
-}
 .arrow-icon {
   transition: transform 0.15s;
   color: var(--text-secondary);
@@ -331,14 +368,12 @@ watch(
 .arrow-icon.rotated {
   transform: rotate(90deg);
 }
-
 .conn-info {
   flex: 1;
   overflow: hidden;
 }
 .conn-name {
   font-size: 13px;
-  color: inherit;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -348,8 +383,6 @@ watch(
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-/* Стили для индикатора */
 .status-indicator-wrapper {
   position: relative;
   display: flex;
@@ -361,12 +394,11 @@ watch(
   right: -2px;
   width: 6px;
   height: 6px;
-  background-color: #4caf50; /* Зеленый */
+  background-color: #4caf50;
   border-radius: 50%;
-  border: 1px solid var(--bg-sidebar); /* Обводка под цвет фона */
+  border: 1px solid var(--bg-sidebar);
   box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
 }
-
 .icon-wrapper {
   display: flex;
   align-items: center;
@@ -374,10 +406,6 @@ watch(
 .db-icon {
   color: var(--text-secondary);
 }
-.saved-item:hover .db-icon {
-  color: var(--accent-primary);
-}
-
 .del-btn {
   position: absolute;
   right: 8px;
@@ -394,47 +422,88 @@ watch(
 .saved-item:hover .del-btn {
   display: flex;
 }
-.del-btn:hover {
-  color: #f44;
-  background: rgba(255, 0, 0, 0.1);
-}
 
-.tables-tree {
+.databases-tree {
   margin-left: 10px;
   border-left: 1px solid var(--border-color);
-  padding-bottom: 5px;
 }
-.empty-tables,
-.loading-state {
-  padding-left: 15px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  font-style: italic;
-  margin-top: 2px;
-}
-.table-item {
+.db-item {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  cursor: pointer;
   font-size: 13px;
   color: var(--text-primary);
+  opacity: 0.85;
+}
+.db-item:hover {
+  background: var(--list-hover-bg);
+  opacity: 1;
+}
+.db-name-text {
+  margin-left: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.db-icon-small {
+  display: flex;
+  align-items: center;
+  width: 14px;
+  color: var(--text-secondary);
+  transform: scale(0.8);
+}
+.arrow-icon-small {
+  font-size: 10px;
+  transition: transform 0.1s;
+  color: var(--text-secondary);
+  margin-right: 4px;
+}
+.arrow-icon-small.rotated {
+  transform: rotate(90deg);
+}
+.tables-tree {
+  margin-left: 15px;
+  border-left: 1px dotted var(--border-color);
+  padding-bottom: 5px;
+}
+.table-item {
+  font-size: 12px;
+  color: var(--text-primary);
   opacity: 0.8;
-  padding: 5px 0 5px 12px;
+  padding: 4px 0 4px 10px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 .table-item:hover {
-  color: var(--list-hover-fg);
   background: var(--list-hover-bg);
   opacity: 1;
 }
 .table-icon {
   color: var(--accent-primary);
-  opacity: 0.8;
+  opacity: 0.7;
+  transform: scale(0.85);
   display: flex;
-  align-items: center;
+}
+.loading-state,
+.empty-state,
+.empty-tables {
+  padding-left: 20px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin: 2px 0;
 }
 
-/* Контекстное меню */
+.error-state {
+  padding-left: 20px;
+  font-size: 11px;
+  color: #ff6b6b;
+  margin: 2px 0;
+}
+
 .ctx-menu {
   position: fixed;
   z-index: 9999;
@@ -470,6 +539,5 @@ watch(
 .disconnect-icon {
   color: #ffaa00;
   font-size: 16px;
-  line-height: 1;
 }
 </style>

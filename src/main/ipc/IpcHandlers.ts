@@ -22,15 +22,17 @@ export function setupIpcHandlers(dbManager: DatabaseManager): void {
   })
 
   // Принимаем просто id
-  ipcMain.handle('db:get-tables', async (_event, id: number) => {
-    try {
-      const tables = await dbManager.getTables(id)
-      return tables.sort()
-    } catch (e: unknown) {
-      console.error(e)
-      return []
+  ipcMain.handle(
+    'db:get-tables',
+    async (_event, { id, dbName }: { id: number; dbName?: string }) => {
+      try {
+        return await dbManager.getTables(id, dbName)
+      } catch (e: unknown) {
+        console.error(e)
+        return []
+      }
     }
-  })
+  )
 
   // Сложный запрос данных
   ipcMain.handle(
@@ -95,4 +97,11 @@ export function setupIpcHandlers(dbManager: DatabaseManager): void {
   ipcMain.handle('db:test-connection', async (_event, config: DbConnection) => {
     return await dbManager.testConnection(config)
   })
+
+  ipcMain.handle(
+    'db:get-databases',
+    async (_event, { id, excludeList }: { id: number; excludeList?: string }) => {
+      return await dbManager.getDatabases(id, excludeList)
+    }
+  )
 }

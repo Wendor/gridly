@@ -9,9 +9,9 @@ const dbApi = {
   query: (id: number, sql: string) => {
     return ipcRenderer.invoke('db:query', { id, sql })
   },
-  getTables: (id: number) => {
-    return ipcRenderer.invoke('db:get-tables', id)
-  },
+  getTables: (id: number, dbName?: string) => ipcRenderer.invoke('db:get-tables', { id, dbName }),
+  getDatabases: (id: number, excludeList?: string) =>
+    ipcRenderer.invoke('db:get-databases', { id, excludeList }),
   getTableData: (connectionId: number, req: IDataRequest) => {
     return ipcRenderer.invoke('db:get-table-data', { connectionId, req })
   },

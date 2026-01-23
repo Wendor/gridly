@@ -1,215 +1,259 @@
 <template>
-  <div class="status-bar-global">
-    <div class="sb-section left">
-      <div class="sb-item status-text">
-        <span v-if="connStore.loading" class="loading-label">Executing...</span>
-        <span v-else>{{ tabStore.currentTab?.type === 'settings' ? 'Settings' : 'Ready' }}</span>
-      </div>
-    </div>
-
-    <div class="sb-section center">
-      <div v-if="tabStore.currentTab?.type === 'query'" class="pagination-controls">
-        <button
-          class="pg-btn"
-          :disabled="tabStore.currentTab.pagination.offset === 0 || connStore.loading"
-          title="Previous Page"
-          @click="tabStore.prevPage"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
-        </button>
-
-        <span class="pg-text">
-          {{ startRow }} - {{ endRow }}
-          <span v-if="tabStore.currentTab.pagination.total !== null" class="total-count">
-            of {{ tabStore.currentTab.pagination.total }}
-          </span>
-        </span>
-
-        <button
-          class="pg-btn"
-          :disabled="isNextDisabled || connStore.loading"
-          title="Next Page"
-          @click="tabStore.nextPage"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <polyline points="9 18 15 12 9 6"></polyline>
-          </svg>
-        </button>
-      </div>
-    </div>
-
-    <div class="sb-section right">
-      <div class="sb-item meta-info" :style="{ opacity: connStore.loading ? 0.5 : 1 }">
-        <span v-if="tabStore.currentTab?.meta"> ⏱ {{ tabStore.currentTab.meta.duration }} ms </span>
-      </div>
-
-      <div
-        class="sb-item connection-status"
-        :class="{ active: isTabConnected }"
-        :title="isTabConnected ? 'Connected' : 'Not connected'"
-      >
-        {{ isTabConnected ? `${currentConnectionName}` : 'Disconnected' }}
-      </div>
-    </div>
+  <div class="editor-container">
+    <div
+      ref="editorRef"
+      class="sql-editor"
+      :style="{ fontSize: settingsStore.fontSize + 'px' }"
+    ></div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, computed, watchEffect } from 'vue'
+import { EditorState, Compartment } from '@codemirror/state'
+import { EditorView, keymap, lineNumbers, highlightActiveLineGutter } from '@codemirror/view'
+import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+import {
+  autocompletion,
+  CompletionContext,
+  CompletionResult,
+  completeFromList
+} from '@codemirror/autocomplete'
+import { sql, MySQL, PostgreSQL } from '@codemirror/lang-sql'
+import { oneDark } from '@codemirror/theme-one-dark'
+import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language'
+
 import { useTabStore } from '../stores/tabs'
 import { useConnectionStore } from '../stores/connections'
+import { useSettingsStore } from '../stores/settings'
+import { DbSchema } from '../../../shared/types'
+
+const props = defineProps<{ modelValue: string }>()
+const emit = defineEmits<{ (e: 'update:modelValue', val: string): void; (e: 'run'): void }>()
 
 const tabStore = useTabStore()
 const connStore = useConnectionStore()
+const settingsStore = useSettingsStore()
+const editorRef = ref<HTMLElement | null>(null)
+let view: EditorView | null = null
+const languageConf = new Compartment()
 
-const isTabConnected = computed(() => {
-  const tab = tabStore.currentTab
-  // Проверяем: это вкладка запроса + у неё есть ID + это соединение реально активно
-  return (
-    tab?.type === 'query' &&
-    typeof tab.connectionId === 'number' &&
-    connStore.isConnected(tab.connectionId)
-  )
-})
+const SQL_KEYWORDS = [
+  'SELECT',
+  'FROM',
+  'WHERE',
+  'INSERT',
+  'UPDATE',
+  'DELETE',
+  'JOIN',
+  'LEFT',
+  'RIGHT',
+  'INNER',
+  'OUTER',
+  'GROUP',
+  'BY',
+  'ORDER',
+  'HAVING',
+  'LIMIT',
+  'OFFSET',
+  'AS',
+  'ON',
+  'AND',
+  'OR',
+  'NOT',
+  'NULL',
+  'VALUES',
+  'SET',
+  'CREATE',
+  'TABLE',
+  'DROP',
+  'ALTER',
+  'distinct',
+  'count',
+  'max',
+  'min',
+  'avg',
+  'sum'
+].map((label) => ({ label, type: 'keyword', boost: 0 }))
 
-const currentConnectionName = computed(() => {
-  if (tabStore.currentTab?.connectionId === null || tabStore.currentTab?.connectionId === undefined)
-    return ''
-  const conn = connStore.savedConnections[tabStore.currentTab.connectionId]
-  return conn ? conn.name : 'Unknown'
-})
-
-// Вычисляемые свойства для пагинации
-const startRow = computed(() => (tabStore.currentTab?.pagination.offset || 0) + 1)
-const endRow = computed(() => {
-  if (!tabStore.currentTab) return 0
-  return (tabStore.currentTab.pagination.offset || 0) + tabStore.currentTab.rows.length
-})
-
-const isNextDisabled = computed(() => {
-  if (!tabStore.currentTab) return true
-  if (tabStore.currentTab.rows.length < tabStore.currentTab.pagination.limit) return true
-  if (tabStore.currentTab.pagination.total !== null) {
-    return endRow.value >= tabStore.currentTab.pagination.total
+const currentDialect = computed(() => {
+  const connId = tabStore.currentTab?.connectionId
+  if (typeof connId === 'number' && connStore.savedConnections[connId]?.type === 'postgres') {
+    return PostgreSQL
   }
-  return false
+  return MySQL
+})
+
+const simpleSchema = computed(() => {
+  const connId = tabStore.currentTab?.connectionId
+  if (connId == null) return {}
+  return JSON.parse(JSON.stringify(connStore.schemaCache[connId] || {})) as DbSchema
+})
+
+// FIX 2: Расширяем возвращаемый тип (добавляем Promise)
+function customCompletionSource(
+  context: CompletionContext
+): CompletionResult | null | Promise<CompletionResult | null> {
+  const word = context.matchBefore(/[\w"']+/)
+  if (!word || (word.from === word.to && !context.explicit)) return null
+
+  const dbSchema = simpleSchema.value
+  const docText = context.state.doc.toString()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const options: any[] = [...SQL_KEYWORDS]
+
+  Object.keys(dbSchema).forEach((tableName) => {
+    options.push({
+      label: tableName,
+      type: 'class',
+      boost: 50
+    })
+  })
+
+  const tableMatches = [...docText.matchAll(/(?:FROM|JOIN)\s+([a-zA-Z0-9_]+)/gi)]
+
+  tableMatches.forEach((match) => {
+    const tableName = match[1]
+
+    // FIX 1: Проверяем, что tableName существует и является ключом в dbSchema
+    if (tableName && Object.prototype.hasOwnProperty.call(dbSchema, tableName)) {
+      const columns = dbSchema[tableName]
+
+      if (columns) {
+        columns.forEach((col) => {
+          const needsQuotes = currentDialect.value === PostgreSQL && /[A-Z]/.test(col)
+          const insertText = needsQuotes ? `"${col}"` : col
+
+          options.push({
+            label: col,
+            type: 'property',
+            detail: tableName,
+            apply: insertText,
+            boost: 99
+          })
+        })
+      }
+    }
+  })
+
+  return completeFromList(options)(context)
+}
+
+onMounted(() => {
+  if (!editorRef.value) return
+
+  const startState = EditorState.create({
+    doc: props.modelValue,
+    extensions: [
+      lineNumbers(),
+      highlightActiveLineGutter(),
+      history(),
+      autocompletion({
+        override: [customCompletionSource]
+      }),
+      keymap.of([
+        ...defaultKeymap,
+        ...historyKeymap,
+        {
+          key: 'Mod-Enter',
+          run: () => {
+            emit('run')
+            return true
+          }
+        }
+      ]),
+      oneDark,
+      syntaxHighlighting(defaultHighlightStyle),
+
+      languageConf.of(sql({ dialect: currentDialect.value, schema: simpleSchema.value })),
+
+      EditorView.updateListener.of((update) => {
+        if (update.docChanged) emit('update:modelValue', update.state.doc.toString())
+      })
+    ]
+  })
+
+  view = new EditorView({ state: startState, parent: editorRef.value })
+})
+
+watchEffect(() => {
+  if (view) {
+    view.dispatch({
+      effects: languageConf.reconfigure(
+        sql({
+          dialect: currentDialect.value,
+          schema: simpleSchema.value
+        })
+      )
+    })
+  }
+})
+
+watch(
+  () => props.modelValue,
+  (newVal) => {
+    if (view && newVal !== view.state.doc.toString()) {
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: newVal } })
+    }
+  }
+)
+
+onBeforeUnmount(() => {
+  if (view) view.destroy()
 })
 </script>
 
 <style scoped>
-/* Стили без изменений, кроме логики классов в шаблоне */
-.status-bar-global {
-  height: var(--status-bar-height);
-  background: var(--bg-status-bar);
-  color: var(--fg-status-bar);
-  font-size: 12px;
-  user-select: none;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  padding: 0 10px;
-}
-.status-bar-global.loading {
-  background: #005f9e;
-}
-.sb-section {
-  display: flex;
-  align-items: center;
-}
-.sb-section.left {
-  justify-content: flex-start;
-}
-.sb-section.center {
-  justify-content: center;
-}
-.sb-section.right {
-  justify-content: flex-end;
-  gap: 15px;
-}
-.sb-item {
-  display: flex;
-  align-items: center;
-  white-space: nowrap;
+.editor-container {
+  height: 100%;
+  width: 100%;
+  position: relative;
+  /* Скрываем всё, что вылезает за пределы контейнера компонента */
+  overflow: hidden;
 }
 
-.connection-status {
-  display: flex;
-  align-items: center;
-  font-weight: 500;
-}
-.connection-status::before {
-  content: '';
-  display: block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #ccc;
-  margin-right: 6px;
-  transition: background-color 0.3s;
-}
-.connection-status.active::before {
-  background: #89d185;
+.sql-editor {
+  height: 100%;
+  width: 100%;
+  font-size: 14px;
 }
 
-.pagination-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* --- МАГИЯ CODEMIRROR --- */
+
+/* 1. Заставляем сам редактор занимать всю высоту контейнера */
+:deep(.cm-editor) {
+  height: 100%;
 }
-.pg-btn {
+
+/* 2. Включаем скролл внутри скроллера CodeMirror */
+:deep(.cm-scroller) {
+  overflow: auto;
+  font-family: 'Fira Code', 'Consolas', monospace; /* Опционально: красивый шрифт */
+}
+
+/* 3. Опционально: Стилизуем полосу прокрутки (для Webkit/Chrome/Electron) */
+:deep(.cm-scroller)::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+:deep(.cm-scroller)::-webkit-scrollbar-track {
   background: transparent;
-  border: none;
-  color: white;
-  cursor: pointer;
-  padding: 2px;
-  border-radius: 2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.8;
 }
-.pg-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.2);
-  opacity: 1;
+
+:deep(.cm-scroller)::-webkit-scrollbar-thumb {
+  background: var(--border-color); /* Или #555 */
+  border-radius: 5px;
+  border: 2px solid var(--bg-app); /* Отступ от края */
 }
-.pg-btn:disabled {
-  opacity: 0.3;
-  cursor: default;
+
+:deep(.cm-scroller)::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
 }
-.pg-text {
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-  min-width: 100px;
-  display: inline-block;
-}
-.total-count {
-  opacity: 0.8;
-  margin-left: 2px;
-}
-.loading-label {
-  font-style: italic;
-  opacity: 0.8;
+
+/* Исправляем активную строку, чтобы она не перекрывала границы */
+:deep(.cm-activeLine) {
+  background-color: rgba(255, 255, 255, 0.05);
 }
 </style>

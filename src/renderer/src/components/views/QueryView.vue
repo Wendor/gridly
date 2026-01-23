@@ -30,10 +30,10 @@
 
         <button
           class="run-btn"
-          :disabled="connStore.loading || tabStore.currentTab!.connectionId === null"
+          :disabled="connStore.loading || tabStore.currentTab?.connectionId === null"
           @click="tabStore.runQuery"
         >
-          <BaseIcon name="play" /> Run (Ctrl+Enter)
+          <BaseIcon name="play" /> Run
         </button>
       </div>
     </div>
@@ -89,16 +89,14 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { SortChangedEvent, GridApi, ColumnState, CellContextMenuEvent } from 'ag-grid-community'
+import { SortChangedEvent, GridApi, CellContextMenuEvent } from 'ag-grid-community'
+import { format } from 'sql-formatter'
 
 import { useTabStore } from '../../stores/tabs'
 import { useConnectionStore } from '../../stores/connections'
 import { useSettingsStore } from '../../stores/settings'
 import SqlEditor from '../SqlEditor.vue'
 import BaseIcon from '../ui/BaseIcon.vue'
-
-// Import sql-formatter only where needed to avoid large bundle at start
-import { format } from 'sql-formatter'
 
 const tabStore = useTabStore()
 const connStore = useConnectionStore()
@@ -119,7 +117,6 @@ const contextMenu = reactive({
 function onCellContextMenu(params: CellContextMenuEvent): void {
   contextMenu.value = params.value
   contextMenu.rowData = params.data
-
   const event = params.event as MouseEvent
   if (event) {
     contextMenu.x = event.clientX
@@ -134,175 +131,95 @@ function closeContextMenu(): void {
 
 async function copyValue(): Promise<void> {
   const val = contextMenu.value === null ? '(NULL)' : String(contextMenu.value)
-  try {
-    await navigator.clipboard.writeText(val)
-  } catch (err) {
-    console.error('Failed to copy', err)
-  }
+  await navigator.clipboard.writeText(val)
   closeContextMenu()
 }
 
 async function copyRow(): Promise<void> {
   if (!contextMenu.rowData) return
-  try {
-    const json = JSON.stringify(
-      contextMenu.rowData,
-      (_key, value) => {
-        if (
-          value !== null &&
-          typeof value === 'object' &&
-          !Array.isArray(value) &&
-          Object.keys(value).every((k) => !isNaN(Number(k)))
-        ) {
-          const bytes = Object.values(value) as number[]
-          return bytes.map((b) => b.toString(16).padStart(2, '0')).join('')
-        }
-
-        if (value && value.type === 'Buffer' && Array.isArray(value.data)) {
-          return value.data.map((b: number) => b.toString(16).padStart(2, '0')).join('')
-        }
-
-        return value
-      },
-      2
-    )
-
-    await navigator.clipboard.writeText(json)
-  } catch (err) {
-    console.error('Failed to copy row', err)
-  }
+  const json = JSON.stringify(contextMenu.rowData, null, 2)
+  await navigator.clipboard.writeText(json)
   closeContextMenu()
 }
 
 async function formatCurrentSql(): Promise<void> {
   if (!tabStore.currentTab) return
-  try {
-    const formatted = format(tabStore.currentTab.sql, {
-      language:
-        connStore.savedConnections[tabStore.currentTab.connectionId || 0]?.type === 'postgres'
-          ? 'postgresql'
-          : 'mysql',
-      keywordCase: 'upper'
-    })
-    tabStore.currentTab.sql = formatted
-  } catch (e) {
-    console.error('Format error', e)
-  }
+  const dialect =
+    connStore.savedConnections[tabStore.currentTab.connectionId || 0]?.type === 'postgres'
+      ? 'postgresql'
+      : 'mysql'
+  tabStore.currentTab.sql = format(tabStore.currentTab.sql, {
+    language: dialect,
+    keywordCase: 'upper'
+  })
 }
 
 function exportCsv(): void {
-  if (!tabStore.currentTab || !tabStore.currentTab.rows.length) return
-
-  const rows = tabStore.currentTab.rows
-  if (rows.length === 0) return
-
-  const header = Object.keys(rows[0]).join(',')
-  const csvContent = rows
-    .map((row) => {
-      return Object.values(row)
-        .map((val) => {
-          if (val === null) return ''
-          const str = String(val).replace(/"/g, '""')
-          return `"${str}"`
-        })
+  if (!tabStore.currentTab?.rows.length) return
+  const header = Object.keys(tabStore.currentTab.rows[0]).join(',')
+  const csv = tabStore.currentTab.rows
+    .map((r) =>
+      Object.values(r)
+        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
         .join(',')
-    })
+    )
     .join('\n')
-
-  const blob = new Blob([header + '\n' + csvContent], { type: 'text/csv;charset=utf-8;' })
+  const blob = new Blob([header + '\n' + csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.setAttribute('download', `export_${Date.now()}.csv`)
-  document.body.appendChild(link)
+  link.download = `export_${Date.now()}.csv`
   link.click()
-  document.body.removeChild(link)
 }
 
-// ИЗМЕНЕНИЕ: Обработчик смены соединения в тулбаре
 async function onTabConnectionChange(event: Event): Promise<void> {
   const select = event.target as HTMLSelectElement
-  if (tabStore.currentTab && select.value !== '') {
-    const connId = Number(select.value)
-    tabStore.currentTab.connectionId = connId
-
-    try {
-      await connStore.ensureConnection(connId)
-    } catch (e) {
-      console.error(e)
+  if (tabStore.currentTab) {
+    tabStore.currentTab.connectionId = select.value === '' ? null : Number(select.value)
+    if (tabStore.currentTab.connectionId !== null) {
+      await connStore.ensureConnection(tabStore.currentTab.connectionId)
     }
   }
 }
 
 function onGridSortChanged(event: SortChangedEvent): void {
   const api = event.api as GridApi
-  const allState: ColumnState[] = api.getColumnState()
-
-  const sortModel = allState
-    .filter((col) => col.sort != null)
-    .map((col) => ({
-      colId: col.colId,
-      sort: col.sort
-    }))
-
+  const sortModel = api
+    .getColumnState()
+    .filter((c) => c.sort != null)
+    .map((c) => ({ colId: c.colId, sort: c.sort }))
   if (!tabStore.currentTab) return
-
-  const currentSql = tabStore.currentTab.sql.trim()
-
-  if (/^SELECT\s+\*\s+FROM/i.test(currentSql)) {
-    const match = currentSql.match(/FROM\s+([`'"]?[\w.]+[`'"]?)/i)
-
-    if (match) {
-      const tableName = match[1]
-      let newSql = `SELECT * FROM ${tableName}`
-
-      if (sortModel.length > 0) {
-        const sortPart = sortModel.map((s) => `"${s.colId}" ${s.sort!.toUpperCase()}`).join(', ')
-        newSql += ` ORDER BY ${sortPart}`
-      }
-
-      if (tabStore.currentTab.sql !== newSql) {
-        tabStore.currentTab.pagination.offset = 0
-        tabStore.currentTab.sql = newSql
-        tabStore.runQuery()
-      }
-    }
+  const match = tabStore.currentTab.sql.match(/FROM\s+([`'"]?[\w.]+[`'"]?)/i)
+  if (match) {
+    let newSql = `SELECT * FROM ${match[1]}`
+    if (sortModel.length > 0)
+      newSql += ` ORDER BY ${sortModel.map((s) => `"${s.colId}" ${s.sort!.toUpperCase()}`).join(', ')}`
+    tabStore.currentTab.sql = newSql
+    tabStore.runQuery()
   }
 }
 
+// Resizing logic
 const startY = ref(0)
 const startHeight = ref(0)
-
 function startResize(e: MouseEvent): void {
   isResizing.value = true
   startY.value = e.clientY
   startHeight.value = editorHeight.value
-
   document.addEventListener('mousemove', doResize)
   document.addEventListener('mouseup', stopResize)
-  document.body.style.cursor = 'row-resize'
   e.preventDefault()
 }
-
 function stopResize(): void {
-  if (isResizing.value) {
-    localStorage.setItem('editor-height', String(editorHeight.value))
-  }
+  localStorage.setItem('editor-height', String(editorHeight.value))
   isResizing.value = false
   document.removeEventListener('mousemove', doResize)
   document.removeEventListener('mouseup', stopResize)
-  document.body.style.cursor = ''
 }
-
 function doResize(e: MouseEvent): void {
   if (!isResizing.value) return
-
-  const delta = e.clientY - startY.value
-  const newHeight = startHeight.value + delta
-
-  if (newHeight > 50 && newHeight < window.innerHeight - 150) {
-    editorHeight.value = newHeight
-  }
+  const newHeight = startHeight.value + (e.clientY - startY.value)
+  if (newHeight > 100 && newHeight < window.innerHeight - 200) editorHeight.value = newHeight
 }
 
 onMounted(() => {
@@ -312,6 +229,43 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.query-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+.toolbar {
+  height: 40px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  background: var(--bg-app);
+  flex-shrink: 0;
+}
+.editor-wrapper {
+  overflow: hidden;
+  background: var(--bg-app);
+  flex-shrink: 0;
+  min-height: 100px; /* Гарантируем видимость */
+}
+.resizer-horizontal {
+  height: 4px;
+  background: transparent;
+  cursor: row-resize;
+  border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+.grid-wrapper {
+  flex: 1; /* Занимает все оставшееся пространство */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
 .query-view {
   display: flex;
   flex-direction: column;

@@ -24,6 +24,16 @@
         <input v-model="form.password" type="password" placeholder="Password" class="input" />
         <input v-model="form.database" placeholder="Database Name" class="input" />
 
+        <div class="form-group">
+          <label class="label">Исключить базы/схемы:</label>
+          <input
+            v-model="form.excludeList"
+            placeholder="information_schema, mysql, sys..."
+            class="input"
+          />
+          <small class="help-text">Через запятую. Эти элементы будут скрыты в дереве.</small>
+        </div>
+
         <div class="ssh-toggle">
           <label class="checkbox-label">
             <input v-model="form.useSsh" type="checkbox" />
@@ -85,7 +95,7 @@ import BaseIcon from './ui/BaseIcon.vue'
 
 const props = defineProps<{
   isOpen: boolean
-  initialData?: DbConnection | null // Данные для редактирования
+  initialData?: DbConnection | null
 }>()
 
 const emit = defineEmits<{
@@ -95,7 +105,6 @@ const emit = defineEmits<{
 
 const isEditing = computed(() => !!props.initialData)
 
-// Дефолтное состояние формы
 const defaultForm: DbConnection = {
   type: 'mysql',
   name: '',
@@ -104,6 +113,7 @@ const defaultForm: DbConnection = {
   user: 'root',
   password: '',
   database: '',
+  excludeList: '', // Инициализация нового поля
   useSsh: false,
   sshHost: '',
   sshPort: '22',
@@ -115,17 +125,14 @@ const defaultForm: DbConnection = {
 const form = reactive<DbConnection>({ ...defaultForm })
 const testStatus = ref<{ type: 'loading' | 'success' | 'error'; message: string } | null>(null)
 
-// Следим за открытием окна
 watch(
   () => props.isOpen,
   (isOpen) => {
     if (isOpen) {
-      testStatus.value = null // Сброс статуса
+      testStatus.value = null
       if (props.initialData) {
-        // РЕЖИМ РЕДАКТИРОВАНИЯ: Копируем данные в форму
-        Object.assign(form, props.initialData)
+        Object.assign(form, { ...defaultForm, ...props.initialData })
       } else {
-        // РЕЖИМ СОЗДАНИЯ: Сбрасываем форму
         Object.assign(form, defaultForm)
       }
     }
@@ -133,7 +140,6 @@ watch(
 )
 
 function onTypeChange(): void {
-  // Меняем порт только если он дефолтный или пустой, чтобы не стереть пользовательский ввод
   if (form.type === 'mysql' && (form.port === '5432' || !form.port)) form.port = '3306'
   if (form.type === 'postgres' && (form.port === '3306' || !form.port)) form.port = '5432'
 }
@@ -156,14 +162,12 @@ async function testConnection(): Promise<void> {
 function save(): void {
   const newConn = JSON.parse(JSON.stringify(form)) as DbConnection
   if (!newConn.name) newConn.name = `${newConn.type} @ ${newConn.host}`
-
   emit('save', newConn)
   close()
 }
 </script>
 
 <style scoped>
-/* Стили без изменений */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -180,7 +184,7 @@ function save(): void {
   background: var(--bg-app);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  width: 400px;
+  width: 420px;
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
@@ -197,22 +201,33 @@ function save(): void {
 }
 .modal-header h3 {
   margin: 0;
-  color: var(--text-primary);
 }
 .close-btn {
   background: none;
   border: none;
   color: var(--text-secondary);
-  font-size: 20px;
+  font-size: 24px;
   cursor: pointer;
-}
-.close-btn:hover {
-  color: var(--text-primary);
 }
 .form-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: bold;
+}
+.help-text {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-top: 2px;
 }
 .input {
   background: var(--bg-input);
@@ -230,11 +245,12 @@ function save(): void {
   gap: 10px;
 }
 .port {
-  width: 80px;
+  width: 100px;
 }
 .ssh-fields {
   border-left: 2px solid var(--accent-primary);
-  padding-left: 10px;
+  padding-left: 12px;
+  margin-top: 5px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -243,49 +259,33 @@ function save(): void {
   color: var(--text-secondary);
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
   cursor: pointer;
+  font-size: 13px;
 }
-
 .modal-footer {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+  margin-top: 10px;
 }
-
 .save-btn {
   background: var(--accent-primary);
   color: var(--text-white);
   border: none;
-  padding: 10px;
+  padding: 10px 20px;
   border-radius: 4px;
   cursor: pointer;
   font-weight: bold;
 }
-.save-btn:hover {
-  background: var(--accent-hover);
-}
-.save-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .test-btn {
   background: transparent;
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  padding: 10px;
+  padding: 10px 15px;
   border-radius: 4px;
   cursor: pointer;
 }
-.test-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-.test-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .test-feedback {
   margin-top: 5px;
 }
@@ -306,9 +306,5 @@ function save(): void {
   background: rgba(70, 255, 70, 0.1);
   color: #6bff6b;
   border: 1px solid rgba(70, 255, 70, 0.2);
-}
-.feedback-msg.loading {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-secondary);
 }
 </style>

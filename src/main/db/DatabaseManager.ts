@@ -106,10 +106,6 @@ export class DatabaseManager {
     return await this.getService(id).execute(sql)
   }
 
-  async getTables(id: number): Promise<string[]> {
-    return await this.getService(id).getTables()
-  }
-
   async getSchema(id: number): Promise<DbSchema> {
     return await this.getService(id).getSchema()
   }
@@ -166,5 +162,27 @@ export class DatabaseManager {
       const msg = e instanceof Error ? e.message : String(e)
       throw new Error(msg)
     }
+  }
+
+  async getTables(id: number, dbName?: string): Promise<string[]> {
+    const service = this.getService(id)
+    return await service.getTables(dbName)
+  }
+
+  async getDatabases(id: number, excludeList?: string): Promise<string[]> {
+    const service = this.getService(id)
+    const allDbs = await service.getDatabases()
+
+    // Если список пуст, возвращаем всё
+    if (!excludeList || !excludeList.trim()) return allDbs
+
+    // Превращаем строку "db1, db2" в массив ["db1", "db2"] в нижнем регистре
+    const excluded = excludeList
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter((s) => s.length > 0)
+
+    // Фильтруем
+    return allDbs.filter((db) => !excluded.includes(db.toLowerCase()))
   }
 }

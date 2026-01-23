@@ -6,6 +6,7 @@ export interface DbConnection {
   user: string
   password?: string
   database: string
+  excludeList?: string
   useSsh?: boolean
   sshHost?: string
   sshPort?: string
@@ -34,11 +35,12 @@ export interface IDataRequest {
 export type DbSchema = Record<string, string[]>
 
 export interface IElectronAPI {
-  connect: (config: DbConnection) => Promise<string>
-  query: (sql: string) => Promise<IDbResult>
-  getTables: () => Promise<string[]>
+  connect: (id: number, config: DbConnection) => Promise<string>
+  query: (id: number, sql: string) => Promise<IDbResult>
+  getTables: (id: number, dbName?: string) => Promise<string[]>
+  // ОБНОВЛЕНО: теперь принимает два аргумента
+  getDatabases: (id: number, excludeList?: string) => Promise<string[]>
   getTableData: (req: IDataRequest) => Promise<IDbResult>
-  // НОВЫЙ МЕТОД
-  getSchema: () => Promise<DbSchema>
+  getSchema: (id: number) => Promise<DbSchema>
   testConnection: (config: DbConnection) => Promise<string>
 }

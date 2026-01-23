@@ -9,16 +9,11 @@ export class PostgresService implements IDbService {
   async connect(connectionUri: string): Promise<string> {
     try {
       await this.disconnect()
-
-      // pg требует строку вида postgresql://...
-      // Если пришло postgres://, заменим для совместимости
       const validUri = connectionUri.startsWith('postgres://')
         ? connectionUri.replace('postgres://', 'postgresql://')
         : connectionUri
-
       this.client = new Client({ connectionString: validUri })
       await this.client.connect()
-      console.log('PG Connected')
       return 'PostgreSQL Connected!'
     } catch (err: any) {
       throw new Error(err.message)
@@ -29,18 +24,10 @@ export class PostgresService implements IDbService {
     const start = performance.now()
     try {
       if (!this.client) throw new Error('Not connected')
-
       const res = await this.client.query(sql)
-
-      // pg возвращает массив результатов, если было несколько запросов
-      // или один результат, если запрос был один
-
       let rows: any[] = []
       let columns: string[] = []
-
       if (Array.isArray(res)) {
-        // Множественные запросы
-        // Ищем последний непустой SELECT (command === 'SELECT')
         for (let i = res.length - 1; i >= 0; i--) {
           const r = res[i]
           if (r.command === 'SELECT') {
@@ -50,23 +37,12 @@ export class PostgresService implements IDbService {
           }
         }
       } else {
-        // Одиночный запрос
         rows = res.rows
         columns = res.fields.map((f) => f.name)
       }
-
-      return {
-        rows,
-        columns,
-        duration: Math.round(performance.now() - start)
-      }
+      return { rows, columns, duration: Math.round(performance.now() - start) }
     } catch (err: any) {
-      return {
-        rows: [],
-        columns: [],
-        duration: 0,
-        error: err.message
-      }
+      return { rows: [], columns: [], duration: 0, error: err.message }
     }
   }
 
@@ -77,16 +53,17 @@ export class PostgresService implements IDbService {
     }
   }
 
-  async getTables(): Promise<string[]> {
+  // Для Postgres dbName — это Schema (public и т.д.)
+  async getTables(dbName: string = 'public'): Promise<string[]> {
     if (!this.client) return []
     try {
       const sql = `
         SELECT table_name
         FROM information_schema.tables
-        WHERE table_schema = 'public'
+        WHERE table_schema = $1
         ORDER BY table_name;
       `
-      const res = await this.client.query(sql)
+      const res = await this.client.query(sql, [dbName])
       return res.rows.map((row) => row.table_name)
     } catch (e) {
       console.error('Error fetching tables:', e)
@@ -94,9 +71,22 @@ export class PostgresService implements IDbService {
     }
   }
 
+  // Возвращаем список схем. Это позволит дереву Сервер -> БД -> Таблицы работать корректно
+  async getDatabases(): Promise<string[]> {
+    if (!this.client) return []
+    try {
+      const sql = `SELECT schema_name FROM information_schema.schemata
+                   WHERE schema_name NOT IN ('information_schema', 'pg_catalog')`
+      const res = await this.client.query(sql)
+      return res.rows.map((row) => row.schema_name)
+    } catch (e) {
+      console.error('Error fetching schemas:', e)
+      return []
+    }
+  }
+
   async getSchema(): Promise<DbSchema> {
     if (!this.client) return {}
-
     const sql = `
       SELECT table_name, column_name
       FROM information_schema.columns
@@ -104,19 +94,13 @@ export class PostgresService implements IDbService {
       ORDER BY table_name, ordinal_position;
     `
     const res = await this.client.query(sql)
-
-    // Преобразуем плоский список в объект { users: ['id', 'name'], ... }
     const schema: DbSchema = {}
     for (const row of res.rows) {
       const tableName = row.table_name
       const colName = row.column_name
-
-      if (!schema[tableName]) {
-        schema[tableName] = []
-      }
+      if (!schema[tableName]) schema[tableName] = []
       schema[tableName].push(colName)
     }
-
     return schema
   }
 }

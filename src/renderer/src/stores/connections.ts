@@ -12,10 +12,15 @@ export const useConnectionStore = defineStore('connections', () => {
   const activeConnectionIds = ref<Set<number>>(new Set())
 
   // Кеш списка таблиц (для сайдбара)
-  const tablesCache = reactive<Record<number, string[]>>({})
+  const tablesCache = reactive<Record<string, string[]>>({})
 
   // Кеш схемы для автокомплита (Таблица -> Колонки)
   const schemaCache = reactive<Record<number, DbSchema>>({})
+
+  const databasesCache = reactive<Record<number, string[]>>({})
+  const databasesError = reactive<Record<number, string | null>>({})
+
+  // ... (Rest of state)
 
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -39,14 +44,15 @@ export const useConnectionStore = defineStore('connections', () => {
   function deleteConnection(index: number): void {
     savedConnections.value.splice(index, 1)
     saveToStorage()
-    // Чистим кеши при удалении
+
     delete tablesCache[index]
     delete schemaCache[index]
-    activeConnectionIds.value.delete(index)
+    delete databasesCache[index]
+    delete databasesError[index]
 
+    activeConnectionIds.value.delete(index)
     if (activeId.value === index) activeId.value = null
   }
-
   // Проверка активности конкретного соединения
   function isConnected(index: number): boolean {
     return activeConnectionIds.value.has(index)
@@ -83,15 +89,14 @@ export const useConnectionStore = defineStore('connections', () => {
     }
   }
 
-  async function loadTables(index: number): Promise<void> {
-    // Если кеш есть, не грузим
-    if (tablesCache[index]?.length) return
+  async function loadTables(index: number, dbName?: string): Promise<void> {
+    const cacheKey = dbName ? `${index}-${dbName}` : String(index)
+    if (tablesCache[cacheKey]?.length) return
 
     try {
       await ensureConnection(index)
-      // ИЗМЕНЕНИЕ: Передаем index
-      const tables = await window.dbApi.getTables(index)
-      tablesCache[index] = tables
+      const tables = await window.dbApi.getTables(index, dbName)
+      tablesCache[cacheKey] = tables
     } catch (e) {
       console.error(e)
       if (e instanceof Error) {
@@ -121,15 +126,44 @@ export const useConnectionStore = defineStore('connections', () => {
       savedConnections.value[index] = conn
       saveToStorage()
 
-      // При обновлении настроек сбрасываем состояние подключения
-      if (activeConnectionIds.value.has(index)) {
-        activeConnectionIds.value.delete(index)
-        delete tablesCache[index]
-        delete schemaCache[index]
-      }
+      // Полная очистка кэша для этого соединения
+      delete databasesCache[index]
+      delete databasesError[index]
+      delete schemaCache[index]
+
+      // Удаляем все таблицы, связанные с этим индексом (например, "0-public", "0-db_name")
+      Object.keys(tablesCache).forEach((key) => {
+        if (key === String(index) || key.startsWith(`${index}-`)) {
+          delete tablesCache[key]
+        }
+      })
+
+      // Сбрасываем физическое соединение, так как настройки (host/port/user) могли измениться
+      activeConnectionIds.value.delete(index)
     }
   }
 
+  async function loadDatabases(index: number, force = false): Promise<void> {
+    if (!force && databasesCache[index]?.length) return
+
+    // Сбрасываем ошибку перед новой попыткой
+    databasesError[index] = null
+
+    try {
+      const conn = savedConnections.value[index]
+      if (!conn) return
+
+      await ensureConnection(index)
+      // Передаем excludeList в API
+      const dbs = await window.dbApi.getDatabases(index, conn.excludeList)
+      databasesCache[index] = dbs
+    } catch (e) {
+      console.error('Failed to load databases', e)
+      databasesError[index] = e instanceof Error ? e.message : String(e)
+      // Важно: если произошла ошибка, можно либо очистить кэш, либо оставить как есть
+      // Но чтобы UI не весел, мы полагаемся на databasesError
+    }
+  }
   return {
     savedConnections,
     activeId,
@@ -146,6 +180,9 @@ export const useConnectionStore = defineStore('connections', () => {
     ensureConnection,
     loadTables,
     loadSchema,
-    updateConnection
+    updateConnection,
+    databasesCache,
+    databasesError,
+    loadDatabases
   }
 })
