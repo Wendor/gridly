@@ -53,7 +53,6 @@
     "database": "База данных",
     "ssh": "Использовать SSH туннель",
     "excludeDatabases": "Исключить базы/схемы",
-    "excludeDatabasesHelp": "Введите названия через запятую (регистронезависимо)",
     "excludeDatabasesHint": "Отмеченные базы будут скрыты из списка",
     "sshHost": "SSH Хост",
     "sshPort": "SSH Порт",

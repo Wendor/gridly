@@ -53,7 +53,6 @@
     "database": "Database",
     "ssh": "Use SSH Tunnel",
     "excludeDatabases": "Exclude Databases / Schemas",
-    "excludeDatabasesHelp": "Comma separated list of databases to exclude (case insensitive)",
     "excludeDatabasesHint": "Selected databases will be hidden",
     "sshHost": "SSH Host",
     "sshPort": "SSH Port",

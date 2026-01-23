@@ -43,7 +43,10 @@
         placeholder="my_app_db"
       />
 
-      <div v-if="availableDatabases && availableDatabases.length > 0" class="exclude-section">
+      <div
+        v-if="isEditing && availableDatabases && availableDatabases.length > 0"
+        class="exclude-section"
+      >
         <label class="section-label">{{ $t('connections.excludeDatabases') }}</label>
         <div class="db-list">
           <label v-for="db in availableDatabases" :key="db" class="db-check-item">
@@ -53,14 +56,6 @@
         </div>
         <div class="help-text">{{ $t('connections.excludeDatabasesHint') }}</div>
       </div>
-
-      <BaseInput
-        v-else
-        v-model="form.excludeList"
-        :label="$t('connections.excludeDatabases')"
-        placeholder="information_schema, sys..."
-        :help="$t('connections.excludeDatabasesHelp')"
-      />
 
       <div class="ssh-toggle">
         <label class="checkbox-label">
