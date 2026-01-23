@@ -1,40 +1,35 @@
 <template>
-  <div class="query-view" @click="closeContextMenu">
+  <div class="query-view">
     <div class="toolbar">
       <div class="toolbar-left">
-        <select
-          :value="tabStore.currentTab?.connectionId"
-          class="conn-select"
-          @change="onTabConnectionChange"
-        >
-          <option :value="null" disabled>Select Connection</option>
-          <option v-for="(conn, idx) in connStore.savedConnections" :key="idx" :value="idx">
-            {{ conn.name }}
-          </option>
-        </select>
+        <BaseSelect
+          :model-value="tabStore.currentTab?.connectionId ?? ''"
+          :options="connectionOptions"
+          class="conn-select-wrapper"
+          @update:model-value="onTabConnectionChange"
+        />
 
-        <button class="icon-btn" title="Format SQL" @click="formatCurrentSql">
+        <BaseButton title="Format SQL" @click="formatCurrentSql">
           <BaseIcon name="sparkles" /> Format
-        </button>
+        </BaseButton>
       </div>
 
       <div class="toolbar-right">
-        <button
-          class="icon-btn"
+        <BaseButton
           title="Export to CSV"
           :disabled="!tabStore.currentTab?.rows?.length"
           @click="exportCsv"
         >
           <BaseIcon name="download" /> Export CSV
-        </button>
+        </BaseButton>
 
-        <button
-          class="run-btn"
+        <BaseButton
+          variant="primary"
           :disabled="connStore.loading || tabStore.currentTab?.connectionId === null"
           @click="tabStore.runQuery"
         >
           <BaseIcon name="play" /> Run
-        </button>
+        </BaseButton>
       </div>
     </div>
 
@@ -73,21 +68,21 @@
         @cell-context-menu="onCellContextMenu"
       />
 
-      <div
-        v-if="contextMenu.visible"
-        class="ctx-menu"
-        :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }"
-        @click.stop
+      <BaseContextMenu
+        :visible="contextMenu.visible"
+        :x="contextMenu.x"
+        :y="contextMenu.y"
+        @close="closeContextMenu"
       >
         <div class="ctx-item" @click="copyValue">Copy Value</div>
         <div class="ctx-item" @click="copyRow">Copy Row (JSON)</div>
-      </div>
+      </BaseContextMenu>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, reactive, computed } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
 import { SortChangedEvent, GridApi, CellContextMenuEvent } from 'ag-grid-community'
 import { format } from 'sql-formatter'
@@ -97,6 +92,9 @@ import { useConnectionStore } from '../../stores/connections'
 import { useSettingsStore } from '../../stores/settings'
 import SqlEditor from '../SqlEditor.vue'
 import BaseIcon from '../ui/BaseIcon.vue'
+import BaseButton from '../ui/BaseButton.vue'
+import BaseSelect from '../ui/BaseSelect.vue'
+import BaseContextMenu from '../ui/BaseContextMenu.vue'
 
 const tabStore = useTabStore()
 const connStore = useConnectionStore()
@@ -172,10 +170,17 @@ function exportCsv(): void {
   link.click()
 }
 
-async function onTabConnectionChange(event: Event): Promise<void> {
-  const select = event.target as HTMLSelectElement
+const connectionOptions = computed(() => {
+  const opts = connStore.savedConnections.map((conn, idx) => ({
+    label: conn.name,
+    value: idx
+  }))
+  return [{ label: 'Select Connection', value: '' }, ...opts]
+})
+
+async function onTabConnectionChange(val: string): Promise<void> {
   if (tabStore.currentTab) {
-    tabStore.currentTab.connectionId = select.value === '' ? null : Number(select.value)
+    tabStore.currentTab.connectionId = val === '' ? null : Number(val)
     if (tabStore.currentTab.connectionId !== null) {
       await connStore.ensureConnection(tabStore.currentTab.connectionId)
     }
@@ -287,70 +292,13 @@ onMounted(() => {
   align-items: center;
   gap: 10px;
 }
-.conn-select {
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  height: 28px;
-  padding: 0 8px;
-  border-radius: 2px;
-  font-size: 13px;
+.conn-select-wrapper {
   min-width: 200px;
-  outline: none;
-}
-.conn-select:focus {
-  border-color: var(--focus-border);
-}
-.run-btn {
-  background: var(--accent-primary);
-  color: var(--text-white);
-  border: none;
-  height: 28px;
-  padding: 0 16px;
-  border-radius: 2px;
-  cursor: pointer;
-  font-weight: 500;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-.run-btn:disabled {
-  background: var(--bg-input);
-  color: var(--text-secondary);
-  cursor: not-allowed;
-}
-.run-btn:hover:not(:disabled) {
-  background: var(--accent-hover);
 }
 .toolbar-right {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-.icon-btn {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  height: 28px;
-  padding: 0 12px;
-  border-radius: 2px;
-  cursor: pointer;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.icon-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
-}
-.icon-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.icon {
-  font-family: inherit;
 }
 .editor-wrapper {
   overflow: hidden;
@@ -401,16 +349,7 @@ onMounted(() => {
   cursor: pointer;
 }
 
-.ctx-menu {
-  position: fixed;
-  z-index: 9999;
-  background: var(--bg-app);
-  border: 1px solid var(--border-color);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-  border-radius: 4px;
-  padding: 4px 0;
-  min-width: 150px;
-}
+
 .ctx-item {
   padding: 8px 16px;
   cursor: pointer;

@@ -1,60 +1,61 @@
 <template>
-  <div v-if="isOpen" class="modal-overlay" @click.self="close">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>{{ isEditing ? 'Редактирование подключения' : 'Новое подключение' }}</h3>
-        <button class="close-btn" @click="close">×</button>
+  <BaseModal
+    :is-open="isOpen"
+    :title="isEditing ? 'Редактирование подключения' : 'Новое подключение'"
+    @close="close"
+  >
+    <div class="form-body">
+      <BaseSelect
+        v-model="form.type"
+        label="Тип базы"
+        :options="[
+          { label: 'MySQL / MariaDB', value: 'mysql' },
+          { label: 'PostgreSQL', value: 'postgres' }
+        ]"
+        @change="onTypeChange"
+      />
+
+      <BaseInput v-model="form.name" label="Название" placeholder="Например: PROD" />
+
+      <div class="row">
+        <BaseInput v-model="form.host" label="Host" placeholder="localhost" />
+        <BaseInput v-model="form.port" label="Port" placeholder="3306" class="port-input" />
       </div>
 
-      <div class="form-body">
-        <label class="label">Тип базы:</label>
-        <select v-model="form.type" class="input select" @change="onTypeChange">
-          <option value="mysql">MySQL / MariaDB</option>
-          <option value="postgres">PostgreSQL</option>
-        </select>
+      <div class="row">
+        <BaseInput v-model="form.user" label="User" placeholder="root" />
+        <BaseInput v-model="form.password" type="password" label="Password" placeholder="******" />
+      </div>
 
-        <input v-model="form.name" placeholder="Название (напр. PROD)" class="input" />
+      <BaseInput v-model="form.database" label="База данных" placeholder="my_app_db" />
 
+      <BaseInput
+        v-model="form.excludeList"
+        label="Исключить базы/схемы"
+        placeholder="information_schema, sys..."
+        help="Введите названия через запятую (регистронезависимо)"
+      />
+
+      <div class="ssh-toggle">
+        <label class="checkbox-label">
+          <input v-model="form.useSsh" type="checkbox" />
+          Использовать SSH Tunnel
+        </label>
+      </div>
+
+      <div v-if="form.useSsh" class="ssh-fields">
         <div class="row">
-          <input v-model="form.host" placeholder="Host" class="input" />
-          <input v-model="form.port" placeholder="Port" class="input port" />
+          <BaseInput v-model="form.sshHost" label="SSH Host" placeholder="1.2.3.4" />
+          <BaseInput v-model="form.sshPort" label="Port" placeholder="22" class="port-input" />
         </div>
-
-        <input v-model="form.user" placeholder="User" class="input" />
-        <input v-model="form.password" type="password" placeholder="Password" class="input" />
-        <input v-model="form.database" placeholder="Database Name" class="input" />
-
-        <div class="form-group">
-          <label class="label">Исключить базы/схемы:</label>
-          <input
-            v-model="form.excludeList"
-            placeholder="information_schema, mysql, sys..."
-            class="input"
-          />
-          <small class="help-text">Через запятую. Эти элементы будут скрыты в дереве.</small>
-        </div>
-
-        <div class="ssh-toggle">
-          <label class="checkbox-label">
-            <input v-model="form.useSsh" type="checkbox" />
-            Использовать SSH Tunnel
-          </label>
-        </div>
-
-        <div v-if="form.useSsh" class="ssh-fields">
-          <div class="row">
-            <input v-model="form.sshHost" placeholder="SSH Host" class="input" />
-            <input v-model="form.sshPort" placeholder="22" class="input port" />
-          </div>
-          <input v-model="form.sshUser" placeholder="SSH User" class="input" />
-          <input
-            v-model="form.sshPassword"
-            type="password"
-            placeholder="SSH Password"
-            class="input"
-          />
-          <input v-model="form.sshKeyPath" placeholder="Key Path" class="input" />
-        </div>
+        <BaseInput v-model="form.sshUser" label="SSH User" placeholder="root" />
+        <BaseInput
+          v-model="form.sshPassword"
+          type="password"
+          label="SSH Password/Passphrase"
+          placeholder="******"
+        />
+        <BaseInput v-model="form.sshKeyPath" label="SSH Key Path" placeholder="/path/to/key" />
       </div>
 
       <div v-if="testStatus" class="test-feedback">
@@ -71,27 +72,31 @@
           {{ testStatus.message }}
         </div>
       </div>
-
-      <div class="modal-footer">
-        <button
-          class="btn test-btn"
-          :disabled="testStatus?.type === 'loading'"
-          @click="testConnection"
-        >
-          Test Connection
-        </button>
-        <button class="btn save-btn" :disabled="testStatus?.type === 'loading'" @click="save">
-          {{ isEditing ? 'Сохранить изменения' : 'Создать' }}
-        </button>
-      </div>
     </div>
-  </div>
+
+    <template #footer>
+      <BaseButton
+        variant="secondary"
+        :disabled="testStatus?.type === 'loading'"
+        @click="testConnection"
+      >
+        Check Connection
+      </BaseButton>
+      <BaseButton variant="primary" :disabled="testStatus?.type === 'loading'" @click="save">
+        {{ isEditing ? 'Сохранить' : 'Создать' }}
+      </BaseButton>
+    </template>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
 import { reactive, computed, watch, ref } from 'vue'
 import type { DbConnection } from '../../../shared/types'
 import BaseIcon from './ui/BaseIcon.vue'
+import BaseModal from './ui/BaseModal.vue'
+import BaseInput from './ui/BaseInput.vue'
+import BaseButton from './ui/BaseButton.vue'
+import BaseSelect from './ui/BaseSelect.vue'
 
 const props = defineProps<{
   isOpen: boolean
@@ -113,7 +118,7 @@ const defaultForm: DbConnection = {
   user: 'root',
   password: '',
   database: '',
-  excludeList: '', // Инициализация нового поля
+  excludeList: '',
   useSsh: false,
   sshHost: '',
   sshPort: '22',
@@ -168,140 +173,64 @@ function save(): void {
 </script>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-.modal-content {
-  background: var(--bg-app);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  width: 420px;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.modal-header h3 {
-  margin: 0;
-}
-.close-btn {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 24px;
-  cursor: pointer;
-}
 .form-body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 15px;
 }
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.label {
-  font-size: 12px;
-  color: var(--text-secondary);
-  font-weight: bold;
-}
-.help-text {
-  font-size: 10px;
-  color: var(--text-secondary);
-  margin-top: 2px;
-}
-.input {
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  padding: 8px;
-  outline: none;
-  border-radius: 4px;
-}
-.input:focus {
-  border-color: var(--focus-border);
-}
+
 .row {
   display: flex;
-  gap: 10px;
+  gap: 15px;
 }
-.port {
-  width: 100px;
+
+/* BaseInput takes 100% width, so we control layout via flex parent */
+.port-input {
+  width: 120px;
+  flex-shrink: 0;
 }
+
+.ssh-toggle {
+  margin-top: 5px;
+}
+
 .ssh-fields {
   border-left: 2px solid var(--accent-primary);
-  padding-left: 12px;
-  margin-top: 5px;
+  padding-left: 15px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 15px;
+  animation: fadeIn 0.3s ease;
 }
-.checkbox-label {
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-size: 13px;
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
+
+.test-feedback {
   margin-top: 10px;
 }
-.save-btn {
-  background: var(--accent-primary);
-  color: var(--text-white);
-  border: none;
-  padding: 10px 20px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
-}
-.test-btn {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  padding: 10px 15px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.test-feedback {
-  margin-top: 5px;
-}
+
 .feedback-msg {
-  padding: 8px;
+  padding: 10px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 13px;
   display: flex;
   align-items: center;
   gap: 8px;
 }
+
 .feedback-msg.error {
   background: rgba(255, 70, 70, 0.1);
   color: #ff6b6b;
   border: 1px solid rgba(255, 70, 70, 0.2);
 }
+
 .feedback-msg.success {
   background: rgba(70, 255, 70, 0.1);
   color: #6bff6b;

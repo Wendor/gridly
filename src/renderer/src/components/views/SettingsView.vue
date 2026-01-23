@@ -33,9 +33,21 @@
         <div class="setting-item">
           <label>Font Size</label>
           <div class="font-controls">
-            <button class="btn" @click="settings.setFontSize(settings.fontSize - 1)">-</button>
+            <BaseButton
+              variant="secondary"
+              class="square-btn"
+              @click="settings.setFontSize(settings.fontSize - 1)"
+            >
+              -
+            </BaseButton>
             <span class="value">{{ settings.fontSize }}px</span>
-            <button class="btn" @click="settings.setFontSize(settings.fontSize + 1)">+</button>
+            <BaseButton
+              variant="secondary"
+              class="square-btn"
+              @click="settings.setFontSize(settings.fontSize + 1)"
+            >
+              +
+            </BaseButton>
           </div>
         </div>
       </div>
@@ -45,6 +57,8 @@
 
 <script setup lang="ts">
 import { useSettingsStore } from '../../stores/settings'
+import BaseButton from '../ui/BaseButton.vue'
+
 const settings = useSettingsStore()
 </script>
 
@@ -145,24 +159,17 @@ h2 {
   align-items: center;
   gap: 10px;
 }
-.btn {
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  width: 30px;
-  height: 30px;
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.btn:hover {
-  border-color: var(--focus-border);
-}
+
 .value {
   min-width: 40px;
   text-align: center;
   font-family: var(--font-mono);
+}
+
+.square-btn {
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  justify-content: center;
 }
 </style>

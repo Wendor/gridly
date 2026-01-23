@@ -2,9 +2,15 @@
   <div class="history-sidebar">
     <div class="header">
       <span class="title">History</span>
-      <button class="clear-btn" title="Clear History" @click="historyStore.clearHistory">
+      <BaseButton
+        variant="ghost"
+        :icon-only="true"
+        title="Clear History"
+        class="clear-btn"
+        @click="historyStore.clearHistory"
+      >
         <BaseIcon name="trash" />
-      </button>
+      </BaseButton>
     </div>
 
     <div class="list">
@@ -37,6 +43,7 @@
 import { useHistoryStore } from '../stores/history'
 import { useTabStore } from '../stores/tabs'
 import BaseIcon from './ui/BaseIcon.vue'
+import BaseButton from './ui/BaseButton.vue'
 
 const historyStore = useHistoryStore()
 const tabStore = useTabStore()
@@ -107,16 +114,12 @@ function restoreQuery(item: { sql: string; connectionId: number | null }): void 
 }
 
 .clear-btn {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  opacity: 0.6;
-  font-size: 14px;
+  /* Only overrides if needed, otherwise rely on BaseButton variants */
   color: var(--text-secondary);
 }
 .clear-btn:hover {
-  opacity: 1;
-  color: #f48771;
+  color: #f48771 !important; /* Force red on hover */
+  background: transparent !important;
 }
 
 .list {

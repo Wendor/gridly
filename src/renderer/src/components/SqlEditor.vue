@@ -232,25 +232,8 @@ onBeforeUnmount(() => {
   font-family: 'Fira Code', 'Consolas', monospace; /* Опционально: красивый шрифт */
 }
 
-/* 3. Опционально: Стилизуем полосу прокрутки (для Webkit/Chrome/Electron) */
-:deep(.cm-scroller)::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-:deep(.cm-scroller)::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-:deep(.cm-scroller)::-webkit-scrollbar-thumb {
-  background: var(--border-color); /* Или #555 */
-  border-radius: 5px;
-  border: 2px solid var(--bg-app); /* Отступ от края */
-}
-
-:deep(.cm-scroller)::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
-}
+/* 3. Опционально: Стилизуем полосу прокрутки - используем глобальные стили из main.css */
+/* :deep(.cm-scroller)::-webkit-scrollbar styles removed to use global defaults */
 
 /* Исправляем активную строку, чтобы она не перекрывала границы */
 :deep(.cm-activeLine) {

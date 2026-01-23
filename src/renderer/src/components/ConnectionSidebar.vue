@@ -1,10 +1,15 @@
 <template>
-  <div class="sidebar" @click="closeCtxMenu">
+  <div class="sidebar">
     <div class="sidebar-header">
       <h3>НАВИГАТОР</h3>
-      <button class="add-btn" title="Новое подключение" @click="$emit('open-create-modal')">
+      <BaseButton
+        variant="ghost"
+        :icon-only="true"
+        title="Новое подключение"
+        @click="$emit('open-create-modal')"
+      >
         <BaseIcon name="plus" />
-      </button>
+      </BaseButton>
     </div>
 
     <div class="saved-list">
@@ -40,9 +45,17 @@
               </div>
             </div>
 
-            <button class="del-btn" title="Удалить" @click.stop="$emit('delete', index)">
-              <BaseIcon name="trash" />
-            </button>
+            <div class="actions">
+              <BaseButton
+                variant="ghost"
+                :icon-only="true"
+                class="del-btn-wrap"
+                title="Удалить"
+                @click.stop="$emit('delete', index)"
+              >
+                <BaseIcon name="trash" />
+              </BaseButton>
+            </div>
           </div>
         </div>
 
@@ -103,11 +116,11 @@
       </div>
     </div>
 
-    <div
-      v-if="ctxMenu.visible"
-      class="ctx-menu"
-      :style="{ top: ctxMenu.y + 'px', left: ctxMenu.x + 'px' }"
-      @click.stop
+    <BaseContextMenu
+      :visible="ctxMenu.visible"
+      :x="ctxMenu.x"
+      :y="ctxMenu.y"
+      @close="closeCtxMenu"
     >
       <div v-if="connStore.isConnected(ctxMenu.index)" class="ctx-item" @click="handleDisconnect">
         <span class="ctx-icon disconnect-icon">×</span>
@@ -122,7 +135,7 @@
         <BaseIcon name="trash" />
         Удалить
       </div>
-    </div>
+    </BaseContextMenu>
   </div>
 </template>
 
@@ -130,6 +143,8 @@
 import { ref, reactive, watch } from 'vue'
 import type { DbConnection } from '../../../shared/types'
 import BaseIcon from './ui/BaseIcon.vue'
+import BaseButton from './ui/BaseButton.vue'
+import BaseContextMenu from './ui/BaseContextMenu.vue'
 import { useConnectionStore } from '../stores/connections'
 
 const props = defineProps<{
@@ -307,24 +322,7 @@ watch(
   color: var(--text-secondary);
   letter-spacing: 0.5px;
 }
-.add-btn {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  cursor: pointer;
-  border-radius: 4px;
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-.add-btn:hover {
-  border-color: var(--focus-border);
-  background: var(--bg-input);
-  color: var(--text-primary);
-}
+/* .add-btn removed */
 .saved-list {
   flex: 1;
   overflow-y: auto;
@@ -406,21 +404,21 @@ watch(
 .db-icon {
   color: var(--text-secondary);
 }
-.del-btn {
+
+.actions {
   position: absolute;
   right: 8px;
   top: 50%;
   transform: translateY(-50%);
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
   display: none;
-  padding: 2px;
-  border-radius: 4px;
 }
-.saved-item:hover .del-btn {
+
+.saved-item:hover .actions {
   display: flex;
+}
+
+.del-btn-wrap {
+  padding: 4px;
 }
 
 .databases-tree {
@@ -504,16 +502,7 @@ watch(
   margin: 2px 0;
 }
 
-.ctx-menu {
-  position: fixed;
-  z-index: 9999;
-  background: var(--bg-app);
-  border: 1px solid var(--border-color);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-  border-radius: 4px;
-  padding: 4px 0;
-  min-width: 150px;
-}
+
 .ctx-item {
   padding: 8px 12px;
   font-size: 13px;

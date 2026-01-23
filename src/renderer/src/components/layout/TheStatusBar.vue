@@ -9,26 +9,16 @@
 
     <div class="sb-section center">
       <div v-if="tabStore.currentTab?.type === 'query'" class="pagination-controls">
-        <button
-          class="pg-btn"
+        <BaseButton
+          variant="ghost"
+          :icon-only="true"
           :disabled="tabStore.currentTab.pagination.offset === 0 || connStore.loading"
           title="Previous Page"
+          class="pg-btn-override"
           @click="tabStore.prevPage"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
-        </button>
+          <BaseIcon name="chevronLeft" />
+        </BaseButton>
 
         <span class="pg-text">
           {{ startRow }} - {{ endRow }}
@@ -37,26 +27,16 @@
           </span>
         </span>
 
-        <button
-          class="pg-btn"
+        <BaseButton
+          variant="ghost"
+          :icon-only="true"
           :disabled="isNextDisabled || connStore.loading"
           title="Next Page"
+          class="pg-btn-override"
           @click="tabStore.nextPage"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <polyline points="9 18 15 12 9 6"></polyline>
-          </svg>
-        </button>
+          <BaseIcon name="chevronRight" />
+        </BaseButton>
       </div>
     </div>
 
@@ -76,6 +56,8 @@
 import { computed } from 'vue'
 import { useTabStore } from '../../stores/tabs'
 import { useConnectionStore } from '../../stores/connections'
+import BaseButton from '../ui/BaseButton.vue'
+import BaseIcon from '../ui/BaseIcon.vue'
 
 const tabStore = useTabStore()
 const connStore = useConnectionStore()
@@ -176,25 +158,20 @@ const isNextDisabled = computed(() => {
   align-items: center;
   gap: 8px;
 }
-.pg-btn {
-  background: transparent;
-  border: none;
-  color: white;
-  cursor: pointer;
-  padding: 2px;
-  border-radius: 2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+
+/* Override ghost button color for status bar dark theme if needed */
+.pg-btn-override {
+  color: white !important;
   opacity: 0.8;
+  padding: 0 !important;
+  width: 20px;
+  height: 20px;
+  min-height: 0 !important; /* Force override constraints */
+  min-width: 0 !important; /* Force override constraints */
 }
-.pg-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.2);
+.pg-btn-override:hover:not(:disabled) {
   opacity: 1;
-}
-.pg-btn:disabled {
-  opacity: 0.3;
-  cursor: default;
+  background: rgba(255, 255, 255, 0.1) !important;
 }
 
 .pg-text {
