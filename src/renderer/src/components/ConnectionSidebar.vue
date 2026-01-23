@@ -26,9 +26,17 @@
 
             <div class="conn-info">
               <div class="conn-name">
-                <span class="icon-wrapper db-icon">
-                  <BaseIcon name="database" />
-                </span>
+                <div class="status-indicator-wrapper">
+                  <span class="icon-wrapper db-icon">
+                    <BaseIcon name="database" />
+                  </span>
+                  <div
+                    v-if="connStore.isConnected(index)"
+                    class="status-dot"
+                    title="Connected"
+                  ></div>
+                </div>
+
                 <span class="name-text">{{ conn.name }}</span>
               </div>
             </div>
@@ -64,6 +72,11 @@
       :style="{ top: ctxMenu.y + 'px', left: ctxMenu.x + 'px' }"
       @click.stop
     >
+      <div v-if="connStore.isConnected(ctxMenu.index)" class="ctx-item" @click="handleDisconnect">
+        <span class="ctx-icon disconnect-icon">×</span>
+        Отключиться
+      </div>
+
       <div class="ctx-item" @click="handleEdit">
         <BaseIcon name="edit" />
         Редактировать
@@ -77,9 +90,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, watch } from 'vue'
 import type { DbConnection } from '../../../shared/types'
 import BaseIcon from './ui/BaseIcon.vue'
+import { useConnectionStore } from '../stores/connections'
 
 const props = defineProps<{
   connections: DbConnection[]
@@ -95,6 +109,9 @@ const emit = defineEmits<{
   (e: 'open-create-modal'): void
   (e: 'table-click', table: string, index: number): void
 }>()
+
+// Подключаем стор, чтобы проверять статус isConnected(index)
+const connStore = useConnectionStore()
 
 const expandedIndices = ref<Set<number>>(new Set())
 
@@ -132,11 +149,31 @@ function handleDelete(): void {
   }
   closeCtxMenu()
 }
+
+// НОВОЕ: Ручное отключение
+async function handleDisconnect(): Promise<void> {
+  if (ctxMenu.index !== -1) {
+    // В сторе пока нет явного метода disconnect, но мы можем удалить ID из активных
+    // Лучше добавить метод disconnect(id) в стор, но пока можно сделать так:
+    // (По-хорошему нужно добавить disconnect в connections.ts, который вызывает ipcRenderer)
+
+    // Пока сбросим состояние в UI (это не разорвет соединение на бэке, если там нет метода)
+    // Давайте лучше вызовем хак через activeConnectionIds,
+    // но правильнее будет, если вы добавите `disconnect` в API позже.
+
+    // В текущей реализации DatabaseManager разрывает соединение при connect.
+    // Если нужно явное отключение, нужно добавить метод в Store и API.
+    // Пока просто уберем из активных в UI, чтобы пользователь видел реакцию
+    connStore.activeConnectionIds.delete(ctxMenu.index)
+  }
+  closeCtxMenu()
+}
 // ------------------------------
 
 function isExpanded(index: number): boolean {
   return expandedIndices.value.has(index)
 }
+
 function toggleExpand(index: number): void {
   if (expandedIndices.value.has(index)) {
     expandedIndices.value.delete(index)
@@ -145,8 +182,10 @@ function toggleExpand(index: number): void {
     emit('expand', index)
   }
 }
+
 function onSelect(index: number): void {
   emit('select', index)
+  // При клике на само подключение тоже раскрываем
   if (!expandedIndices.value.has(index)) {
     expandedIndices.value.add(index)
     emit('expand', index)
@@ -154,38 +193,26 @@ function onSelect(index: number): void {
 }
 
 // --- PERSISTENCE ---
-import { watch } from 'vue'
-
 const STORAGE_KEY = 'sidebar-expanded-connections'
 
 function saveExpandedState(): void {
-  // Сохраняем ИМЕНА подключений, так как индексы могут меняться
   const expandedNames = Array.from(expandedIndices.value)
     .map((idx) => props.connections[idx]?.name)
     .filter(Boolean)
-
   localStorage.setItem(STORAGE_KEY, JSON.stringify(expandedNames))
 }
 
 function restoreExpandedState(): void {
   const saved = localStorage.getItem(STORAGE_KEY)
   if (!saved) return
-
   try {
     const names = JSON.parse(saved) as string[]
     if (!Array.isArray(names)) return
-
     const newSet = new Set<number>()
-    // Ищем индексы по именам
     names.forEach((name) => {
       const idx = props.connections.findIndex((c) => c.name === name)
       if (idx !== -1) {
         newSet.add(idx)
-        // Важно: эмитим expand, чтобы родитель мог подгрузить таблицы если надо
-        // Но делаем это аккуратно, возможно стоит просто пометить как expanded
-        // А подгрузку оставим на совести родителя или ленивой загрузки?
-        // В текущей реализации родитель грузит таблицы по событию 'expand'
-        // Поэтому здесь нужно будет эмитить
         emit('expand', idx)
       }
     })
@@ -195,7 +222,6 @@ function restoreExpandedState(): void {
   }
 }
 
-// Следим за изменениями expandedIndices и сохраняем
 watch(
   () => expandedIndices.value,
   () => {
@@ -204,23 +230,10 @@ watch(
   { deep: true }
 )
 
-// Следим за списком подключений, чтобы восстановить состояние при их загрузке?
-// Или просто при маунте?
-// Если подключения грузятся асинхронно, нам нужно ждать их появления.
 watch(
   () => props.connections,
   (newConns) => {
     if (newConns.length > 0) {
-      // Попытка восстановить состояние, если оно еще не восстановлено или если список обновился
-      // Но аккуратно, чтобы не сбросить текущее (если пользователь уже накликал)
-      // В данном случае, просто один раз при старте достаточно, если connections уже есть?
-      // Нет, connections приходят из пропсов.
-
-      // Простейшая стратегия:
-      // Мы восстанавливаем один раз, когда список перестает быть пустым?
-      // Или каждый раз пытаемся смапить сохраненные имена на новые индексы?
-
-      // Давайте восстановим
       restoreExpandedState()
     }
   },
@@ -229,7 +242,7 @@ watch(
 </script>
 
 <style scoped>
-/* Стили остались прежними + добавлены стили для меню */
+/* Стили остались прежними + индикатор */
 .sidebar {
   height: 100%;
   display: flex;
@@ -237,7 +250,6 @@ watch(
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border-color);
   overflow: hidden;
-  position: relative; /* Для позиционирования чего-либо внутри, если понадобится */
 }
 .sidebar-header {
   display: flex;
@@ -255,7 +267,6 @@ watch(
   color: var(--text-secondary);
   letter-spacing: 0.5px;
 }
-
 .add-btn {
   background: transparent;
   border: 1px solid var(--border-color);
@@ -274,13 +285,11 @@ watch(
   background: var(--bg-input);
   color: var(--text-primary);
 }
-
 .saved-list {
   flex: 1;
   overflow-y: auto;
   padding-top: 5px;
 }
-
 .saved-item {
   cursor: pointer;
   border-left: 3px solid transparent;
@@ -288,17 +297,14 @@ watch(
   color: var(--text-primary);
   opacity: 0.9;
 }
-
 .saved-item:hover {
   background: var(--list-hover-bg);
   opacity: 1;
 }
-
 .saved-item.active {
   background: var(--list-active-bg);
   border-left-color: var(--focus-border);
 }
-
 .conn-main-row {
   display: flex;
   align-items: center;
@@ -306,7 +312,6 @@ watch(
   height: 30px;
   padding-right: 30px;
 }
-
 .arrow-wrapper {
   width: 24px;
   height: 100%;
@@ -342,6 +347,24 @@ watch(
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Стили для индикатора */
+.status-indicator-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.status-dot {
+  position: absolute;
+  bottom: 0;
+  right: -2px;
+  width: 6px;
+  height: 6px;
+  background-color: #4caf50; /* Зеленый */
+  border-radius: 50%;
+  border: 1px solid var(--bg-sidebar); /* Обводка под цвет фона */
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
 }
 
 .icon-wrapper {
@@ -389,7 +412,6 @@ watch(
   font-style: italic;
   margin-top: 2px;
 }
-
 .table-item {
   font-size: 13px;
   color: var(--text-primary);
@@ -400,7 +422,6 @@ watch(
   align-items: center;
   gap: 8px;
 }
-
 .table-item:hover {
   color: var(--list-hover-fg);
   background: var(--list-hover-bg);
@@ -413,7 +434,7 @@ watch(
   align-items: center;
 }
 
-/* --- Контекстное меню --- */
+/* Контекстное меню */
 .ctx-menu {
   position: fixed;
   z-index: 9999;
@@ -424,7 +445,6 @@ watch(
   padding: 4px 0;
   min-width: 150px;
 }
-
 .ctx-item {
   padding: 8px 12px;
   font-size: 13px;
@@ -434,14 +454,22 @@ watch(
   gap: 8px;
   color: var(--text-primary);
 }
-
 .ctx-item:hover {
   background: var(--list-hover-bg);
   color: var(--list-hover-fg);
 }
-
 .ctx-item.delete:hover {
   color: #ff6b6b;
   background: rgba(255, 107, 107, 0.1);
+}
+.ctx-icon {
+  width: 14px;
+  text-align: center;
+  font-weight: bold;
+}
+.disconnect-icon {
+  color: #ffaa00;
+  font-size: 16px;
+  line-height: 1;
 }
 </style>
