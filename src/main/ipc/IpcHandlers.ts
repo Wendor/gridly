@@ -58,4 +58,11 @@ export function setupIpcHandlers(dbManager: DatabaseManager): void {
       return await dbManager.getDatabases(id, excludeList)
     }
   )
+
+  ipcMain.handle(
+    'db:set-active-database',
+    async (_event, { id, dbName }: { id: number; dbName: string }) => {
+      await dbManager.setActiveDatabase(id, dbName)
+    }
+  )
 }

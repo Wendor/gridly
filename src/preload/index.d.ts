@@ -17,6 +17,7 @@ declare global {
       // getSchema теперь принимает id
       getSchema: (id: number) => Promise<DbSchema>
       testConnection: (config: DbConnection) => Promise<string>
+      setActiveDatabase: (id: number, dbName: string) => Promise<void>
     }
   }
 }

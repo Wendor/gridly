@@ -139,4 +139,9 @@ export class PostgresService implements IDbService {
       return { rows: [], columns: [], error: e.message, duration: 0 }
     }
   }
+
+  async setActiveDatabase(dbName: string): Promise<void> {
+    if (!this.client) throw new Error('Not connected')
+    await this.client.query(`SET search_path TO "${dbName}"`)
+  }
 }

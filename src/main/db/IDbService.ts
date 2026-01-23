@@ -8,4 +8,5 @@ export interface IDbService {
   getDatabases(): Promise<string[]>
   getSchema(): Promise<DbSchema>
   getTableData(req: IDataRequest): Promise<IDbResult>
+  setActiveDatabase(dbName: string): Promise<void>
 }

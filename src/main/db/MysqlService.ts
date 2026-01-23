@@ -147,4 +147,9 @@ export class MysqlService implements IDbService {
       return { rows: [], columns: [], error: e.message, duration: 0 }
     }
   }
+
+  async setActiveDatabase(dbName: string): Promise<void> {
+    if (!this.connection) throw new Error('Нет соединения с базой данных')
+    await this.connection.query(`USE \`${dbName}\``)
+  }
 }

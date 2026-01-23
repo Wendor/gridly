@@ -215,4 +215,9 @@ export class DatabaseManager {
     // Фильтруем
     return allDbs.filter((db) => !excluded.includes(db.toLowerCase()))
   }
+
+  async setActiveDatabase(id: number, dbName: string): Promise<void> {
+    const service = this.getService(id)
+    await service.setActiveDatabase(dbName)
+  }
 }

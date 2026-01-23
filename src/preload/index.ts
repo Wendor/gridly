@@ -20,6 +20,9 @@ const dbApi = {
   },
   testConnection: (config: DbConnection) => {
     return ipcRenderer.invoke('db:test-connection', config)
+  },
+  setActiveDatabase: (id: number, dbName: string) => {
+    return ipcRenderer.invoke('db:set-active-database', { id, dbName })
   }
 }
 

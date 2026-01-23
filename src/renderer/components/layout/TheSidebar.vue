@@ -42,8 +42,8 @@ const connStore = useConnectionStore()
 const tabStore = useTabStore()
 const uiStore = useUIStore()
 
-function handleTableClick(tableName: string, connIndex: number): void {
-  tabStore.openTableTab(connIndex, tableName)
+function handleTableClick(tableName: string, connIndex: number, dbName: string): void {
+  tabStore.openTableTab(connIndex, tableName, dbName)
 }
 </script>
 

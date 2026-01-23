@@ -11,6 +11,7 @@ export interface Tab {
   type: 'query' | 'settings'
   name: string
   connectionId: number | null
+  database: string | null
   sql: string
   rows: Record<string, unknown>[]
   colDefs: { field: string; headerName?: string }[]
@@ -32,6 +33,7 @@ export const useTabStore = defineStore('tabs', () => {
       type: 'query',
       name: `${i18n.global.t('common.query')} 1`,
       connectionId: null,
+      database: null,
       sql: 'SELECT 1;',
       rows: [],
       colDefs: [],
@@ -42,6 +44,8 @@ export const useTabStore = defineStore('tabs', () => {
 
   const activeTabId = ref(1)
   const nextTabId = ref(2)
+
+  const activeDatabaseCache = ref<Map<number, string | null>>(new Map())
 
   const currentTab = computed(() => tabs.value.find((t) => t.id === activeTabId.value))
 
@@ -59,6 +63,7 @@ export const useTabStore = defineStore('tabs', () => {
       type: 'query',
       name: `${i18n.global.t('common.query')} ${id}`,
       connectionId: connId,
+      database: null,
       sql: '',
       rows: [],
       colDefs: [],
@@ -68,7 +73,11 @@ export const useTabStore = defineStore('tabs', () => {
     activeTabId.value = id
   }
 
-  function openTableTab(connectionId: number, tableName: string): void {
+  async function openTableTab(
+    connectionId: number,
+    tableName: string,
+    database?: string
+  ): Promise<void> {
     const existingTab = tabs.value.find(
       (t) => t.type === 'query' && t.connectionId === connectionId && t.name === tableName
     )
@@ -85,6 +94,7 @@ export const useTabStore = defineStore('tabs', () => {
       type: 'query',
       name: tableName,
       connectionId,
+      database: database || null,
       sql: `SELECT * FROM ${tableName}`,
       rows: [],
       colDefs: [],
@@ -109,6 +119,7 @@ export const useTabStore = defineStore('tabs', () => {
       type: 'settings',
       name: i18n.global.t('common.settings'),
       connectionId: null,
+      database: null,
       sql: '',
       rows: [],
       colDefs: [],
@@ -153,12 +164,21 @@ export const useTabStore = defineStore('tabs', () => {
       return
 
     const connId = currentTab.value.connectionId
+    const dbName = currentTab.value.database
 
     try {
       connectionStore.loading = true
       connectionStore.error = null
 
       await connectionStore.ensureConnection(connId)
+
+      if (dbName) {
+        const lastSetDb = activeDatabaseCache.value.get(connId)
+        if (lastSetDb !== dbName) {
+          await window.dbApi.setActiveDatabase(connId, dbName)
+          activeDatabaseCache.value.set(connId, dbName)
+        }
+      }
 
       let finalSql = currentTab.value.sql.trim()
 
@@ -254,6 +274,7 @@ export const useTabStore = defineStore('tabs', () => {
       type: t.type,
       name: t.name,
       connectionId: t.connectionId,
+      database: t.database,
       sql: t.sql,
       meta: null,
       pagination: t.pagination
@@ -297,6 +318,26 @@ export const useTabStore = defineStore('tabs', () => {
   watch(activeTabId, () => {
     saveToStorage()
   })
+
+  watch(
+    currentTab,
+    async (newTab) => {
+      if (!newTab || newTab.type !== 'query' || newTab.connectionId === null) return
+      if (!newTab.database) return
+
+      const lastSetDb = activeDatabaseCache.value.get(newTab.connectionId)
+      if (lastSetDb !== newTab.database) {
+        try {
+          await connectionStore.ensureConnection(newTab.connectionId)
+          await window.dbApi.setActiveDatabase(newTab.connectionId, newTab.database)
+          activeDatabaseCache.value.set(newTab.connectionId, newTab.database)
+        } catch (e) {
+          console.error('Failed to set active database on tab switch:', e)
+        }
+      }
+    },
+    { immediate: false }
+  )
 
   loadFromStorage()
   if (tabs.value.length === 0) {
