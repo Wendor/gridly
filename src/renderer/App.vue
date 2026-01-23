@@ -38,7 +38,7 @@ import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community'
 import { useConnectionStore } from './stores/connections'
 import { useTabStore } from './stores/tabs'
 import { useSettingsStore } from './stores/settings'
-import type { DbConnection } from '../../shared/types'
+import type { DbConnection } from '../shared/types'
 
 import TheTitleBar from './components/layout/TheTitleBar.vue'
 import TheActivityBar from './components/layout/TheActivityBar.vue'

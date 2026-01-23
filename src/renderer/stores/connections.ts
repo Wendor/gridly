@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, reactive } from 'vue'
-import { DbConnection, DbSchema } from '../../../shared/types'
+import { DbConnection, DbSchema } from '../../shared/types'
 
 export const useConnectionStore = defineStore('connections', () => {
   // State

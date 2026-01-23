@@ -91,7 +91,7 @@
 
 <script setup lang="ts">
 import { reactive, computed, watch, ref } from 'vue'
-import type { DbConnection } from '../../../shared/types'
+import type { DbConnection } from '../../shared/types'
 import BaseIcon from './ui/BaseIcon.vue'
 import BaseModal from './ui/BaseModal.vue'
 import BaseInput from './ui/BaseInput.vue'

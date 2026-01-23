@@ -15,7 +15,7 @@
 
 <script setup lang="ts">
 defineProps<{
-  modelValue: string | number
+  modelValue: string | number | undefined
   label?: string
   error?: string
   help?: string

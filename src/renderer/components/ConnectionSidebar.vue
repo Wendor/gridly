@@ -141,7 +141,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
-import type { DbConnection } from '../../../shared/types'
+import type { DbConnection } from '../../shared/types'
 import BaseIcon from './ui/BaseIcon.vue'
 import BaseButton from './ui/BaseButton.vue'
 import BaseContextMenu from './ui/BaseContextMenu.vue'
