@@ -3,7 +3,6 @@ import { Client } from 'pg'
 import { DbSchema, IDbResult, DbConnection, IDataRequest } from '../../shared/types'
 import { IDbService } from './IDbService'
 
-
 export class PostgresService implements IDbService {
   private client: Client | null = null
 
@@ -110,7 +109,7 @@ export class PostgresService implements IDbService {
       // But getTables() is returning tables. We should verify.
       const tables = await this.getTables()
       if (!tables.includes(req.tableName)) {
-         throw new Error(`Invalid table name: ${req.tableName}`)
+        throw new Error(`Invalid table name: ${req.tableName}`)
       }
 
       const quoteChar = '"'
@@ -130,7 +129,7 @@ export class PostgresService implements IDbService {
       const offset = Number(req.offset)
 
       if (isNaN(limit) || isNaN(offset)) {
-         throw new Error('Invalid limit/offset')
+        throw new Error('Invalid limit/offset')
       }
 
       sql += ` LIMIT ${limit} OFFSET ${offset}`

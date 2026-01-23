@@ -23,8 +23,8 @@ export class DatabaseManager {
       // Если для этого ID уже есть соединение — разрываем его перед новым
       await this.disconnect(id)
 
-      let activeConfig = { ...config }
-      
+      const activeConfig = { ...config }
+
       // Обработка SSH
       if (config.useSsh && config.sshHost && config.sshPort && config.sshUser) {
         console.log(`[Conn ${id}] Starting SSH Tunnel...`)
@@ -55,7 +55,9 @@ export class DatabaseManager {
         newService = new PostgresService()
       }
 
-      console.log(`[Conn ${id}] Connecting to DB (${config.type}) via ${activeConfig.host}:${activeConfig.port}...`)
+      console.log(
+        `[Conn ${id}] Connecting to DB (${config.type}) via ${activeConfig.host}:${activeConfig.port}...`
+      )
       const result = await newService.connect(activeConfig)
 
       // Сохраняем активный сервис
@@ -100,6 +102,7 @@ export class DatabaseManager {
   }
 
   private processResult(result: IDbResult): IDbResult {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const processValue = (val: any): unknown => {
       if (val === null || val === undefined) return val
       if (val instanceof Date) {
@@ -120,6 +123,7 @@ export class DatabaseManager {
       if (Array.isArray(row)) {
         return row.map(processValue)
       } else if (typeof row === 'object' && row !== null) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const newRow: any = {}
         for (const k in row) {
           newRow[k] = processValue(row[k])
@@ -142,7 +146,7 @@ export class DatabaseManager {
     const sshService = new SshTunnelService()
 
     try {
-      let activeConfig = { ...config }
+      const activeConfig = { ...config }
 
       if (config.useSsh && config.sshHost && config.sshPort && config.sshUser) {
         const localPort = await sshService.createTunnel(

@@ -3,7 +3,6 @@ import mysql from 'mysql2/promise'
 import { DbSchema, IDbResult, DbConnection, IDataRequest } from '../../shared/types'
 import { IDbService } from './IDbService'
 
-
 export class MysqlService implements IDbService {
   private connection: mysql.Connection | null = null
 

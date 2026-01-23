@@ -34,7 +34,9 @@
         </div>
       </div>
 
-      <div v-if="historyStore.items.length === 0" class="empty-state">{{ $t('history.empty') }}</div>
+      <div v-if="historyStore.items.length === 0" class="empty-state">
+        {{ $t('history.empty') }}
+      </div>
     </div>
   </div>
 </template>

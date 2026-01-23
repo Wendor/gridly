@@ -54,7 +54,8 @@ export const useSettingsStore = defineStore('settings', () => {
     // For now, let's rely on the component or main init to sync, OR import here.
     // Dynamic import to avoid potential circular dependency issues with main
     import('../i18n').then((module) => {
-      module.default.global.locale.value = lang
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      module.default.global.locale.value = lang as any
     })
   }
 

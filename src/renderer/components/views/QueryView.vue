@@ -136,7 +136,6 @@ async function copyValue(): Promise<void> {
   if (raw === null) {
     val = '(NULL)'
   } else if (isWrappedValue(raw)) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     val = typeof raw.raw === 'string' ? raw.raw : JSON.stringify(raw.raw)
   } else {
     val = String(raw)
@@ -199,9 +198,14 @@ const connectionOptions = computed(() => {
   return [{ label: i18n.global.t('connections.select'), value: '' }, ...opts]
 })
 
-async function onTabConnectionChange(val: string): Promise<void> {
+async function onTabConnectionChange(val: string | number): Promise<void> {
   if (tabStore.currentTab) {
-    tabStore.currentTab.connectionId = val === '' ? null : Number(val)
+    if (val === '') {
+      tabStore.currentTab.connectionId = null
+    } else {
+      tabStore.currentTab.connectionId = Number(val)
+    }
+
     if (tabStore.currentTab.connectionId !== null) {
       await connStore.ensureConnection(tabStore.currentTab.connectionId)
     }
@@ -369,7 +373,6 @@ onMounted(() => {
   padding: 5px 10px;
   cursor: pointer;
 }
-
 
 .ctx-item {
   padding: 8px 16px;

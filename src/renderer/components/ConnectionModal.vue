@@ -19,25 +19,35 @@
 
       <div class="row">
         <BaseInput v-model="form.host" :label="$t('connections.host')" placeholder="localhost" />
-        <BaseInput v-model="form.port" :label="$t('connections.port')" placeholder="3306" class="port-input" />
+        <BaseInput
+          v-model="form.port"
+          :label="$t('connections.port')"
+          placeholder="3306"
+          class="port-input"
+        />
       </div>
 
       <div class="row">
         <BaseInput v-model="form.user" :label="$t('connections.user')" placeholder="root" />
-        <BaseInput v-model="form.password" type="password" :label="$t('connections.password')" placeholder="******" />
+        <BaseInput
+          v-model="form.password"
+          type="password"
+          :label="$t('connections.password')"
+          placeholder="******"
+        />
       </div>
 
-      <BaseInput v-model="form.database" :label="$t('connections.database')" placeholder="my_app_db" />
+      <BaseInput
+        v-model="form.database"
+        :label="$t('connections.database')"
+        placeholder="my_app_db"
+      />
 
       <div v-if="availableDatabases && availableDatabases.length > 0" class="exclude-section">
         <label class="section-label">{{ $t('connections.excludeDatabases') }}</label>
         <div class="db-list">
           <label v-for="db in availableDatabases" :key="db" class="db-check-item">
-            <input
-              type="checkbox"
-              :checked="isExcluded(db)"
-              @change="toggleDbExclusion(db)"
-            />
+            <input type="checkbox" :checked="isExcluded(db)" @change="toggleDbExclusion(db)" />
             {{ db }}
           </label>
         </div>
@@ -61,8 +71,17 @@
 
       <div v-if="form.useSsh" class="ssh-fields">
         <div class="row">
-          <BaseInput v-model="form.sshHost" :label="$t('connections.sshHost')" placeholder="1.2.3.4" />
-          <BaseInput v-model="form.sshPort" :label="$t('connections.sshPort')" placeholder="22" class="port-input" />
+          <BaseInput
+            v-model="form.sshHost"
+            :label="$t('connections.sshHost')"
+            placeholder="1.2.3.4"
+          />
+          <BaseInput
+            v-model="form.sshPort"
+            :label="$t('connections.sshPort')"
+            placeholder="22"
+            class="port-input"
+          />
         </div>
         <BaseInput v-model="form.sshUser" :label="$t('connections.sshUser')" placeholder="root" />
         <BaseInput
@@ -71,7 +90,11 @@
           :label="$t('connections.sshPassword')"
           placeholder="******"
         />
-        <BaseInput v-model="form.sshKeyPath" :label="$t('connections.sshKeyPath')" placeholder="/path/to/key" />
+        <BaseInput
+          v-model="form.sshKeyPath"
+          :label="$t('connections.sshKeyPath')"
+          placeholder="/path/to/key"
+        />
       </div>
 
       <div v-if="testStatus" class="test-feedback">
@@ -166,7 +189,7 @@ const excludedDbSet = computed({
   }
 })
 
-function toggleDbExclusion(db: string) {
+function toggleDbExclusion(db: string): void {
   const current = new Set(excludedDbSet.value)
   const lower = db.toLowerCase()
   if (current.has(lower)) {

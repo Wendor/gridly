@@ -116,12 +116,7 @@
       </div>
     </div>
 
-    <BaseContextMenu
-      :visible="ctxMenu.visible"
-      :x="ctxMenu.x"
-      :y="ctxMenu.y"
-      @close="closeCtxMenu"
-    >
+    <BaseContextMenu :visible="ctxMenu.visible" :x="ctxMenu.x" :y="ctxMenu.y" @close="closeCtxMenu">
       <div v-if="!connStore.isConnected(ctxMenu.index)" class="ctx-item" @click="handleConnect">
         <span class="ctx-icon connect-icon">
           <BaseIcon name="play" />
@@ -538,7 +533,6 @@ watch(
   color: #ff6b6b;
   margin: 2px 0;
 }
-
 
 .ctx-item {
   padding: 8px 12px;

@@ -76,7 +76,9 @@
         </svg>
       </div>
       <p>{{ $t('common.noTabs') }}</p>
-      <button class="btn-primary" @click="tabStore.addTab(null)">{{ $t('common.openNewQuery') }}</button>
+      <button class="btn-primary" @click="tabStore.addTab(null)">
+        {{ $t('common.openNewQuery') }}
+      </button>
     </div>
   </div>
 </template>

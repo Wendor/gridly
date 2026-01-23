@@ -1,6 +1,11 @@
 <template>
   <Teleport to="body">
-    <div v-if="visible" class="base-context-menu-overlay" @click.stop="close" @contextmenu.prevent="close">
+    <div
+      v-if="visible"
+      class="base-context-menu-overlay"
+      @click.stop="close"
+      @contextmenu.prevent="close"
+    >
       <div
         class="base-context-menu"
         :style="{ top: y + 'px', left: x + 'px' }"

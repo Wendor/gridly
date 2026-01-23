@@ -9,4 +9,3 @@ export interface IDbService {
   getSchema(): Promise<DbSchema>
   getTableData(req: IDataRequest): Promise<IDbResult>
 }
-

@@ -3,7 +3,9 @@
     <div class="sb-section left">
       <div class="sb-item status-text">
         <span v-if="connStore.loading" class="loading-label">{{ $t('status.executing') }}</span>
-        <span v-else>{{ tabStore.currentTab?.type === 'settings' ? $t('common.settings') : $t('common.ready') }}</span>
+        <span v-else>{{
+          tabStore.currentTab?.type === 'settings' ? $t('common.settings') : $t('common.ready')
+        }}</span>
       </div>
     </div>
 
@@ -23,7 +25,7 @@
         <span class="pg-text">
           {{ startRow }} - {{ endRow }}
           <span v-if="tabStore.currentTab.pagination.total !== null" class="total-count">
-             {{ $t('common.of') }} {{ tabStore.currentTab.pagination.total }}
+            {{ $t('common.of') }} {{ tabStore.currentTab.pagination.total }}
           </span>
         </span>
 

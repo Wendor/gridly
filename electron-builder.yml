@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: my-db-client
+appId: ru.wendor.gridly
+productName: gridly
 directories:
   buildResources: build
 files:
@@ -12,7 +12,7 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: my-db-client
+  executableName: gridly
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}

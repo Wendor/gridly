@@ -73,16 +73,16 @@ const selectedLabel = computed(() => {
   return found ? found.label : String(props.modelValue || '')
 })
 
-function toggle() {
+function toggle(): void {
   isOpen.value = !isOpen.value
 }
 
-function selectOption(option: SelectOption) {
+function selectOption(option: SelectOption): void {
   emit('update:modelValue', option.value)
   isOpen.value = false
 }
 
-function handleClickOutside(event: MouseEvent) {
+function handleClickOutside(event: MouseEvent): void {
   if (wrapperRef.value && !wrapperRef.value.contains(event.target as Node)) {
     isOpen.value = false
   }

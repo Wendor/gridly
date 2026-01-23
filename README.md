@@ -1,4 +1,4 @@
-# my-db-client
+# gridly
 
 An Electron application with Vue and TypeScript
 
