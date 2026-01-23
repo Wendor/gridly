@@ -1,11 +1,11 @@
 <template>
   <div class="sidebar">
     <div class="sidebar-header">
-      <h3>НАВИГАТОР</h3>
+      <h3>{{ $t('sidebar.navigator') }}</h3>
       <BaseButton
         variant="ghost"
         :icon-only="true"
-        title="Новое подключение"
+        :title="$t('connections.new')"
         @click="$emit('open-create-modal')"
       >
         <BaseIcon name="plus" />
@@ -50,7 +50,7 @@
                 variant="ghost"
                 :icon-only="true"
                 class="del-btn-wrap"
-                title="Удалить"
+                :title="$t('common.delete')"
                 @click.stop="$emit('delete', index)"
               >
                 <BaseIcon name="trash" />
@@ -61,13 +61,13 @@
 
         <div v-if="isExpanded(index)" class="databases-tree">
           <div v-if="connStore.databasesError?.[index]" class="error-state">
-            Ошибка: {{ connStore.databasesError[index] }}
+            {{ $t('common.error') }}: {{ connStore.databasesError[index] }}
           </div>
           <div v-else-if="!connStore.databasesCache[index]" class="loading-state">
-            Загрузка баз...
+            {{ $t('sidebar.loadingDbs') }}
           </div>
           <div v-else-if="connStore.databasesCache[index].length === 0" class="empty-state">
-            Нет баз
+            {{ $t('sidebar.noDbs') }}
           </div>
 
           <div
@@ -90,13 +90,13 @@
 
             <div v-if="isDbExpanded(index, dbName)" class="tables-tree">
               <div v-if="!connStore.tablesCache[`${index}-${dbName}`]" class="loading-state">
-                Загрузка...
+                {{ $t('sidebar.loadingTables') }}
               </div>
               <div
                 v-else-if="connStore.tablesCache[`${index}-${dbName}`].length === 0"
                 class="empty-tables"
               >
-                Нет таблиц
+                {{ $t('sidebar.noTables') }}
               </div>
               <div
                 v-for="table in connStore.tablesCache[`${index}-${dbName}`]"
@@ -126,28 +126,28 @@
         <span class="ctx-icon connect-icon">
           <BaseIcon name="play" />
         </span>
-        Подключиться
+        {{ $t('sidebar.connect') }}
       </div>
 
       <div v-if="connStore.isConnected(ctxMenu.index)" class="ctx-item" @click="handleRefresh">
         <span class="ctx-icon refresh-icon">
           <BaseIcon name="refresh" />
         </span>
-        Обновить схему
+        {{ $t('sidebar.refresh') }}
       </div>
 
       <div v-if="connStore.isConnected(ctxMenu.index)" class="ctx-item" @click="handleDisconnect">
         <span class="ctx-icon disconnect-icon">×</span>
-        Отключиться
+        {{ $t('sidebar.disconnect') }}
       </div>
 
       <div class="ctx-item" @click="handleEdit">
         <BaseIcon name="edit" />
-        Редактировать
+        {{ $t('sidebar.edit') }}
       </div>
       <div class="ctx-item delete" @click="handleDelete">
         <BaseIcon name="trash" />
-        Удалить
+        {{ $t('sidebar.delete') }}
       </div>
     </BaseContextMenu>
   </div>
@@ -160,6 +160,7 @@ import BaseIcon from './ui/BaseIcon.vue'
 import BaseButton from './ui/BaseButton.vue'
 import BaseContextMenu from './ui/BaseContextMenu.vue'
 import { useConnectionStore } from '../stores/connections'
+import i18n from '../i18n'
 
 const props = defineProps<{
   connections: DbConnection[]
@@ -204,7 +205,7 @@ function handleEdit(): void {
 
 function handleDelete(): void {
   if (ctxMenu.index !== -1) {
-    if (confirm('Вы уверены, что хотите удалить это подключение?')) {
+    if (confirm(i18n.global.t('sidebar.confirmDelete'))) {
       emit('delete', ctxMenu.index)
     }
   }

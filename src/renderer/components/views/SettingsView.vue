@@ -1,10 +1,27 @@
 <template>
   <div class="settings-view">
     <div class="container">
-      <h1>Preferences</h1>
+      <h1>{{ $t('settings.title') }}</h1>
 
       <div class="section">
-        <h2>Color Theme</h2>
+        <h2>{{ $t('settings.general') }}</h2>
+        <div class="setting-item">
+          <label>{{ $t('settings.language') }}</label>
+          <div style="width: 200px">
+            <BaseSelect
+              :model-value="settings.language"
+              :options="[
+                { label: 'English', value: 'en' },
+                { label: 'Русский', value: 'ru' }
+              ]"
+              @update:model-value="(val) => settings.setLanguage(String(val))"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>{{ $t('settings.theme') }}</h2>
         <div class="themes-grid">
           <div
             v-for="theme in settings.themesList"
@@ -29,9 +46,9 @@
       </div>
 
       <div class="section">
-        <h2>Editor</h2>
+        <h2>{{ $t('settings.editor') }}</h2>
         <div class="setting-item">
-          <label>Font Size</label>
+          <label>{{ $t('settings.fontSize') }}</label>
           <div class="font-controls">
             <BaseButton
               variant="secondary"
@@ -58,6 +75,7 @@
 <script setup lang="ts">
 import { useSettingsStore } from '../../stores/settings'
 import BaseButton from '../ui/BaseButton.vue'
+import BaseSelect from '../ui/BaseSelect.vue'
 
 const settings = useSettingsStore()
 </script>

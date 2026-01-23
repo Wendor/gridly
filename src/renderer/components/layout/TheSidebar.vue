@@ -19,7 +19,7 @@
       v-else-if="uiStore.activeSidebar === 'settings'"
       style="padding: 20px; color: var(--text-secondary)"
     >
-      Settings Panel
+      {{ $t('common.settingsPanel') }}
     </div>
   </div>
 </template>

@@ -4,7 +4,7 @@
       <div
         class="ab-item"
         :class="{ active: uiStore.activeSidebar === 'connections' }"
-        title="Database Connections"
+        :title="$t('activity.connections')"
         @click="uiStore.setSidebar('connections')"
       >
         <svg
@@ -27,7 +27,7 @@
       <div
         class="ab-item"
         :class="{ active: uiStore.activeSidebar === 'history' }"
-        title="Query History"
+        :title="$t('activity.history')"
         @click="uiStore.setSidebar('history')"
       >
         <svg
@@ -50,7 +50,7 @@
     <div class="spacer"></div>
 
     <div class="bottom-actions">
-      <div class="ab-item" title="Settings" @click="openSettings">
+      <div class="ab-item" :title="$t('common.settings')" @click="openSettings">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="24"

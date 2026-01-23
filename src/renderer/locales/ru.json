@@ -1,0 +1,91 @@
+{
+  "common": {
+    "cancel": "Отмена",
+    "save": "Сохранить",
+    "create": "Создать",
+    "delete": "Удалить",
+    "edit": "Редактировать",
+    "close": "Закрыть",
+    "error": "Ошибка",
+    "ready": "Готов",
+    "settings": "Настройки",
+    "settingsPanel": "Панель настроек",
+    "of": "из",
+    "newTab": "Новая вкладка",
+    "noTabs": "Нет открытых вкладок",
+    "openNewQuery": "Открыть новый запрос",
+    "query": "Запрос",
+    "select": "Выбрать..."
+  },
+  "status": {
+    "executing": "Выполнение...",
+    "disconnected": "Отключено",
+    "connectedInTitle": "(подключено)"
+  },
+  "pagination": {
+    "prev": "Предыдущая страница",
+    "next": "Следующая страница"
+  },
+  "activity": {
+    "connections": "Подключения",
+    "history": "История запросов"
+  },
+  "settings": {
+    "title": "Настройки",
+    "general": "Общие",
+    "language": "Язык",
+    "theme": "Тема",
+    "editor": "Редактор",
+    "fontSize": "Размер шрифта"
+  },
+  "connections": {
+    "new": "Новое подключение",
+    "edit": "Редактирование подключения",
+    "select": "Выберите подключение",
+    "test": "Проверить подключение",
+    "testSuccess": "Подключение успешно!",
+    "type": "Тип базы",
+    "name": "Название",
+    "host": "Хост",
+    "port": "Порт",
+    "user": "Пользователь",
+    "password": "Пароль",
+    "database": "База данных",
+    "ssh": "Использовать SSH туннель",
+    "excludeDatabases": "Исключить базы/схемы",
+    "excludeDatabasesHelp": "Введите названия через запятую (регистронезависимо)",
+    "excludeDatabasesHint": "Отмеченные базы будут скрыты из списка",
+    "sshHost": "SSH Хост",
+    "sshPort": "SSH Порт",
+    "sshUser": "SSH Пользователь",
+    "sshPassword": "SSH Пароль/Фраза",
+    "sshKeyPath": "Путь к SSH ключу",
+    "testingConnection": "Проверка подключения..."
+  },
+  "query": {
+    "format": "Форматировать",
+    "exportCsv": "Экспорт CSV",
+    "run": "Запустить",
+    "copyValue": "Копировать значение",
+    "copyRow": "Копировать строку (JSON)"
+  },
+  "sidebar": {
+    "connections": "ПОДКЛЮЧЕНИЯ",
+    "navigator": "НАВИГАТОР",
+    "refresh": "Обновить схему",
+    "connect": "Подключиться",
+    "disconnect": "Отключиться",
+    "edit": "Редактировать",
+    "delete": "Удалить",
+    "loadingDbs": "Загрузка баз...",
+    "noDbs": "Нет баз",
+    "loadingTables": "Загрузка...",
+    "noTables": "Нет таблиц",
+    "confirmDelete": "Вы уверены, что хотите удалить это подключение?"
+  },
+  "history": {
+    "title": "История",
+    "clear": "Очистить историю",
+    "empty": "История пуста"
+  }
+}

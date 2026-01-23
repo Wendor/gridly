@@ -4,6 +4,7 @@ import { useConnectionStore } from './connections'
 import { useHistoryStore } from './history'
 import type { CellClassParams, ValueFormatterParams } from 'ag-grid-community'
 import { isWrappedValue } from '../../shared/types'
+import i18n from '../i18n'
 
 export interface Tab {
   id: number
@@ -29,7 +30,7 @@ export const useTabStore = defineStore('tabs', () => {
     {
       id: 1,
       type: 'query',
-      name: 'Query 1',
+      name: `${i18n.global.t('common.query')} 1`,
       connectionId: null,
       sql: 'SELECT 1;',
       rows: [],
@@ -56,7 +57,7 @@ export const useTabStore = defineStore('tabs', () => {
     tabs.value.push({
       id,
       type: 'query',
-      name: `Query ${id}`,
+      name: `${i18n.global.t('common.query')} ${id}`,
       connectionId: connId,
       sql: '',
       rows: [],
@@ -106,7 +107,7 @@ export const useTabStore = defineStore('tabs', () => {
     tabs.value.push({
       id,
       type: 'settings',
-      name: 'Settings',
+      name: i18n.global.t('common.settings'),
       connectionId: null,
       sql: '',
       rows: [],

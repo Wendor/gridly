@@ -1,11 +1,11 @@
 <template>
   <div class="history-sidebar">
     <div class="header">
-      <span class="title">History</span>
+      <span class="title">{{ $t('history.title') }}</span>
       <BaseButton
         variant="ghost"
         :icon-only="true"
-        title="Clear History"
+        :title="$t('history.clear')"
         class="clear-btn"
         @click="historyStore.clearHistory"
       >
@@ -34,7 +34,7 @@
         </div>
       </div>
 
-      <div v-if="historyStore.items.length === 0" class="empty-state">No history yet</div>
+      <div v-if="historyStore.items.length === 0" class="empty-state">{{ $t('history.empty') }}</div>
     </div>
   </div>
 </template>

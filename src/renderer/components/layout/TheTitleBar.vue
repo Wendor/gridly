@@ -12,6 +12,7 @@
 import { computed } from 'vue'
 import { useTabStore } from '../../stores/tabs'
 import { useConnectionStore } from '../../stores/connections'
+import i18n from '../../i18n'
 
 const tabStore = useTabStore()
 const connStore = useConnectionStore()
@@ -20,7 +21,9 @@ const connectionTitle = computed(() => {
   if (tabStore.currentTab?.type === 'query' && tabStore.currentTab.connectionId !== null) {
     const conn = connStore.savedConnections[tabStore.currentTab.connectionId]
     if (conn) {
-      const status = connStore.isConnected(tabStore.currentTab.connectionId) ? '(connected)' : ''
+      const status = connStore.isConnected(tabStore.currentTab.connectionId)
+        ? i18n.global.t('status.connectedInTitle')
+        : ''
       return `${conn.name} ${status}`
     }
   }

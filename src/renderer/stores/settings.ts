@@ -43,12 +43,38 @@ export const useSettingsStore = defineStore('settings', () => {
     applyTheme()
   }
 
+  const language = ref('en')
+
+  function setLanguage(lang: string): void {
+    language.value = lang
+    localStorage.setItem('app-locale', lang)
+    // Update global i18n locale
+    // We need to import i18n or use it via window/global context if circular deps are an issue.
+    // However, importing it directly is usually fine.
+    // For now, let's rely on the component or main init to sync, OR import here.
+    // Dynamic import to avoid potential circular dependency issues with main
+    import('../i18n').then((module) => {
+      module.default.global.locale.value = lang
+    })
+  }
+
+  function initSettings(): void {
+    initTheme()
+    const savedLang = localStorage.getItem('app-locale')
+    if (savedLang) {
+      setLanguage(savedLang)
+    }
+  }
+
   return {
     currentThemeId,
     activeTheme,
     themesList: themes,
     fontSize,
     initTheme,
+    initSettings,
+    language,
+    setLanguage,
     setTheme,
     setFontSize
   }

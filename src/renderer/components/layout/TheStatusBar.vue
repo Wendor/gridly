@@ -2,8 +2,8 @@
   <div class="status-bar-global">
     <div class="sb-section left">
       <div class="sb-item status-text">
-        <span v-if="connStore.loading" class="loading-label">Executing...</span>
-        <span v-else>{{ tabStore.currentTab?.type === 'settings' ? 'Settings' : 'Ready' }}</span>
+        <span v-if="connStore.loading" class="loading-label">{{ $t('status.executing') }}</span>
+        <span v-else>{{ tabStore.currentTab?.type === 'settings' ? $t('common.settings') : $t('common.ready') }}</span>
       </div>
     </div>
 
@@ -13,7 +13,7 @@
           variant="ghost"
           :icon-only="true"
           :disabled="tabStore.currentTab.pagination.offset === 0 || connStore.loading"
-          title="Previous Page"
+          :title="$t('pagination.prev')"
           class="pg-btn-override"
           @click="tabStore.prevPage"
         >
@@ -23,7 +23,7 @@
         <span class="pg-text">
           {{ startRow }} - {{ endRow }}
           <span v-if="tabStore.currentTab.pagination.total !== null" class="total-count">
-            of {{ tabStore.currentTab.pagination.total }}
+             {{ $t('common.of') }} {{ tabStore.currentTab.pagination.total }}
           </span>
         </span>
 
@@ -31,7 +31,7 @@
           variant="ghost"
           :icon-only="true"
           :disabled="isNextDisabled || connStore.loading"
-          title="Next Page"
+          :title="$t('pagination.next')"
           class="pg-btn-override"
           @click="tabStore.nextPage"
         >
@@ -46,7 +46,7 @@
       </div>
 
       <div class="sb-item connection-status" :class="{ active: isTabConnected }">
-        {{ isTabConnected ? `${currentConnectionName}` : 'Disconnected' }}
+        {{ isTabConnected ? `${currentConnectionName}` : $t('status.disconnected') }}
       </div>
     </div>
   </div>

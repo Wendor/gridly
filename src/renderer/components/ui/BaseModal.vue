@@ -5,7 +5,7 @@
         <h3 class="modal-title">
           <slot name="title">{{ title }}</slot>
         </h3>
-        <button class="close-btn" @click="close">
+        <button class="close-btn" :title="$t('common.close')" @click="close">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path
               d="M1 1L13 13M1 13L13 1"

@@ -3,6 +3,7 @@
     class="base-btn"
     :class="[`variant-${variant}`, { 'icon-only': iconOnly }]"
     :disabled="disabled || loading"
+    :title="loading ? $t('common.loading') : undefined"
     @click="$emit('click', $event)"
   >
     <span v-if="loading" class="spinner"></span>
@@ -30,7 +31,7 @@ defineEmits<{ (e: 'click', event: MouseEvent): void }>()
 .base-btn {
   border: 1px solid transparent;
   border-radius: 4px;
-  padding: 8px 16px;
+  padding: 6px 12px;
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
@@ -39,6 +40,9 @@ defineEmits<{ (e: 'click', event: MouseEvent): void }>()
   justify-content: center;
   gap: 6px;
   font-family: var(--font-main);
+  box-sizing: border-box;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .base-btn:not(.icon-only) {

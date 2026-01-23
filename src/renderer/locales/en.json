@@ -1,0 +1,91 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "create": "Create",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "error": "Error",
+    "ready": "Ready",
+    "settings": "Settings",
+    "settingsPanel": "Settings Panel",
+    "of": "of",
+    "newTab": "New Tab",
+    "noTabs": "No open tabs",
+    "openNewQuery": "Open New Query",
+    "query": "Query",
+    "select": "Select..."
+  },
+  "status": {
+    "executing": "Executing...",
+    "disconnected": "Disconnected",
+    "connectedInTitle": "(connected)"
+  },
+  "pagination": {
+    "prev": "Previous Page",
+    "next": "Next Page"
+  },
+  "activity": {
+    "connections": "Database Connections",
+    "history": "Query History"
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "language": "Language",
+    "theme": "Theme",
+    "editor": "Editor",
+    "fontSize": "Font Size"
+  },
+  "connections": {
+    "new": "New Connection",
+    "edit": "Edit Connection",
+    "select": "Select Connection",
+    "test": "Check Connection",
+    "testSuccess": "Connection successful!",
+    "type": "Database Type",
+    "name": "Name",
+    "host": "Host",
+    "port": "Port",
+    "user": "User",
+    "password": "Password",
+    "database": "Database",
+    "ssh": "Use SSH Tunnel",
+    "excludeDatabases": "Exclude Databases / Schemas",
+    "excludeDatabasesHelp": "Comma separated list of databases to exclude (case insensitive)",
+    "excludeDatabasesHint": "Selected databases will be hidden",
+    "sshHost": "SSH Host",
+    "sshPort": "SSH Port",
+    "sshUser": "SSH User",
+    "sshPassword": "SSH Password/Passphrase",
+    "sshKeyPath": "SSH Key Path",
+    "testingConnection": "Testing connection..."
+  },
+  "query": {
+    "format": "Format",
+    "exportCsv": "Export CSV",
+    "run": "Run",
+    "copyValue": "Copy Value",
+    "copyRow": "Copy Row (JSON)"
+  },
+  "sidebar": {
+    "connections": "CONNECTIONS",
+    "navigator": "NAVIGATOR",
+    "refresh": "Refresh Schema",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "edit": "Edit Connection",
+    "delete": "Delete Connection",
+    "loadingDbs": "Loading databases...",
+    "noDbs": "No databases",
+    "loadingTables": "Loading...",
+    "noTables": "No tables",
+    "confirmDelete": "Are you sure you want to delete this connection?"
+  },
+  "history": {
+    "title": "History",
+    "clear": "Clear History",
+    "empty": "No history yet"
+  }
+}

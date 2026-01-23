@@ -1,7 +1,7 @@
 <template>
   <div ref="wrapperRef" class="base-select-wrapper" :class="{ 'is-open': isOpen }">
     <label v-if="label" class="select-label">{{ label }}</label>
-    <div class="select-container" @click="toggle">
+    <div class="select-container" :title="$t('common.select')" @click="toggle">
       <div class="base-select" :class="[`variant-${variant}`, { 'is-active': isOpen }]">
         <span class="selected-text">{{ selectedLabel }}</span>
         <div class="select-arrow">
@@ -121,7 +121,7 @@ onBeforeUnmount(() => {
   box-sizing: border-box; /* Fix width+padding calculation */
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  padding: 8px 30px 8px 10px;
+  padding: 6px 30px 6px 10px;
   border-radius: 4px;
   font-family: var(--font-main);
   font-size: 13px;

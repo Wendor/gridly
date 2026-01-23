@@ -10,18 +10,18 @@
           @update:model-value="onTabConnectionChange"
         />
 
-        <BaseButton title="Format SQL" @click="formatCurrentSql">
-          <BaseIcon name="sparkles" /> Format
+        <BaseButton :title="$t('query.format')" @click="formatCurrentSql">
+          <BaseIcon name="sparkles" /> {{ $t('query.format') }}
         </BaseButton>
       </div>
 
       <div class="toolbar-right">
         <BaseButton
-          title="Export to CSV"
+          :title="$t('query.exportCsv')"
           :disabled="!tabStore.currentTab?.rows?.length"
           @click="exportCsv"
         >
-          <BaseIcon name="download" /> Export CSV
+          <BaseIcon name="download" /> {{ $t('query.exportCsv') }}
         </BaseButton>
 
         <BaseButton
@@ -29,7 +29,7 @@
           :disabled="connStore.loading || tabStore.currentTab?.connectionId === null"
           @click="tabStore.runQuery"
         >
-          <BaseIcon name="play" /> Run
+          <BaseIcon name="play" /> {{ $t('query.run') }}
         </BaseButton>
       </div>
     </div>
@@ -47,9 +47,9 @@
     <div class="grid-wrapper">
       <div v-if="connStore.error" class="error-msg">
         <div class="error-content">
-          <h3>Error</h3>
+          <h3>{{ $t('common.error') }}</h3>
           <p>{{ connStore.error }}</p>
-          <button @click="connStore.error = null">Close</button>
+          <button @click="connStore.error = null">{{ $t('common.close') }}</button>
         </div>
       </div>
 
@@ -75,8 +75,8 @@
         :y="contextMenu.y"
         @close="closeContextMenu"
       >
-        <div class="ctx-item" @click="copyValue">Copy Value</div>
-        <div class="ctx-item" @click="copyRow">Copy Row (JSON)</div>
+        <div class="ctx-item" @click="copyValue">{{ $t('query.copyValue') }}</div>
+        <div class="ctx-item" @click="copyRow">{{ $t('query.copyRow') }}</div>
       </BaseContextMenu>
     </div>
   </div>
@@ -97,6 +97,7 @@ import BaseIcon from '../ui/BaseIcon.vue'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseSelect from '../ui/BaseSelect.vue'
 import BaseContextMenu from '../ui/BaseContextMenu.vue'
+import i18n from '../../i18n'
 
 const tabStore = useTabStore()
 const connStore = useConnectionStore()
@@ -195,7 +196,7 @@ const connectionOptions = computed(() => {
     label: conn.name,
     value: idx
   }))
-  return [{ label: 'Select Connection', value: '' }, ...opts]
+  return [{ label: i18n.global.t('connections.select'), value: '' }, ...opts]
 })
 
 async function onTabConnectionChange(val: string): Promise<void> {

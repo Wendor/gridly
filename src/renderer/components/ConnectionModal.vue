@@ -1,13 +1,13 @@
 <template>
   <BaseModal
     :is-open="isOpen"
-    :title="isEditing ? 'Редактирование подключения' : 'Новое подключение'"
+    :title="isEditing ? $t('connections.edit') : $t('connections.new')"
     @close="close"
   >
     <div class="form-body">
       <BaseSelect
         v-model="form.type"
-        label="Тип базы"
+        :label="$t('connections.type')"
         :options="[
           { label: 'MySQL / MariaDB', value: 'mysql' },
           { label: 'PostgreSQL', value: 'postgres' }
@@ -15,22 +15,22 @@
         @change="onTypeChange"
       />
 
-      <BaseInput v-model="form.name" label="Название" placeholder="Например: PROD" />
+      <BaseInput v-model="form.name" :label="$t('connections.name')" placeholder="PROD" />
 
       <div class="row">
-        <BaseInput v-model="form.host" label="Host" placeholder="localhost" />
-        <BaseInput v-model="form.port" label="Port" placeholder="3306" class="port-input" />
+        <BaseInput v-model="form.host" :label="$t('connections.host')" placeholder="localhost" />
+        <BaseInput v-model="form.port" :label="$t('connections.port')" placeholder="3306" class="port-input" />
       </div>
 
       <div class="row">
-        <BaseInput v-model="form.user" label="User" placeholder="root" />
-        <BaseInput v-model="form.password" type="password" label="Password" placeholder="******" />
+        <BaseInput v-model="form.user" :label="$t('connections.user')" placeholder="root" />
+        <BaseInput v-model="form.password" type="password" :label="$t('connections.password')" placeholder="******" />
       </div>
 
-      <BaseInput v-model="form.database" label="База данных" placeholder="my_app_db" />
+      <BaseInput v-model="form.database" :label="$t('connections.database')" placeholder="my_app_db" />
 
       <div v-if="availableDatabases && availableDatabases.length > 0" class="exclude-section">
-        <label class="section-label">Исключить базы/схемы</label>
+        <label class="section-label">{{ $t('connections.excludeDatabases') }}</label>
         <div class="db-list">
           <label v-for="db in availableDatabases" :key="db" class="db-check-item">
             <input
@@ -41,37 +41,37 @@
             {{ db }}
           </label>
         </div>
-        <div class="help-text">Отмеченные базы будут скрыты из списка</div>
+        <div class="help-text">{{ $t('connections.excludeDatabasesHint') }}</div>
       </div>
 
       <BaseInput
         v-else
         v-model="form.excludeList"
-        label="Исключить базы/схемы"
+        :label="$t('connections.excludeDatabases')"
         placeholder="information_schema, sys..."
-        help="Введите названия через запятую (регистронезависимо)"
+        :help="$t('connections.excludeDatabasesHelp')"
       />
 
       <div class="ssh-toggle">
         <label class="checkbox-label">
           <input v-model="form.useSsh" type="checkbox" />
-          Использовать SSH Tunnel
+          {{ $t('connections.ssh') }}
         </label>
       </div>
 
       <div v-if="form.useSsh" class="ssh-fields">
         <div class="row">
-          <BaseInput v-model="form.sshHost" label="SSH Host" placeholder="1.2.3.4" />
-          <BaseInput v-model="form.sshPort" label="Port" placeholder="22" class="port-input" />
+          <BaseInput v-model="form.sshHost" :label="$t('connections.sshHost')" placeholder="1.2.3.4" />
+          <BaseInput v-model="form.sshPort" :label="$t('connections.sshPort')" placeholder="22" class="port-input" />
         </div>
-        <BaseInput v-model="form.sshUser" label="SSH User" placeholder="root" />
+        <BaseInput v-model="form.sshUser" :label="$t('connections.sshUser')" placeholder="root" />
         <BaseInput
           v-model="form.sshPassword"
           type="password"
-          label="SSH Password/Passphrase"
+          :label="$t('connections.sshPassword')"
           placeholder="******"
         />
-        <BaseInput v-model="form.sshKeyPath" label="SSH Key Path" placeholder="/path/to/key" />
+        <BaseInput v-model="form.sshKeyPath" :label="$t('connections.sshKeyPath')" placeholder="/path/to/key" />
       </div>
 
       <div v-if="testStatus" class="test-feedback">
@@ -96,10 +96,10 @@
         :disabled="testStatus?.type === 'loading'"
         @click="testConnection"
       >
-        Check Connection
+        {{ $t('connections.test') }}
       </BaseButton>
       <BaseButton variant="primary" :disabled="testStatus?.type === 'loading'" @click="save">
-        {{ isEditing ? 'Сохранить' : 'Создать' }}
+        {{ isEditing ? $t('common.save') : $t('common.create') }}
       </BaseButton>
     </template>
   </BaseModal>
@@ -113,6 +113,7 @@ import BaseModal from './ui/BaseModal.vue'
 import BaseInput from './ui/BaseInput.vue'
 import BaseButton from './ui/BaseButton.vue'
 import BaseSelect from './ui/BaseSelect.vue'
+import i18n from '../i18n'
 
 const props = defineProps<{
   isOpen: boolean
@@ -205,7 +206,9 @@ function close(): void {
 }
 
 async function testConnection(): Promise<void> {
-  testStatus.value = { type: 'loading', message: 'Testing connection...' }
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
+  testStatus.value = { type: 'loading', message: i18n.global.t('connections.testingConnection') }
   try {
     const successMsg = await window.dbApi.testConnection({ ...form })
     testStatus.value = { type: 'success', message: successMsg }

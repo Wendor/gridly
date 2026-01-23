@@ -68,7 +68,7 @@ const modalAvailableDatabases = ref<string[]>([])
 
 onMounted(() => {
   connStore.loadFromStorage()
-  settingsStore.initTheme()
+  settingsStore.initSettings()
 
   const savedWidth = localStorage.getItem('sidebar-width')
   if (savedWidth) sidebarWidth.value = parseInt(savedWidth)

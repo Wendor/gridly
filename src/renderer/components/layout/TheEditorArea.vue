@@ -49,7 +49,7 @@
         <span class="tab-title">{{ tab.name }}</span>
         <span class="tab-close" @click.stop="tabStore.closeTab(tab.id)">×</span>
       </div>
-      <div class="add-tab" title="New Tab" @click="tabStore.addTab(null)">+</div>
+      <div class="add-tab" :title="$t('common.newTab')" @click="tabStore.addTab(null)">+</div>
     </div>
 
     <div v-if="tabStore.currentTab" class="main-view-container">
@@ -75,8 +75,8 @@
           <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
         </svg>
       </div>
-      <p>No open tabs</p>
-      <button class="btn-primary" @click="tabStore.addTab(null)">Open New Query</button>
+      <p>{{ $t('common.noTabs') }}</p>
+      <button class="btn-primary" @click="tabStore.addTab(null)">{{ $t('common.openNewQuery') }}</button>
     </div>
   </div>
 </template>
