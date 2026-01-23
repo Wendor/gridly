@@ -6,6 +6,7 @@
           :model-value="tabStore.currentTab?.connectionId ?? ''"
           :options="connectionOptions"
           class="conn-select-wrapper"
+          variant="outline"
           @update:model-value="onTabConnectionChange"
         />
 
