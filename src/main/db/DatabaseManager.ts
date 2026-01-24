@@ -1,4 +1,11 @@
-import { DbConnection, IDbResult, DbSchema, IDataRequest } from '../../shared/types'
+import {
+  DbConnection,
+  IDbResult,
+  DbSchema,
+  IDataRequest,
+  RowUpdate,
+  UpdateResult
+} from '../../shared/types'
 import { IDbService } from './IDbService'
 import { MysqlService } from './MysqlService'
 import { PostgresService } from './PostgresService'
@@ -219,5 +226,15 @@ export class DatabaseManager {
   async setActiveDatabase(id: number, dbName: string): Promise<void> {
     const service = this.getService(id)
     await service.setActiveDatabase(dbName)
+  }
+
+  async getPrimaryKeys(id: number, tableName: string): Promise<string[]> {
+    const service = this.getService(id)
+    return await service.getPrimaryKeys(tableName)
+  }
+
+  async updateRows(id: number, updates: RowUpdate[]): Promise<UpdateResult> {
+    const service = this.getService(id)
+    return await service.updateRows(updates)
   }
 }

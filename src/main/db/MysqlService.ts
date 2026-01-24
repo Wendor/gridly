@@ -1,6 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import mysql from 'mysql2/promise'
-import { DbSchema, IDbResult, DbConnection, IDataRequest } from '../../shared/types'
+import {
+  DbSchema,
+  IDbResult,
+  DbConnection,
+  IDataRequest,
+  RowUpdate,
+  UpdateResult
+} from '../../shared/types'
 import { IDbService } from './IDbService'
 
 export class MysqlService implements IDbService {
@@ -66,7 +73,6 @@ export class MysqlService implements IDbService {
     }
   }
 
-  // Исправлено: поддержка получения таблиц из конкретной БД
   async getTables(dbName?: string): Promise<string[]> {
     if (!this.connection) return []
     try {
@@ -79,7 +85,6 @@ export class MysqlService implements IDbService {
     }
   }
 
-  // Новый метод: получение всех БД сервера
   async getDatabases(): Promise<string[]> {
     if (!this.connection) return []
     try {
@@ -151,5 +156,63 @@ export class MysqlService implements IDbService {
   async setActiveDatabase(dbName: string): Promise<void> {
     if (!this.connection) throw new Error('Нет соединения с базой данных')
     await this.connection.query(`USE \`${dbName}\``)
+  }
+
+  async getPrimaryKeys(tableName: string): Promise<string[]> {
+    if (!this.connection) return []
+    try {
+      const sql = `
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = ?
+          AND CONSTRAINT_NAME = 'PRIMARY'
+        ORDER BY ORDINAL_POSITION;
+      `
+      const [rows] = await this.connection.query(sql, [tableName])
+      return (rows as any[]).map((row) => row.COLUMN_NAME)
+    } catch (e) {
+      console.error('Error fetching primary keys:', e)
+      return []
+    }
+  }
+
+  async updateRows(updates: RowUpdate[]): Promise<UpdateResult> {
+    if (!this.connection) {
+      return { success: false, affectedRows: 0, error: 'Not connected' }
+    }
+
+    try {
+      let totalAffected = 0
+
+      for (const update of updates) {
+        const { tableName, primaryKeys, changes } = update
+
+        if (Object.keys(changes).length === 0) continue
+
+        const setClauses: string[] = []
+        const whereClauses: string[] = []
+        const values: any[] = []
+
+        for (const [col, val] of Object.entries(changes)) {
+          setClauses.push(`\`${col}\` = ?`)
+          values.push(val)
+        }
+
+        for (const [col, val] of Object.entries(primaryKeys)) {
+          whereClauses.push(`\`${col}\` = ?`)
+          values.push(val)
+        }
+
+        const sql = `UPDATE \`${tableName}\` SET ${setClauses.join(', ')} WHERE ${whereClauses.join(' AND ')}`
+
+        const [result] = await this.connection.query(sql, values)
+        totalAffected += (result as any).affectedRows || 0
+      }
+
+      return { success: true, affectedRows: totalAffected }
+    } catch (e: any) {
+      return { success: false, affectedRows: 0, error: e.message }
+    }
   }
 }

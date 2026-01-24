@@ -71,7 +71,11 @@
     "run": "Запустить",
     "copyValue": "Копировать значение",
     "copyRow": "Копировать строку (JSON)",
-    "noData": "Нет данных"
+    "noData": "Нет данных",
+    "revertChanges": "Отменить изменения",
+    "commitChanges": "Сохранить изменения",
+    "noPrimaryKey": "Редактирование недоступно: не найден primary key",
+    "refresh": "Обновить"
   },
   "sidebar": {
     "connections": "ПОДКЛЮЧЕНИЯ",

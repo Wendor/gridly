@@ -71,7 +71,11 @@
     "run": "Run",
     "copyValue": "Copy Value",
     "copyRow": "Copy Row (JSON)",
-    "noData": "No data"
+    "noData": "No data",
+    "revertChanges": "Revert Changes",
+    "commitChanges": "Save Changes",
+    "noPrimaryKey": "Editing unavailable: no primary key found",
+    "refresh": "Refresh"
   },
   "sidebar": {
     "connections": "CONNECTIONS",

@@ -18,6 +18,8 @@ declare global {
       getSchema: (id: number) => Promise<DbSchema>
       testConnection: (config: DbConnection) => Promise<string>
       setActiveDatabase: (id: number, dbName: string) => Promise<void>
+      getPrimaryKeys: (id: number, tableName: string) => Promise<string[]>
+      updateRows: (id: number, updates: unknown[]) => Promise<unknown>
     }
   }
 }

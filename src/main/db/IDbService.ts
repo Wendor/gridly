@@ -1,4 +1,11 @@
-import { IDbResult, DbSchema, DbConnection, IDataRequest } from '../../shared/types'
+import {
+  IDbResult,
+  DbSchema,
+  DbConnection,
+  IDataRequest,
+  RowUpdate,
+  UpdateResult
+} from '../../shared/types'
 
 export interface IDbService {
   connect(config: DbConnection): Promise<string>
@@ -9,4 +16,6 @@ export interface IDbService {
   getSchema(): Promise<DbSchema>
   getTableData(req: IDataRequest): Promise<IDbResult>
   setActiveDatabase(dbName: string): Promise<void>
+  getPrimaryKeys(tableName: string): Promise<string[]>
+  updateRows(updates: RowUpdate[]): Promise<UpdateResult>
 }

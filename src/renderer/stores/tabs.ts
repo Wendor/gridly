@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { useConnectionStore } from './connections'
 import { useHistoryStore } from './history'
+import { RowUpdate, UpdateResult } from '../../shared/types'
 import i18n from '../i18n'
 
 export interface BaseTab {
@@ -22,6 +23,10 @@ export interface QueryTab extends BaseTab {
     offset: number
     total: number | null
   }
+  tableName: string | null
+  primaryKeys: string[]
+  pendingChanges: Map<string, Record<string, unknown>>
+  originalRows: Map<string, Record<string, unknown>>
 }
 
 export interface SettingsTab extends BaseTab {
@@ -69,7 +74,11 @@ export const useTabStore = defineStore('tabs', () => {
       rows: [],
       colDefs: [],
       meta: null,
-      pagination: { limit: 100, offset: 0, total: null }
+      pagination: { limit: 100, offset: 0, total: null },
+      tableName: null,
+      primaryKeys: [],
+      pendingChanges: new Map(),
+      originalRows: new Map()
     })
     activeTabId.value = id
   }
@@ -101,7 +110,11 @@ export const useTabStore = defineStore('tabs', () => {
       rows: [],
       colDefs: [],
       meta: null,
-      pagination: { limit: 100, offset: 0, total: null }
+      pagination: { limit: 100, offset: 0, total: null },
+      tableName: tableName,
+      primaryKeys: [],
+      pendingChanges: new Map(),
+      originalRows: new Map()
     })
 
     activeTabId.value = id
@@ -255,6 +268,8 @@ export const useTabStore = defineStore('tabs', () => {
           }
         }
       }
+
+      await loadPrimaryKeys()
     } catch (e) {
       if (e instanceof Error) {
         connectionStore.error = e.message
@@ -312,16 +327,18 @@ export const useTabStore = defineStore('tabs', () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
-        // Need to reconstruct state correctly from parsed execution
-        // We can't strict type check too easy here, so we cast
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        tabs.value = parsed.map((t: any) => {
-          if (t.type === 'query') {
+        tabs.value = parsed.map((t: unknown) => {
+          if (typeof t === 'object' && t !== null && 'type' in t && t.type === 'query') {
+            const tab = t as Record<string, unknown>
             return {
-              ...t,
+              ...tab,
               rows: [],
               colDefs: [],
-              meta: null
+              meta: null,
+              tableName: tab.tableName ?? null,
+              primaryKeys: tab.primaryKeys ?? [],
+              pendingChanges: new Map(),
+              originalRows: new Map()
             }
           }
           return t
@@ -351,7 +368,8 @@ export const useTabStore = defineStore('tabs', () => {
     currentTab,
     async (newTab) => {
       if (!newTab || newTab.type !== 'query' || newTab.connectionId === null) return
-      if (!newTab.database) return
+      if (!newTab.database || newTab.database === undefined || newTab.database === 'undefined')
+        return
 
       const lastSetDb = activeDatabaseCache.value.get(newTab.connectionId)
       if (lastSetDb !== newTab.database) {
@@ -379,6 +397,131 @@ export const useTabStore = defineStore('tabs', () => {
     }
   }
 
+  function getRowKey(row: Record<string, unknown>, primaryKeys: string[]): string {
+    const pkValues = primaryKeys.map((pk) => String(row[pk] ?? '')).join('|')
+    return pkValues
+  }
+
+  function extractTableName(sql: string): string | null {
+    const match = sql.match(/FROM\s+([`'"]?[\w.]+[`'"]?)/i)
+    return match ? match[1].replace(/[`'"]/g, '') : null
+  }
+
+  async function loadPrimaryKeys(): Promise<void> {
+    if (!currentTab.value || currentTab.value.type !== 'query') return
+    if (currentTab.value.connectionId === null) return
+
+    const tableName = currentTab.value.tableName || extractTableName(currentTab.value.sql)
+    if (!tableName) return
+
+    currentTab.value.tableName = tableName
+
+    try {
+      const pks = await window.dbApi.getPrimaryKeys(currentTab.value.connectionId, tableName)
+      currentTab.value.primaryKeys = pks
+    } catch (e) {
+      console.error('Failed to load primary keys:', e)
+      currentTab.value.primaryKeys = []
+    }
+  }
+
+  function updateCellValue(rowIndex: number, column: string, value: unknown): void {
+    if (!currentTab.value || currentTab.value.type !== 'query') return
+    if (currentTab.value.primaryKeys.length === 0) return
+
+    const row = currentTab.value.rows[rowIndex]
+    if (!row) return
+
+    const rowKey = getRowKey(row, currentTab.value.primaryKeys)
+
+    if (!currentTab.value.originalRows.has(rowKey)) {
+      currentTab.value.originalRows.set(rowKey, { ...row })
+    }
+
+    if (!currentTab.value.pendingChanges.has(rowKey)) {
+      currentTab.value.pendingChanges.set(rowKey, {})
+    }
+
+    const changes = currentTab.value.pendingChanges.get(rowKey)!
+
+    // Check if value equals original
+    const originalValue = currentTab.value.originalRows.get(rowKey)![column]
+    // Simple equality check, can be improved for objects/dates if needed
+    if (String(value) === String(originalValue)) {
+      delete changes[column]
+      if (Object.keys(changes).length === 0) {
+        currentTab.value.pendingChanges.delete(rowKey)
+        currentTab.value.originalRows.delete(rowKey)
+      }
+    } else {
+      changes[column] = value
+    }
+
+    // Update UI
+    row[column] = value
+  }
+
+  function revertChanges(): void {
+    if (!currentTab.value || currentTab.value.type !== 'query') return
+
+    const queryTab = currentTab.value
+
+    for (const [rowKey, originalRow] of queryTab.originalRows) {
+      const rowIndex = queryTab.rows.findIndex((r) => getRowKey(r, queryTab.primaryKeys) === rowKey)
+      if (rowIndex !== -1) {
+        queryTab.rows[rowIndex] = { ...originalRow }
+      }
+    }
+
+    queryTab.pendingChanges.clear()
+    queryTab.originalRows.clear()
+  }
+
+  async function commitChanges(): Promise<void> {
+    if (!currentTab.value || currentTab.value.type !== 'query') return
+    if (currentTab.value.connectionId === null) return
+    if (currentTab.value.pendingChanges.size === 0) return
+    if (!currentTab.value.tableName) return
+
+    const updates: RowUpdate[] = []
+
+    for (const [rowKey, changes] of currentTab.value.pendingChanges) {
+      const original = currentTab.value.originalRows.get(rowKey)
+      if (!original) continue
+
+      const primaryKeys: Record<string, unknown> = {}
+      for (const pk of currentTab.value.primaryKeys) {
+        primaryKeys[pk] = original[pk]
+      }
+
+      updates.push({
+        tableName: currentTab.value.tableName,
+        primaryKeys,
+        changes: Object.fromEntries(Object.entries(changes))
+      })
+    }
+
+    try {
+      connectionStore.loading = true
+      const result = (await window.dbApi.updateRows(
+        currentTab.value.connectionId,
+        updates
+      )) as UpdateResult
+
+      if (result.success) {
+        currentTab.value.pendingChanges.clear()
+        currentTab.value.originalRows.clear()
+        await runQuery()
+      } else {
+        connectionStore.error = result.error || 'Unknown error'
+      }
+    } catch (e) {
+      connectionStore.error = e instanceof Error ? e.message : String(e)
+    } finally {
+      connectionStore.loading = false
+    }
+  }
+
   return {
     tabs,
     activeTabId,
@@ -390,6 +533,10 @@ export const useTabStore = defineStore('tabs', () => {
     closeTab,
     runQuery,
     nextPage,
-    prevPage
+    prevPage,
+    loadPrimaryKeys,
+    updateCellValue,
+    revertChanges,
+    commitChanges
   }
 })

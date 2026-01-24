@@ -1,5 +1,5 @@
 <template>
-  <div class="base-table-container" tabindex="0" @keydown="onKeyDown">
+  <div ref="tableContainerRef" class="base-table-container" tabindex="0" @keydown="onKeyDown">
     <div ref="scrollerRef" class="table-wrapper" @scroll="onScroll">
       <div class="table-content" :style="{ minWidth: totalWidth + rowNumWidth + 'px' }">
         <div class="header-row" :style="{ height: headerHeight + 'px' }">
@@ -53,15 +53,27 @@
                 class="table-cell"
                 :class="{
                   selected: isCellSelected(startRowIndex + rowIndex, col.prop),
-                  focused: isCellFocused(startRowIndex + rowIndex, col.prop)
+                  focused: isCellFocused(startRowIndex + rowIndex, col.prop),
+                  changed: isCellChanged(startRowIndex + rowIndex, col.prop)
                 }"
                 :style="{ width: col.width + 'px', minWidth: col.width + 'px' }"
                 @click="handleCellClick(startRowIndex + rowIndex, col.prop, $event)"
+                @dblclick="handleCellDblClick(startRowIndex + rowIndex, col.prop)"
                 @contextmenu.prevent="
                   onCellContextMenu($event, row, row[col.prop], startRowIndex + rowIndex, col.prop)
                 "
               >
-                {{ formatValue(row[col.prop]) }}
+                <input
+                  v-if="isEditing(startRowIndex + rowIndex, col.prop)"
+                  ref="editInputRef"
+                  v-model="editValue"
+                  class="cell-input"
+                  @blur="finishEdit"
+                  @keydown.enter.stop="onInputEnter"
+                  @keydown.esc.stop="cancelEdit"
+                  @keydown.tab.prevent.stop="onInputTab"
+                />
+                <span v-else>{{ formatValue(row[col.prop]) }}</span>
               </div>
             </div>
           </div>
@@ -72,7 +84,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 
 export interface TableColumn {
   prop: string
@@ -94,14 +106,19 @@ interface CellPosition {
 const props = withDefaults(
   defineProps<{
     columns: TableColumn[]
-
     data: Record<string, unknown>[]
     rowHeight?: number
     rowOffset?: number
+    editable?: boolean
+    changedCells?: Set<string>
+    primaryKeys?: string[]
   }>(),
   {
     rowHeight: 28,
-    rowOffset: 0
+    rowOffset: 0,
+    editable: false,
+    changedCells: () => new Set(),
+    primaryKeys: () => []
   }
 )
 
@@ -112,9 +129,11 @@ const emit = defineEmits<{
     payload: { event: MouseEvent; value: unknown; data: Record<string, unknown> }
   ): void
   (e: 'column-resize', payload: Record<string, number>): void
+  (e: 'cell-change', payload: { rowIndex: number; column: string; value: unknown }): void
 }>()
 
 const scrollerRef = ref<HTMLElement | null>(null)
+const tableContainerRef = ref<HTMLElement | null>(null)
 const headerHeight = 28
 
 const containerHeight = ref(0)
@@ -124,6 +143,9 @@ const sortState = ref<SortState>({ colId: null, sort: null })
 const focusedCell = ref<CellPosition | null>(null)
 const selectedCells = ref<Set<string>>(new Set())
 const lastSelectedCell = ref<CellPosition | null>(null)
+
+const editingCell = ref<{ rowIndex: number; colKey: string } | null>(null)
+const editValue = ref<string>('')
 
 const columnWidths = ref<Record<string, number>>({})
 
@@ -231,6 +253,8 @@ function handleCellClick(rowIndex: number, colProp: string, event: MouseEvent): 
 }
 
 function onKeyDown(e: KeyboardEvent): void {
+  if (editingCell.value) return
+
   if (!focusedCell.value) return
 
   const { rowIndex, colKey } = focusedCell.value
@@ -252,7 +276,40 @@ function onKeyDown(e: KeyboardEvent): void {
     case 'ArrowRight':
       nextColIndex = Math.min(normalizedColumns.value.length - 1, colIndex + 1)
       break
+    case 'Tab':
+      e.preventDefault()
+      if (e.shiftKey) {
+        nextColIndex = colIndex - 1
+        if (nextColIndex < 0) {
+          nextColIndex = normalizedColumns.value.length - 1
+          nextRow = Math.max(0, rowIndex - 1)
+        }
+      } else {
+        nextColIndex = colIndex + 1
+        if (nextColIndex >= normalizedColumns.value.length) {
+          nextColIndex = 0
+          nextRow = Math.min(props.data.length - 1, rowIndex + 1)
+        }
+      }
+      break
+    case 'Enter':
+      e.preventDefault()
+      if (props.editable && !isPrimaryKeyColumn(colKey)) {
+        startEdit(rowIndex, colKey, false)
+      }
+      return
     default:
+      if (
+        e.key.length === 1 &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        props.editable &&
+        !isPrimaryKeyColumn(colKey)
+      ) {
+        e.preventDefault()
+        startEdit(rowIndex, colKey, true, e.key)
+      }
       return
   }
 
@@ -261,7 +318,7 @@ function onKeyDown(e: KeyboardEvent): void {
   if (nextRow !== rowIndex || nextColIndex !== colIndex) {
     e.preventDefault()
     focusedCell.value = { rowIndex: nextRow, colKey: nextColKey }
-    if (e.shiftKey) {
+    if (e.shiftKey && e.key !== 'Tab') {
       selectCell(nextRow, nextColKey, false, true)
     } else {
       selectCell(nextRow, nextColKey, false, false)
@@ -374,6 +431,122 @@ function formatValue(val: unknown): string {
     return JSON.stringify(val)
   }
   return String(val)
+}
+
+function isCellChanged(rowIndex: number, colKey: string): boolean {
+  return props.changedCells.has(getCellKey(rowIndex, colKey))
+}
+
+function isEditing(rowIndex: number, colKey: string): boolean {
+  return (
+    editingCell.value !== null &&
+    editingCell.value.rowIndex === rowIndex &&
+    editingCell.value.colKey === colKey
+  )
+}
+
+function isPrimaryKeyColumn(colKey: string): boolean {
+  return props.primaryKeys.includes(colKey)
+}
+
+function startEdit(
+  rowIndex: number,
+  colKey: string,
+  clearContent: boolean = false,
+  initialKey: string = ''
+): void {
+  editingCell.value = { rowIndex, colKey }
+  const row = props.data[rowIndex]
+  if (clearContent) {
+    editValue.value = initialKey
+  } else {
+    editValue.value = formatValue(row[colKey])
+  }
+  nextTick(() => {
+    const inputEl = document.querySelector('.cell-input') as HTMLInputElement
+    if (inputEl) {
+      inputEl.focus()
+      if (clearContent) {
+        inputEl.setSelectionRange(initialKey.length, initialKey.length)
+      } else {
+        inputEl.select()
+      }
+    }
+  })
+}
+
+function handleCellDblClick(rowIndex: number, colKey: string): void {
+  if (!props.editable) return
+  if (props.primaryKeys.includes(colKey)) return
+
+  const row = props.data[rowIndex]
+  if (!row) return
+
+  startEdit(rowIndex, colKey, false)
+}
+
+function finishEdit(): void {
+  if (!editingCell.value) return
+
+  const { rowIndex, colKey } = editingCell.value
+  emit('cell-change', { rowIndex, column: colKey, value: editValue.value })
+
+  editingCell.value = null
+  editValue.value = ''
+}
+
+function onInputEnter(): void {
+  finishEdit()
+  nextTick(() => {
+    tableContainerRef.value?.focus()
+  })
+}
+
+function onInputTab(e: KeyboardEvent): void {
+  if (!focusedCell.value) return
+
+  // Save current position before finishing edit
+  const { rowIndex, colKey } = focusedCell.value
+  const colIndex = normalizedColumns.value.findIndex((c) => c.prop === colKey)
+
+  finishEdit()
+
+  let nextRow = rowIndex
+  let nextColIndex = colIndex
+
+  if (e.shiftKey) {
+    nextColIndex = colIndex - 1
+    if (nextColIndex < 0) {
+      nextColIndex = normalizedColumns.value.length - 1
+      nextRow = Math.max(0, rowIndex - 1)
+    }
+  } else {
+    nextColIndex = colIndex + 1
+    if (nextColIndex >= normalizedColumns.value.length) {
+      nextColIndex = 0
+      nextRow = Math.min(props.data.length - 1, rowIndex + 1)
+    }
+  }
+
+  const nextColKey = normalizedColumns.value[nextColIndex].prop
+
+  if (nextRow !== rowIndex || nextColIndex !== colIndex) {
+    focusedCell.value = { rowIndex: nextRow, colKey: nextColKey }
+    selectCell(nextRow, nextColKey, false, false)
+    scrollToCell(nextRow, nextColIndex)
+  }
+
+  nextTick(() => {
+    tableContainerRef.value?.focus()
+  })
+}
+
+function cancelEdit(): void {
+  editingCell.value = null
+  editValue.value = ''
+  nextTick(() => {
+    tableContainerRef.value?.focus()
+  })
 }
 
 let resizeObserver: ResizeObserver | null = null
@@ -519,6 +692,7 @@ onUnmounted(() => {
 }
 
 .table-cell {
+  position: relative;
   padding: 0 8px;
   display: flex;
   align-items: center;
@@ -531,14 +705,38 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
+  /* Removed duplicate .cell-input block */
+
 .table-cell.selected {
-  box-shadow: inset 0 0 0 1px var(--accent-primary);
+  background: var(--list-active-bg);
+  box-shadow: inset 0 0 0 2px var(--accent-primary);
 }
 
 .table-cell.focused {
   outline: 2px solid var(--accent-primary);
   outline-offset: -2px;
-  z-index: 2;
+}
+
+.table-cell.changed {
+  background: rgba(255, 165, 0, 0.15);
+}
+
+.cell-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: inherit;
+  padding: 0 8px;
+  outline: none;
+  box-sizing: border-box;
+  box-shadow: inset 0 0 0 2px var(--accent-primary);
+  z-index: 10;
 }
 
 .empty-state {

@@ -23,6 +23,12 @@ const dbApi = {
   },
   setActiveDatabase: (id: number, dbName: string) => {
     return ipcRenderer.invoke('db:set-active-database', { id, dbName })
+  },
+  getPrimaryKeys: (id: number, tableName: string) => {
+    return ipcRenderer.invoke('db:get-primary-keys', { id, tableName })
+  },
+  updateRows: (id: number, updates: unknown[]) => {
+    return ipcRenderer.invoke('db:update-rows', { id, updates })
   }
 }
 

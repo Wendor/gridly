@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron'
+import { RowUpdate } from '../../shared/types'
 import { DatabaseManager } from '../db/DatabaseManager'
 import { DbConnection, IDataRequest } from '../../shared/types'
 
@@ -63,6 +64,30 @@ export function setupIpcHandlers(dbManager: DatabaseManager): void {
     'db:set-active-database',
     async (_event, { id, dbName }: { id: number; dbName: string }) => {
       await dbManager.setActiveDatabase(id, dbName)
+    }
+  )
+
+  ipcMain.handle(
+    'db:get-primary-keys',
+    async (_event, { id, tableName }: { id: number; tableName: string }) => {
+      try {
+        return await dbManager.getPrimaryKeys(id, tableName)
+      } catch (e: unknown) {
+        console.error(e)
+        return []
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'db:update-rows',
+    async (_event, { id, updates }: { id: number; updates: unknown[] }) => {
+      try {
+        return await dbManager.updateRows(id, updates as RowUpdate[])
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e)
+        return { success: false, affectedRows: 0, error: msg }
+      }
     }
   )
 }

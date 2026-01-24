@@ -97,6 +97,36 @@
           @update:model-value="onAutoRefreshChange"
         />
 
+        <div class="toolbar-divider"></div>
+
+        <BaseButton
+          v-if="hasChanges"
+          variant="ghost"
+          icon-only
+          :title="$t('query.revertChanges')"
+          class="revert-btn"
+          @click="tabStore.revertChanges"
+        >
+          <BaseIcon name="undo" />
+        </BaseButton>
+
+        <BaseButton
+          v-if="hasChanges"
+          variant="ghost"
+          icon-only
+          :title="$t('query.commitChanges')"
+          class="commit-btn"
+          @click="tabStore.commitChanges"
+        >
+          <BaseIcon name="save" />
+        </BaseButton>
+
+        <div v-if="hasChanges" class="toolbar-divider"></div>
+
+        <div v-if="hasChanges" class="changes-info">
+          <span class="changes-count">{{ changesCountText }}</span>
+        </div>
+
         <div class="spacer"></div>
 
         <BaseButton
@@ -114,9 +144,13 @@
         :columns="tableColumns"
         :data="currentQueryTab.rows"
         :row-offset="currentQueryTab.pagination.offset"
+        :editable="canEdit"
+        :changed-cells="changedCellsSet"
+        :primary-keys="currentQueryTab?.primaryKeys || []"
         style="width: 100%; height: 100%"
         @sort-change="onSortChange"
         @cell-context-menu="onCellContextMenu"
+        @cell-change="onCellChange"
       >
         <template #empty>
           <div class="no-data">{{ $t('query.noData') }}</div>
@@ -312,6 +346,52 @@ function goLast(): void {
     currentQueryTab.value.pagination.offset = newOffset
     tabStore.runQuery()
   }
+}
+
+const hasChanges = computed(() => {
+  if (!currentQueryTab.value || currentQueryTab.value.type !== 'query') return false
+  if (!currentQueryTab.value.pendingChanges) return false
+  return currentQueryTab.value.pendingChanges.size > 0
+})
+
+const changesCount = computed(() => {
+  if (!currentQueryTab.value || currentQueryTab.value.type !== 'query') return 0
+  if (!currentQueryTab.value.pendingChanges) return 0
+  return currentQueryTab.value.pendingChanges.size
+})
+
+const changedCellsSet = computed((): Set<string> => {
+  if (!currentQueryTab.value || currentQueryTab.value.type !== 'query') return new Set()
+  if (!currentQueryTab.value.pendingChanges) return new Set()
+  const result = new Set<string>()
+  for (const [rowKey, changes] of currentQueryTab.value.pendingChanges) {
+    for (const colName of Object.keys(changes)) {
+      const row = currentQueryTab.value.rows.find(
+        (r) =>
+          currentQueryTab.value!.primaryKeys.map((pk) => String(r[pk] ?? '')).join('|') === rowKey
+      )
+      if (row) {
+        const rowIndex = currentQueryTab.value.rows.indexOf(row)
+        result.add(`${rowIndex}:${colName}`)
+      }
+    }
+  }
+  return result
+})
+
+const changesCountText = computed(() => {
+  const count = changesCount.value
+  return count === 1 ? '1 row changed' : `${count} rows changed`
+})
+
+const canEdit = computed(() => {
+  if (!currentQueryTab.value || currentQueryTab.value.type !== 'query') return false
+  if (!currentQueryTab.value.primaryKeys) return false
+  return currentQueryTab.value.primaryKeys.length > 0
+})
+
+function onCellChange(payload: { rowIndex: number; column: string; value: unknown }): void {
+  tabStore.updateCellValue(payload.rowIndex, payload.column, payload.value)
 }
 
 // Auto Refresh
@@ -665,5 +745,9 @@ onUnmounted(() => {
 
 .spacer {
   flex: 1;
+}
+
+.commit-btn :deep(svg) {
+  color: var(--accent-primary);
 }
 </style>

@@ -1,6 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Client } from 'pg'
-import { DbSchema, IDbResult, DbConnection, IDataRequest } from '../../shared/types'
+import {
+  DbSchema,
+  IDbResult,
+  DbConnection,
+  IDataRequest,
+  RowUpdate,
+  UpdateResult
+} from '../../shared/types'
 import { IDbService } from './IDbService'
 
 export class PostgresService implements IDbService {
@@ -51,7 +58,6 @@ export class PostgresService implements IDbService {
     }
   }
 
-  // Для Postgres dbName — это Schema (public и т.д.)
   async getTables(dbName: string = 'public'): Promise<string[]> {
     if (!this.client) return []
     try {
@@ -69,7 +75,6 @@ export class PostgresService implements IDbService {
     }
   }
 
-  // Возвращаем список схем. Это позволит дереву Сервер -> БД -> Таблицы работать корректно
   async getDatabases(): Promise<string[]> {
     if (!this.client) return []
     try {
@@ -105,8 +110,6 @@ export class PostgresService implements IDbService {
   async getTableData(req: IDataRequest): Promise<IDbResult> {
     if (!this.client) return { rows: [], columns: [], duration: 0, error: 'Not connected' }
     try {
-      // For Postgres, we check against the current search path, typically public
-      // But getTables() is returning tables. We should verify.
       const tables = await this.getTables()
       if (!tables.includes(req.tableName)) {
         throw new Error(`Invalid table name: ${req.tableName}`)
@@ -143,5 +146,67 @@ export class PostgresService implements IDbService {
   async setActiveDatabase(dbName: string): Promise<void> {
     if (!this.client) throw new Error('Not connected')
     await this.client.query(`SET search_path TO "${dbName}"`)
+  }
+
+  async getPrimaryKeys(tableName: string): Promise<string[]> {
+    if (!this.client) return []
+    try {
+      const sql = `
+        SELECT kcu.column_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON tc.constraint_name = kcu.constraint_name
+          AND tc.table_schema = kcu.table_schema
+        WHERE tc.constraint_type = 'PRIMARY KEY'
+          AND tc.table_name = $1
+          AND tc.table_schema = current_schema()
+        ORDER BY kcu.ordinal_position;
+      `
+      const res = await this.client.query(sql, [tableName])
+      return res.rows.map((row) => row.column_name)
+    } catch (e) {
+      console.error('Error fetching primary keys:', e)
+      return []
+    }
+  }
+
+  async updateRows(updates: RowUpdate[]): Promise<UpdateResult> {
+    if (!this.client) {
+      return { success: false, affectedRows: 0, error: 'Not connected' }
+    }
+
+    try {
+      let totalAffected = 0
+
+      for (const update of updates) {
+        const { tableName, primaryKeys, changes } = update
+
+        if (Object.keys(changes).length === 0) continue
+
+        const setClauses: string[] = []
+        const whereClauses: string[] = []
+        const values: any[] = []
+        let paramIndex = 1
+
+        for (const [col, val] of Object.entries(changes)) {
+          setClauses.push(`"${col}" = $${paramIndex++}`)
+          values.push(val)
+        }
+
+        for (const [col, val] of Object.entries(primaryKeys)) {
+          whereClauses.push(`"${col}" = $${paramIndex++}`)
+          values.push(val)
+        }
+
+        const sql = `UPDATE "${tableName}" SET ${setClauses.join(', ')} WHERE ${whereClauses.join(' AND ')}`
+
+        const res = await this.client.query(sql, values)
+        totalAffected += res.rowCount || 0
+      }
+
+      return { success: true, affectedRows: totalAffected }
+    } catch (e: any) {
+      return { success: false, affectedRows: 0, error: e.message }
+    }
   }
 }

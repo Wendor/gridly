@@ -34,15 +34,29 @@ export interface IDataRequest {
 // Ключ = имя таблицы, Значение = массив имен колонок
 export type DbSchema = Record<string, string[]>
 
+export interface RowUpdate {
+  tableName: string
+  primaryKeys: Record<string, unknown>
+  changes: Record<string, unknown>
+}
+
+export interface UpdateResult {
+  success: boolean
+  affectedRows: number
+  error?: string
+}
+
 export interface IElectronAPI {
   connect: (id: number, config: DbConnection) => Promise<string>
   query: (id: number, sql: string) => Promise<IDbResult>
   getTables: (id: number, dbName?: string) => Promise<string[]>
-  // ОБНОВЛЕНО: теперь принимает два аргумента
   getDatabases: (id: number, excludeList?: string) => Promise<string[]>
   getTableData: (req: IDataRequest) => Promise<IDbResult>
   getSchema: (id: number) => Promise<DbSchema>
   testConnection: (config: DbConnection) => Promise<string>
+  getPrimaryKeys: (id: number, tableName: string) => Promise<string[]>
+  updateRows: (id: number, updates: RowUpdate[]) => Promise<UpdateResult>
+  setActiveDatabase: (id: number, dbName: string) => Promise<void>
 }
 export interface WrappedDbValue {
   __isWrapped: true
