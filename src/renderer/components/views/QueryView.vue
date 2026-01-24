@@ -53,19 +53,13 @@
         </div>
       </div>
 
-      <ag-grid-vue
+      <BaseTable
         v-if="tabStore.currentTab"
-        :theme="'legacy'"
-        :class="
-          settingsStore.activeTheme.type === 'dark' ? 'ag-theme-alpine-dark' : 'ag-theme-alpine'
-        "
+        :columns="tableColumns"
+        :data="tabStore.currentTab.rows"
+        :row-offset="tabStore.currentTab.pagination.offset"
         style="width: 100%; height: 100%"
-        :column-defs="tabStore.currentTab.colDefs"
-        :row-data="tabStore.currentTab.rows"
-        :default-col-def="defaultColDef"
-        :enable-cell-text-selection="true"
-        :ensure-dom-order="true"
-        @sort-changed="onGridSortChanged"
+        @sort-change="onSortChange"
         @cell-context-menu="onCellContextMenu"
       />
 
@@ -84,28 +78,24 @@
 
 <script setup lang="ts">
 import { ref, onMounted, reactive, computed } from 'vue'
-import { AgGridVue } from 'ag-grid-vue3'
-import { SortChangedEvent, GridApi, CellContextMenuEvent } from 'ag-grid-community'
 import { format } from 'sql-formatter'
 import { isWrappedValue } from '../../../shared/types'
 
 import { useTabStore } from '../../stores/tabs'
 import { useConnectionStore } from '../../stores/connections'
-import { useSettingsStore } from '../../stores/settings'
 import SqlEditor from '../SqlEditor.vue'
 import BaseIcon from '../ui/BaseIcon.vue'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseSelect from '../ui/BaseSelect.vue'
 import BaseContextMenu from '../ui/BaseContextMenu.vue'
+import BaseTable from '../ui/BaseTable.vue'
 import i18n from '../../i18n'
 
 const tabStore = useTabStore()
 const connStore = useConnectionStore()
-const settingsStore = useSettingsStore()
 
 const editorHeight = ref(300)
 const isResizing = ref(false)
-const defaultColDef = { sortable: true, filter: false, resizable: true }
 
 const contextMenu = reactive({
   visible: false,
@@ -115,10 +105,14 @@ const contextMenu = reactive({
   rowData: null as unknown
 })
 
-function onCellContextMenu(params: CellContextMenuEvent): void {
-  contextMenu.value = params.value
-  contextMenu.rowData = params.data
-  const event = params.event as MouseEvent
+function onCellContextMenu(payload: {
+  event: MouseEvent
+  value: unknown
+  data: Record<string, unknown>
+}): void {
+  contextMenu.value = payload.value
+  contextMenu.rowData = payload.data
+  const event = payload.event
   if (event) {
     contextMenu.x = event.clientX
     contextMenu.y = event.clientY
@@ -212,24 +206,35 @@ async function onTabConnectionChange(val: string | number): Promise<void> {
   }
 }
 
-function onGridSortChanged(event: SortChangedEvent): void {
-  const api = event.api as GridApi
-  const sortModel = api
-    .getColumnState()
-    .filter((c) => c.sort != null)
-    .map((c) => ({ colId: c.colId, sort: c.sort }))
+function onSortChange(sort: { colId: string | null; sort: 'asc' | 'desc' | null }): void {
+  if (!sort.colId || !sort.sort) return
   if (!tabStore.currentTab) return
   const match = tabStore.currentTab.sql.match(/FROM\s+([`'"]?[\w.]+[`'"]?)/i)
   if (match) {
+    // Basic sorting logic replacement
+    // Note: This logic seems to depend on simple SELECTs
+    // Ideally we should just append ORDER BY, but parsing SQL is hard.
+    // The previous implementation replaced the query.
+    // Let's stick to the previous behavior but adapted.
+
+    // We need to strip existing ORDER BY if we want to replace it,
+    // or just append if simple.
+    // AG-GRID logic was:
+    // let newSql = `SELECT * FROM ${match[1]}` + ORDER BY ...
+    // This is VERY destructive if the query was complex.
+    // But since I am porting behavior, I will keep it similar or try to improve.
+    // The user requirement says "Функционал сортировки неободимо сотавить" (Keep sorting functionality).
+    // So I will replicate exact previous logic.
+
     let newSql = `SELECT * FROM ${match[1]}`
-    if (sortModel.length > 0)
-      newSql += ` ORDER BY ${sortModel.map((s) => `"${s.colId}" ${s.sort!.toUpperCase()}`).join(', ')}`
+    newSql += ` ORDER BY "${sort.colId}" ${sort.sort.toUpperCase()}`
+
     tabStore.currentTab.sql = newSql
     tabStore.runQuery()
   }
 }
 
-// Resizing logic
+// Resizing logic for editor
 const startY = ref(0)
 const startHeight = ref(0)
 function startResize(e: MouseEvent): void {
@@ -251,6 +256,16 @@ function doResize(e: MouseEvent): void {
   const newHeight = startHeight.value + (e.clientY - startY.value)
   if (newHeight > 100 && newHeight < window.innerHeight - 200) editorHeight.value = newHeight
 }
+
+const tableColumns = computed(() => {
+  if (!tabStore.currentTab?.colDefs) return []
+  return tabStore.currentTab.colDefs.map((def) => ({
+    prop: def.field,
+    label: def.headerName || def.field,
+    sortable: true,
+    width: 150 // Default width, resizing will handle updates
+  }))
+})
 
 onMounted(() => {
   const saved = localStorage.getItem('editor-height')

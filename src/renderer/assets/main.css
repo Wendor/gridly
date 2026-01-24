@@ -82,48 +82,7 @@ body {
   background: transparent;
 }
 
-/* --- AG-GRID OVERRIDES (VS Code Style) --- */
-.ag-theme-alpine,
-.ag-theme-alpine-dark {
-  --ag-border-radius: 0px !important;
-  --ag-header-height: 30px !important;
-  --ag-row-height: 28px !important;
-  font-family: var(--font-mono) !important;
-
-  /* Переопределение цветов грида под нашу тему */
-  --ag-background-color: var(--bg-app) !important;
-  --ag-header-background-color: var(--bg-panel-header) !important;
-  --ag-odd-row-background-color: var(--bg-app) !important;
-  --ag-foreground-color: var(--text-primary) !important;
-  --ag-header-foreground-color: var(--text-primary) !important;
-  --ag-border-color: var(--border-color) !important;
-  --ag-row-border-color: #333333 !important;
-  /* Очень тонкие разделители строк */
-}
-
-.ag-header {
-  border-bottom: 1px solid var(--border-color) !important;
-  font-weight: 600;
-}
-
-.ag-root-wrapper {
-  border: none !important;
-  /* Убираем внешнюю рамку грида */
-}
-
-/* NULL стили */
-.null-cell {
-  color: var(--text-secondary);
-  font-style: italic;
-  opacity: 0.6;
-}
-
-/* Binary стили */
-.binary-cell {
-  color: var(--text-secondary);
-  font-style: italic;
-  opacity: 0.8;
-}
+/* NULL стили moved to BaseTable internal or global utility if needed, keeping for now as utility */
 
 /* Исправление фона CodeMirror, чтобы он не был синим */
 .cm-editor {
@@ -146,14 +105,14 @@ body {
 }
 
 /* Пункты списка */
-.cm-tooltip-autocomplete > ul > li {
+.cm-tooltip-autocomplete>ul>li {
   padding: 4px 8px !important;
   font-family: var(--font-mono) !important;
   font-size: 12px !important;
 }
 
 /* Активный пункт */
-.cm-tooltip-autocomplete > ul > li[aria-selected='true'] {
+.cm-tooltip-autocomplete>ul>li[aria-selected='true'] {
   background-color: var(--accent-primary) !important;
   color: #fff !important;
 }

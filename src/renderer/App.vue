@@ -34,8 +34,6 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community'
-
 import { useConnectionStore } from './stores/connections'
 import { useTabStore } from './stores/tabs'
 import { useSettingsStore } from './stores/settings'
@@ -47,11 +45,6 @@ import TheSidebar from './components/layout/TheSidebar.vue'
 import TheEditorArea from './components/layout/TheEditorArea.vue'
 import TheStatusBar from './components/layout/TheStatusBar.vue'
 import ConnectionModal from './components/ConnectionModal.vue'
-
-import 'ag-grid-community/styles/ag-grid.css'
-import 'ag-grid-community/styles/ag-theme-alpine.css'
-
-ModuleRegistry.registerModules([AllCommunityModule])
 
 const connStore = useConnectionStore()
 const tabStore = useTabStore()

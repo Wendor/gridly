@@ -2,8 +2,6 @@ import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { useConnectionStore } from './connections'
 import { useHistoryStore } from './history'
-import type { CellClassParams, ValueFormatterParams } from 'ag-grid-community'
-import { isWrappedValue } from '../../shared/types'
 import i18n from '../i18n'
 
 export interface Tab {
@@ -208,21 +206,7 @@ export const useTabStore = defineStore('tabs', () => {
         // Формируем колонки
         currentTab.value.colDefs = res.columns.map((col: string) => ({
           field: col,
-          headerName: col,
-          cellClassRules: {
-            'null-cell': (params: CellClassParams): boolean => params.value === null,
-            'binary-cell': (params: CellClassParams): boolean => {
-              const val = params.value
-              if (isWrappedValue(val)) return val.display === '(binary)'
-              return val === '(binary)'
-            }
-          },
-          valueFormatter: (params: ValueFormatterParams): string => {
-            const val = params.value
-            if (val === null) return '(NULL)'
-            if (isWrappedValue(val)) return val.display
-            return String(val)
-          }
+          headerName: col
         }))
 
         currentTab.value.rows = res.rows

@@ -26,8 +26,6 @@
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@types/pg": "^8.16.0",
-    "ag-grid-community": "^35.0.0",
-    "ag-grid-vue3": "^35.0.0",
     "electron-updater": "^6.3.9",
     "mysql2": "^3.16.1",
     "pg": "^8.17.2",
