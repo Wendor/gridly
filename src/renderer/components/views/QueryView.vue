@@ -528,11 +528,37 @@ const tableColumns = computed(() => {
 onMounted(() => {
   const saved = localStorage.getItem('editor-height')
   if (saved) editorHeight.value = parseInt(saved)
+
+  window.addEventListener('keydown', handleKeydown)
 })
 
 onUnmounted(() => {
   if (autoRefreshTimer.value) clearInterval(autoRefreshTimer.value)
+  window.removeEventListener('keydown', handleKeydown)
 })
+
+function handleKeydown(e: KeyboardEvent): void {
+  // Only handle if this view is active (currentQueryTab is populated)
+  if (!currentQueryTab.value) return
+
+  // Save: Ctrl+S or Cmd+S
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+    e.preventDefault()
+    if (hasChanges.value) {
+      tabStore.commitChanges()
+    }
+    return
+  }
+
+  // Refresh: F5
+  // Note: Electron/Browser might block F5 or reload page unless prevented
+  if (e.key === 'F5') {
+    e.preventDefault()
+    tabStore.runQuery()
+    return
+  }
+}
+
 </script>
 
 <style scoped>

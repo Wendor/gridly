@@ -64,8 +64,15 @@ export const useConnectionStore = defineStore('connections', () => {
     // ИЗМЕНЕНИЕ: Проверяем наличие в Set, а не сравниваем с одним числом
     if (activeConnectionIds.value.has(targetId)) return
 
+    // Check if connection exists
+    const conn = savedConnections.value[targetId]
+    if (!conn) {
+      // Throwing here prevents the caller from proceeding to use the connection
+      throw new Error(`Connection with ID ${targetId} not found`)
+    }
+
     // Глубокое копирование, чтобы разорвать реактивность перед отправкой в Electron
-    const config = JSON.parse(JSON.stringify(savedConnections.value[targetId]))
+    const config = JSON.parse(JSON.stringify(conn))
 
     try {
       loading.value = true
@@ -164,6 +171,10 @@ export const useConnectionStore = defineStore('connections', () => {
       // Но чтобы UI не весел, мы полагаемся на databasesError
     }
   }
+
+  // --- INITIALIZATION ---
+  loadFromStorage()
+
   return {
     savedConnections,
     activeId,

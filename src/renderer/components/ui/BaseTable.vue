@@ -1,5 +1,12 @@
 <template>
-  <div ref="tableContainerRef" class="base-table-container" tabindex="0" @keydown="onKeyDown">
+  <div
+    ref="tableContainerRef"
+    class="base-table-container"
+    tabindex="0"
+    @keydown="onKeyDown"
+    @copy.prevent="onCopy"
+    @paste.prevent="onPaste"
+  >
     <div ref="scrollerRef" class="table-wrapper" @scroll="onScroll">
       <div class="table-content" :style="{ minWidth: totalWidth + rowNumWidth + 'px' }">
         <div class="header-row" :style="{ height: headerHeight + 'px' }">
@@ -565,6 +572,80 @@ onMounted(() => {
 onUnmounted(() => {
   if (resizeObserver) resizeObserver.disconnect()
 })
+
+function onCopy(): void {
+  if (selectedCells.value.size === 0) return
+
+  // Parse keys "rowIndex:colKey"
+  const cells: { r: number; cIdx: number; val: unknown }[] = []
+
+  for (const key of selectedCells.value) {
+    const [rStr, colKey] = key.split(':')
+    const r = parseInt(rStr)
+    const cIdx = normalizedColumns.value.findIndex((c) => c.prop === colKey)
+    if (cIdx === -1) continue
+
+    const rowData = props.data[r]
+    if (!rowData) continue
+
+    cells.push({
+      r,
+      cIdx,
+      val: rowData[colKey]
+    })
+  }
+
+  if (cells.length === 0) return
+
+  // Sort by row, then col
+  cells.sort((a, b) => {
+    if (a.r !== b.r) return a.r - b.r
+    return a.cIdx - b.cIdx
+  })
+
+  // Group by rows
+  const rowsMap = new Map<number, { cIdx: number; val: unknown }[]>()
+  for (const c of cells) {
+    if (!rowsMap.has(c.r)) rowsMap.set(c.r, [])
+    rowsMap.get(c.r)!.push(c)
+  }
+
+  const resultLines: string[] = []
+  for (const [, rowCells] of rowsMap) {
+    // We just join them with tabs.
+    // If we want to preserve empty cells between selected ones, logic is more complex.
+    // Standard spreadsheet behavior for non-contiguous selection can vary.
+    // Here we just join valid selected values in order.
+    const line = rowCells.map((rc) => formatValue(rc.val)).join('\t')
+    resultLines.push(line)
+  }
+
+  const text = resultLines.join('\n')
+  navigator.clipboard.writeText(text)
+}
+
+async function onPaste(): Promise<void> {
+  if (!props.editable) return
+  if (!focusedCell.value) return
+
+  const { rowIndex, colKey } = focusedCell.value
+  // Don't paste into primary keys usually, or let the backend handle error/ignore?
+  // User asked to replace value regardless. Let's block PKs if they are generally not editable via UI.
+  if (isPrimaryKeyColumn(colKey)) return
+
+  try {
+    const text = await navigator.clipboard.readText()
+    if (text) {
+      // Single cell paste - just take the text as is.
+      // If user pasted a multiline string into one cell, usually it gets inserted.
+      // We emit cell-change.
+      emit('cell-change', { rowIndex, column: colKey, value: text })
+    }
+  } catch (e) {
+    console.error('Failed to read clipboard', e)
+  }
+}
+
 </script>
 
 <style scoped>

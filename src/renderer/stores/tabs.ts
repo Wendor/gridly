@@ -368,7 +368,11 @@ export const useTabStore = defineStore('tabs', () => {
     currentTab,
     async (newTab) => {
       if (!newTab || newTab.type !== 'query' || newTab.connectionId === null) return
-      if (!newTab.database || newTab.database === undefined || newTab.database === 'undefined')
+      if (
+        !newTab.database ||
+        typeof newTab.database !== 'string' ||
+        newTab.database === 'undefined'
+      )
         return
 
       const lastSetDb = activeDatabaseCache.value.get(newTab.connectionId)

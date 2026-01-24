@@ -12,7 +12,7 @@
 import { ref, onMounted, onBeforeUnmount, watch, computed, watchEffect } from 'vue'
 import { EditorState, Compartment } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers, highlightActiveLineGutter } from '@codemirror/view'
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+import { defaultKeymap, history, historyKeymap, indentLess, indentMore } from '@codemirror/commands'
 import {
   autocompletion,
   CompletionContext,
@@ -169,6 +169,16 @@ onMounted(() => {
             emit('run')
             return true
           }
+        },
+        {
+          key: 'Tab',
+          preventDefault: true,
+          run: indentMore
+        },
+        {
+          key: 'Shift-Tab',
+          preventDefault: true,
+          run: indentLess
         }
       ]),
       // Use Compartment for theme

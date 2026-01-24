@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useConnectionStore } from './stores/connections'
 import { useTabStore } from './stores/tabs'
 import { useSettingsStore } from './stores/settings'
@@ -59,12 +59,36 @@ const editingConnection = ref<DbConnection | null>(null)
 const editingIndex = ref<number | null>(null)
 const modalAvailableDatabases = ref<string[]>([])
 
+const handleGlobalKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'Tab') {
+    const activeEl = document.activeElement
+    if (!activeEl) return
+
+    // Allow tab if we are inside a table container
+    const isTable = activeEl.closest('.base-table-container')
+    // Allow tab if we are inside a modal (e.g. connection form)
+    const isModal = activeEl.closest('.base-modal-overlay')
+    // Allow tab if we are inside the SQL editor
+    const isEditor = activeEl.closest('.sql-editor') || activeEl.closest('.cm-content')
+
+    if (!isTable && !isModal && !isEditor) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+  }
+}
+
 onMounted(() => {
-  connStore.loadFromStorage()
+  window.addEventListener('keydown', handleGlobalKeydown, true) // capture phase toensure we catch it first
+
   settingsStore.initSettings()
 
   const savedWidth = localStorage.getItem('sidebar-width')
   if (savedWidth) sidebarWidth.value = parseInt(savedWidth)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleGlobalKeydown, true)
 })
 
 // --- Modal Logic ---

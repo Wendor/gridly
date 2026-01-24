@@ -168,9 +168,12 @@ h2 {
 }
 
 .setting-item {
+  width: 50%;
   display: flex;
   align-items: center;
   gap: 20px;
+  margin-bottom: 15px;
+  justify-content: space-between;
 }
 .font-controls {
   display: flex;

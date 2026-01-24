@@ -56,7 +56,37 @@ body {
   overflow: hidden;
 }
 
-/* --- СТИЛИ СКРОЛЛБАРА (Global) --- */
+
+/* --- GLOBAL TEXT SELECTION --- */
+* {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Allow selection in inputs and textareas */
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Allow selection in Documentation */
+.markdown-body,
+.markdown-body * {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Allow selection in Code Editor (CodeMirror) */
+.cm-editor,
+.cm-editor *,
+.cm-content,
+.cm-content * {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* --- SCROLLBAR STYLES (Global) --- */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
