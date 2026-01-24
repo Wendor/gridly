@@ -109,7 +109,8 @@ function customCompletionSource(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const options: any[] = [...SQL_KEYWORDS]
 
-  Object.keys(dbSchema).forEach((tableName) => {
+  const schemaKeys = Object.keys(dbSchema)
+  schemaKeys.forEach((tableName) => {
     options.push({
       label: tableName,
       type: 'class',
@@ -117,15 +118,23 @@ function customCompletionSource(
     })
   })
 
-  const tableMatches = [...docText.matchAll(/(?:FROM|JOIN)\s+([a-zA-Z0-9_]+)/gi)]
+  // Improved regex to capture table names with or without quotes/backticks
+  // Captures: FROM table | JOIN table
+  // Group 1: The table name (possibly quoted)
+  const tableMatches = [...docText.matchAll(/(?:FROM|JOIN)\s+([`"']?[\w.]+[`"']?)/gi)]
 
   tableMatches.forEach((match) => {
-    const tableName = match[1]
+    let rawTableName = match[1]
+    if (!rawTableName) return
 
-    // FIX 1: Проверяем, что tableName существует и является ключом в dbSchema
-    if (tableName && Object.prototype.hasOwnProperty.call(dbSchema, tableName)) {
-      const columns = dbSchema[tableName]
+    // Remove quotes/backticks if present
+    rawTableName = rawTableName.replace(/^[`"']|[`"']$/g, '')
 
+    // Case-insensitive lookup
+    const foundKey = schemaKeys.find((k) => k.toLowerCase() === rawTableName.toLowerCase())
+
+    if (foundKey) {
+      const columns = dbSchema[foundKey]
       if (columns) {
         columns.forEach((col) => {
           const needsQuotes = currentDialect.value === PostgreSQL && /[A-Z]/.test(col)
@@ -134,7 +143,7 @@ function customCompletionSource(
           options.push({
             label: col,
             type: 'property',
-            detail: tableName,
+            detail: foundKey, // Show which table this column belongs to
             apply: insertText,
             boost: 99
           })
