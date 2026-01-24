@@ -44,7 +44,7 @@
 
     <div class="sb-section right">
       <div class="sb-item meta-info" :style="{ opacity: connStore.loading ? 0.5 : 1 }">
-        <span v-if="tabStore.currentTab?.meta"> ⏱ {{ tabStore.currentTab.meta.duration }} ms </span>
+        <span v-if="tabStore.currentTab?.type === 'query' && tabStore.currentTab.meta"> ⏱ {{ tabStore.currentTab.meta.duration }} ms </span>
       </div>
 
       <div class="sb-item connection-status" :class="{ active: isTabConnected }">
@@ -64,30 +64,34 @@ import BaseIcon from '../ui/BaseIcon.vue'
 const tabStore = useTabStore()
 const connStore = useConnectionStore()
 
+const currentQueryTab = computed(() => {
+  return tabStore.currentTab?.type === 'query' ? tabStore.currentTab : null
+})
+
 const isTabConnected = computed(() => {
-  return tabStore.currentTab?.type === 'query' && tabStore.currentTab.connectionId !== null
+  return currentQueryTab.value?.connectionId !== null && currentQueryTab.value?.connectionId !== undefined
 })
 
 const currentConnectionName = computed(() => {
-  if (!isTabConnected.value) return ''
-  const conn = connStore.savedConnections[tabStore.currentTab!.connectionId!]
+  if (!isTabConnected.value || !currentQueryTab.value) return ''
+  const conn = connStore.savedConnections[currentQueryTab.value.connectionId!]
   return conn ? conn.name : 'Unknown'
 })
 
 // Вычисляемые свойства для пагинации
-const startRow = computed(() => (tabStore.currentTab?.pagination.offset || 0) + 1)
+const startRow = computed(() => (currentQueryTab.value?.pagination.offset || 0) + 1)
 const endRow = computed(() => {
-  if (!tabStore.currentTab) return 0
-  return (tabStore.currentTab.pagination.offset || 0) + tabStore.currentTab.rows.length
+  if (!currentQueryTab.value) return 0
+  return (currentQueryTab.value.pagination.offset || 0) + currentQueryTab.value.rows.length
 })
 
 const isNextDisabled = computed(() => {
-  if (!tabStore.currentTab) return true
+  if (!currentQueryTab.value) return true
   // Если загрузили меньше лимита, значит это конец
-  if (tabStore.currentTab.rows.length < tabStore.currentTab.pagination.limit) return true
+  if (currentQueryTab.value.rows.length < currentQueryTab.value.pagination.limit) return true
   // Если знаем тотал, проверяем по нему
-  if (tabStore.currentTab.pagination.total !== null) {
-    return endRow.value >= tabStore.currentTab.pagination.total
+  if (currentQueryTab.value.pagination.total !== null) {
+    return endRow.value >= currentQueryTab.value.pagination.total
   }
   return false
 })

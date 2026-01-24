@@ -50,6 +50,23 @@
     <div class="spacer"></div>
 
     <div class="bottom-actions">
+      <div class="ab-item" :title="$t('common.help')" @click="openHelp">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+      </div>
       <div class="ab-item" :title="$t('common.settings')" @click="openSettings">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -75,6 +92,7 @@
 <script setup lang="ts">
 import { useUIStore } from '../../stores/ui'
 import { useTabStore } from '../../stores/tabs' // <-- Импортируем tabStore
+import i18n from '../../i18n'
 
 const uiStore = useUIStore()
 const tabStore = useTabStore()
@@ -82,6 +100,13 @@ const tabStore = useTabStore()
 const emit = defineEmits<{
   (e: 'open-settings'): void
 }>()
+
+function openHelp(): void {
+  tabStore.openDocumentTab(
+    i18n.global.t('common.instructions'),
+    i18n.global.t('common.instructionsText')
+  )
+}
 
 function openSettings(): void {
   // Вызываем метод открытия таба настроек

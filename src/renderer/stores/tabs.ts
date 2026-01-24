@@ -4,10 +4,13 @@ import { useConnectionStore } from './connections'
 import { useHistoryStore } from './history'
 import i18n from '../i18n'
 
-export interface Tab {
+export interface BaseTab {
   id: number
-  type: 'query' | 'settings'
   name: string
+}
+
+export interface QueryTab extends BaseTab {
+  type: 'query'
   connectionId: number | null
   database: string | null
   sql: string
@@ -21,27 +24,24 @@ export interface Tab {
   }
 }
 
+export interface SettingsTab extends BaseTab {
+  type: 'settings'
+}
+
+export interface DocumentTab extends BaseTab {
+  type: 'document'
+  content: string
+}
+
+export type Tab = QueryTab | SettingsTab | DocumentTab
+
 export const useTabStore = defineStore('tabs', () => {
   const connectionStore = useConnectionStore()
   const historyStore = useHistoryStore()
 
-  const tabs = ref<Tab[]>([
-    {
-      id: 1,
-      type: 'query',
-      name: `${i18n.global.t('common.query')} 1`,
-      connectionId: null,
-      database: null,
-      sql: 'SELECT 1;',
-      rows: [],
-      colDefs: [],
-      meta: null,
-      pagination: { limit: 100, offset: 0, total: null }
-    }
-  ])
-
+  const tabs = ref<Tab[]>([])
   const activeTabId = ref(1)
-  const nextTabId = ref(2)
+  const nextTabId = ref(1)
 
   const activeDatabaseCache = ref<Map<number, string | null>>(new Map())
 
@@ -52,8 +52,11 @@ export const useTabStore = defineStore('tabs', () => {
     let connId = initialConnId
 
     if (connId === null) {
-      connId =
-        currentTab.value?.connectionId ?? (connectionStore.savedConnections.length ? 0 : null)
+      if (currentTab.value?.type === 'query') {
+        connId = currentTab.value.connectionId
+      } else {
+        connId = connectionStore.savedConnections.length ? 0 : null
+      }
     }
 
     tabs.value.push({
@@ -77,7 +80,8 @@ export const useTabStore = defineStore('tabs', () => {
     database?: string
   ): Promise<void> {
     const existingTab = tabs.value.find(
-      (t) => t.type === 'query' && t.connectionId === connectionId && t.name === tableName
+      (t): t is QueryTab =>
+        t.type === 'query' && t.connectionId === connectionId && t.name === tableName
     )
 
     if (existingTab) {
@@ -115,14 +119,24 @@ export const useTabStore = defineStore('tabs', () => {
     tabs.value.push({
       id,
       type: 'settings',
-      name: i18n.global.t('common.settings'),
-      connectionId: null,
-      database: null,
-      sql: '',
-      rows: [],
-      colDefs: [],
-      meta: null,
-      pagination: { limit: 0, offset: 0, total: 0 }
+      name: i18n.global.t('common.settings')
+    })
+    activeTabId.value = id
+  }
+
+  function openDocumentTab(title: string, content: string): void {
+    const existing = tabs.value.find((t) => t.type === 'document' && t.name === title)
+    if (existing) {
+      activeTabId.value = existing.id
+      return
+    }
+
+    const id = nextTabId.value++
+    tabs.value.push({
+      id,
+      type: 'document',
+      name: title,
+      content
     })
     activeTabId.value = id
   }
@@ -137,13 +151,13 @@ export const useTabStore = defineStore('tabs', () => {
   }
 
   function nextPage(): void {
-    if (!currentTab.value) return
+    if (!currentTab.value || currentTab.value.type !== 'query') return
     currentTab.value.pagination.offset += currentTab.value.pagination.limit
     runQuery()
   }
 
   function prevPage(): void {
-    if (!currentTab.value) return
+    if (!currentTab.value || currentTab.value.type !== 'query') return
     if (currentTab.value.pagination.offset === 0) return
 
     currentTab.value.pagination.offset = Math.max(
@@ -244,7 +258,9 @@ export const useTabStore = defineStore('tabs', () => {
     } catch (e) {
       if (e instanceof Error) {
         connectionStore.error = e.message
-        historyStore.addEntry(currentTab.value.sql, 'error', 0, connId)
+        if (currentTab.value && currentTab.value.type === 'query') {
+             historyStore.addEntry(currentTab.value.sql, 'error', 0, connId)
+        }
       }
     } finally {
       connectionStore.loading = false
@@ -253,16 +269,36 @@ export const useTabStore = defineStore('tabs', () => {
 
   // --- PERSISTENCE LOGIC ---
   function saveToStorage(): void {
-    const dataToSave = tabs.value.map((t) => ({
-      id: t.id,
-      type: t.type,
-      name: t.name,
-      connectionId: t.connectionId,
-      database: t.database,
-      sql: t.sql,
-      meta: null,
-      pagination: t.pagination
-    }))
+    // Only save what is necessary to restore
+    const dataToSave = tabs.value.map((t) => {
+      if (t.type === 'query') {
+        return {
+           id: t.id,
+           type: 'query',
+           name: t.name,
+           connectionId: t.connectionId,
+           database: t.database,
+           sql: t.sql,
+           meta: null,
+           pagination: t.pagination
+        }
+      } else if (t.type === 'document') {
+         // Document contents might be large if we allow custom docs,
+         // but for instructions it's fine.
+         return {
+            id: t.id,
+            type: 'document',
+            name: t.name,
+            content: t.content
+         }
+      }
+      return {
+        id: t.id,
+        type: t.type,
+        name: t.name
+      }
+    })
+    
     localStorage.setItem('tabs-state', JSON.stringify(dataToSave))
     localStorage.setItem('active-tab-id', String(activeTabId.value))
     localStorage.setItem('next-tab-id', String(nextTabId.value))
@@ -276,12 +312,19 @@ export const useTabStore = defineStore('tabs', () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
-        tabs.value = parsed.map((t: Tab) => ({
-          ...t,
-          rows: [],
-          colDefs: [],
-          meta: null
-        }))
+        // Need to reconstruct state correctly from parsed execution
+        // We can't strict type check too easy here, so we cast
+        tabs.value = parsed.map((t: any) => {
+          if (t.type === 'query') {
+            return {
+              ...t,
+              rows: [],
+              colDefs: [],
+              meta: null
+            }
+          }
+          return t
+        })
       } catch (e) {
         console.error('Failed to load tabs', e)
       }
@@ -325,7 +368,14 @@ export const useTabStore = defineStore('tabs', () => {
 
   loadFromStorage()
   if (tabs.value.length === 0) {
-    addTab()
+      if (connectionStore.savedConnections.length === 0) {
+          openDocumentTab(
+              i18n.global.t('common.instructions'),
+              `# ${i18n.global.t('common.instructions')}\n\n${i18n.global.t('common.instructionsText')}`
+          )
+      } else {
+          addTab()
+      }
   }
 
   return {
@@ -335,6 +385,7 @@ export const useTabStore = defineStore('tabs', () => {
     addTab,
     openTableTab,
     openSettingsTab,
+    openDocumentTab,
     closeTab,
     runQuery,
     nextPage,

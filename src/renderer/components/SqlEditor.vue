@@ -77,17 +77,23 @@ const SQL_KEYWORDS = [
 ].map((label) => ({ label, type: 'keyword', boost: 0 }))
 
 const currentDialect = computed(() => {
-  const connId = tabStore.currentTab?.connectionId
-  if (typeof connId === 'number' && connStore.savedConnections[connId]?.type === 'postgres') {
-    return PostgreSQL
+  const tab = tabStore.currentTab
+  if (tab?.type === 'query' && tab.connectionId !== null) {
+    const connId = tab.connectionId
+    if (connStore.savedConnections[connId]?.type === 'postgres') {
+      return PostgreSQL
+    }
   }
   return MySQL
 })
 
 const simpleSchema = computed(() => {
-  const connId = tabStore.currentTab?.connectionId
-  if (connId == null) return {}
-  return JSON.parse(JSON.stringify(connStore.schemaCache[connId] || {})) as DbSchema
+  const tab = tabStore.currentTab
+  if (tab?.type === 'query' && tab.connectionId !== null) {
+    const connId = tab.connectionId
+    return JSON.parse(JSON.stringify(connStore.schemaCache[connId] || {})) as DbSchema
+  }
+  return {}
 })
 
 // FIX 2: Расширяем возвращаемый тип (добавляем Promise)

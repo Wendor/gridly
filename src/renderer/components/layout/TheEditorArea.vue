@@ -54,6 +54,7 @@
 
     <div v-if="tabStore.currentTab" class="main-view-container">
       <SettingsView v-if="tabStore.currentTab.type === 'settings'" />
+      <DocumentView v-else-if="tabStore.currentTab.type === 'document'" />
       <QueryView v-else-if="tabStore.currentTab.type === 'query'" />
     </div>
 
@@ -88,6 +89,7 @@ import { useTabStore } from '../../stores/tabs'
 import { useConnectionStore } from '../../stores/connections'
 import SettingsView from '../views/SettingsView.vue'
 import QueryView from '../views/QueryView.vue'
+import DocumentView from '../views/DocumentView.vue'
 
 const tabStore = useTabStore()
 const connStore = useConnectionStore()

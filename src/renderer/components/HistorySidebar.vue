@@ -84,7 +84,7 @@ function restoreQuery(item: { sql: string; connectionId: number | null }): void 
   tabStore.addTab(item.connectionId)
 
   setTimeout(() => {
-    if (tabStore.currentTab) {
+    if (tabStore.currentTab && tabStore.currentTab.type === 'query') {
       tabStore.currentTab.sql = item.sql
     }
   }, 0)

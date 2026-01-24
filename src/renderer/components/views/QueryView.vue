@@ -3,7 +3,7 @@
     <div class="toolbar">
       <div class="toolbar-left">
         <BaseSelect
-          :model-value="tabStore.currentTab?.connectionId ?? ''"
+          :model-value="currentQueryTab?.connectionId ?? ''"
           :options="connectionOptions"
           class="conn-select-wrapper"
           variant="outline"
@@ -18,7 +18,7 @@
       <div class="toolbar-right">
         <BaseButton
           :title="$t('query.exportCsv')"
-          :disabled="!tabStore.currentTab?.rows?.length"
+          :disabled="!currentQueryTab?.rows?.length"
           @click="exportCsv"
         >
           <BaseIcon name="download" /> {{ $t('query.exportCsv') }}
@@ -26,7 +26,7 @@
 
         <BaseButton
           variant="primary"
-          :disabled="connStore.loading || tabStore.currentTab?.connectionId === null"
+          :disabled="connStore.loading || currentQueryTab?.connectionId === null"
           @click="tabStore.runQuery"
         >
           <BaseIcon name="play" /> {{ $t('query.run') }}
@@ -36,8 +36,8 @@
 
     <div class="editor-wrapper" :style="{ height: editorHeight + 'px' }">
       <SqlEditor
-        v-if="tabStore.currentTab"
-        v-model="tabStore.currentTab.sql"
+        v-if="currentQueryTab"
+        v-model="currentQueryTab.sql"
         @run="tabStore.runQuery"
       />
     </div>
@@ -54,10 +54,10 @@
       </div>
 
       <BaseTable
-        v-if="tabStore.currentTab"
+        v-if="currentQueryTab"
         :columns="tableColumns"
-        :data="tabStore.currentTab.rows"
-        :row-offset="tabStore.currentTab.pagination.offset"
+        :data="currentQueryTab.rows"
+        :row-offset="currentQueryTab.pagination.offset"
         style="width: 100%; height: 100%"
         @sort-change="onSortChange"
         @cell-context-menu="onCellContextMenu"
@@ -81,7 +81,7 @@ import { ref, onMounted, reactive, computed } from 'vue'
 import { format } from 'sql-formatter'
 import { isWrappedValue } from '../../../shared/types'
 
-import { useTabStore } from '../../stores/tabs'
+import { useTabStore, QueryTab } from '../../stores/tabs'
 import { useConnectionStore } from '../../stores/connections'
 import SqlEditor from '../SqlEditor.vue'
 import BaseIcon from '../ui/BaseIcon.vue'
@@ -93,6 +93,11 @@ import i18n from '../../i18n'
 
 const tabStore = useTabStore()
 const connStore = useConnectionStore()
+
+// Helper to get typed current tab
+const currentQueryTab = computed<QueryTab | null>(() => {
+  return (tabStore.currentTab?.type === 'query' ? tabStore.currentTab : null)
+})
 
 const editorHeight = ref(300)
 const isResizing = ref(false)
@@ -155,21 +160,21 @@ async function copyRow(): Promise<void> {
 }
 
 async function formatCurrentSql(): Promise<void> {
-  if (!tabStore.currentTab) return
+  if (!currentQueryTab.value) return
   const dialect =
-    connStore.savedConnections[tabStore.currentTab.connectionId || 0]?.type === 'postgres'
+    connStore.savedConnections[currentQueryTab.value.connectionId || 0]?.type === 'postgres'
       ? 'postgresql'
       : 'mysql'
-  tabStore.currentTab.sql = format(tabStore.currentTab.sql, {
+  currentQueryTab.value.sql = format(currentQueryTab.value.sql, {
     language: dialect,
     keywordCase: 'upper'
   })
 }
 
 function exportCsv(): void {
-  if (!tabStore.currentTab?.rows.length) return
-  const header = Object.keys(tabStore.currentTab.rows[0]).join(',')
-  const csv = tabStore.currentTab.rows
+  if (!currentQueryTab.value?.rows.length) return
+  const header = Object.keys(currentQueryTab.value.rows[0]).join(',')
+  const csv = currentQueryTab.value.rows
     .map((r) =>
       Object.values(r)
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
@@ -193,43 +198,28 @@ const connectionOptions = computed(() => {
 })
 
 async function onTabConnectionChange(val: string | number): Promise<void> {
-  if (tabStore.currentTab) {
+  if (currentQueryTab.value) {
     if (val === '') {
-      tabStore.currentTab.connectionId = null
+      currentQueryTab.value.connectionId = null
     } else {
-      tabStore.currentTab.connectionId = Number(val)
+      currentQueryTab.value.connectionId = Number(val)
     }
 
-    if (tabStore.currentTab.connectionId !== null) {
-      await connStore.ensureConnection(tabStore.currentTab.connectionId)
+    if (currentQueryTab.value.connectionId !== null) {
+      await connStore.ensureConnection(currentQueryTab.value.connectionId)
     }
   }
 }
 
 function onSortChange(sort: { colId: string | null; sort: 'asc' | 'desc' | null }): void {
   if (!sort.colId || !sort.sort) return
-  if (!tabStore.currentTab) return
-  const match = tabStore.currentTab.sql.match(/FROM\s+([`'"]?[\w.]+[`'"]?)/i)
+  if (!currentQueryTab.value) return
+  const match = currentQueryTab.value.sql.match(/FROM\s+([`'"]?[\w.]+[`'"]?)/i)
   if (match) {
-    // Basic sorting logic replacement
-    // Note: This logic seems to depend on simple SELECTs
-    // Ideally we should just append ORDER BY, but parsing SQL is hard.
-    // The previous implementation replaced the query.
-    // Let's stick to the previous behavior but adapted.
-
-    // We need to strip existing ORDER BY if we want to replace it,
-    // or just append if simple.
-    // AG-GRID logic was:
-    // let newSql = `SELECT * FROM ${match[1]}` + ORDER BY ...
-    // This is VERY destructive if the query was complex.
-    // But since I am porting behavior, I will keep it similar or try to improve.
-    // The user requirement says "Функционал сортировки неободимо сотавить" (Keep sorting functionality).
-    // So I will replicate exact previous logic.
-
     let newSql = `SELECT * FROM ${match[1]}`
     newSql += ` ORDER BY "${sort.colId}" ${sort.sort.toUpperCase()}`
 
-    tabStore.currentTab.sql = newSql
+    currentQueryTab.value.sql = newSql
     tabStore.runQuery()
   }
 }
@@ -258,8 +248,8 @@ function doResize(e: MouseEvent): void {
 }
 
 const tableColumns = computed(() => {
-  if (!tabStore.currentTab?.colDefs) return []
-  return tabStore.currentTab.colDefs.map((def) => ({
+  if (!currentQueryTab.value?.colDefs) return []
+  return currentQueryTab.value.colDefs.map((def) => ({
     prop: def.field,
     label: def.headerName || def.field,
     sortable: true,

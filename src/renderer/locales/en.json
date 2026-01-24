@@ -15,7 +15,10 @@
     "noTabs": "No open tabs",
     "openNewQuery": "Open New Query",
     "query": "Query",
-    "select": "Select..."
+    "select": "Select...",
+    "help": "Help",
+    "instructions": "Connection Instructions",
+    "instructionsText": "# Gridly User Guide\n\nWelcome to **Gridly**, your modern and efficient database client!\n\n## 🚀 Getting Started\n\n### 1. Creating a Connection\nTo connect to your database:\n1. Click the **+** (Plus) button in the sidebar header.\n2. Select your database type (**PostgreSQL** or **MySQL**).\n3. Fill in the required fields:\n   - **Name**: A friendly name for this connection (e.g., \"Production DB\").\n   - **Host**: The server address (e.g., `localhost` or `192.168.1.1`).\n   - **Port**: Default is `5432` for Postgres and `3306` for MySQL.\n   - **User** & **Password**: Your database credentials.\n   - **Database**: (Optional) The specific database name to connect to.\n4. (Optional) Enable **SSH Tunnel** if your database is behind a firewall.\n5. Click **Test Connection** to verify settings, then **Save**.\n\n### 2. Browsing Data\nOnce connected:\n- Expand the connection in the sidebar to see schemas and tables.\n- **Double-click** a table to open it in a new tab.\n- **Right-click** a table for more options (e.g., Refresh).\n\n### 3. Running Queries\n- Click the **+** button in the tab bar to open a fresh SQL Editor.\n- Write your SQL query.\n- Press **Ctrl+Enter** (or Cmd+Enter on Mac) to execute.\n- View results in the grid below.\n\n## 🛠 Features\n- **Smart Pagination**: Automatically fetches data in chunks.\n- **Sorting**: Click column headers to sort data.\n- **Export**: Export query results to CSV.\n- **History**: View and restore previous queries from the history sidebar.\n- **Themes**: Customize the look and feel in Settings.\n\n## ❓ Need Help?\nIf you encounter any issues or have questions, please check the application logs or contact support."
   },
   "status": {
     "executing": "Executing...",
