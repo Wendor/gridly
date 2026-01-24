@@ -27,7 +27,8 @@
   },
   "pagination": {
     "prev": "Previous Page",
-    "next": "Next Page"
+    "next": "Next Page",
+    "limit": "Limit"
   },
   "activity": {
     "connections": "Database Connections",
@@ -69,7 +70,8 @@
     "exportCsv": "Export CSV",
     "run": "Run",
     "copyValue": "Copy Value",
-    "copyRow": "Copy Row (JSON)"
+    "copyRow": "Copy Row (JSON)",
+    "noData": "No data"
   },
   "sidebar": {
     "connections": "CONNECTIONS",

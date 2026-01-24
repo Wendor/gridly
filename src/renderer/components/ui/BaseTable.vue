@@ -29,7 +29,11 @@
           </div>
         </div>
 
-        <div class="virtual-spacer" :style="{ height: totalHeight + 'px' }">
+        <div v-if="data.length === 0" class="empty-state">
+          <slot name="empty">No Data</slot>
+        </div>
+
+        <div v-else class="virtual-spacer" :style="{ height: totalHeight + 'px' }">
           <div class="rows-container" :style="{ transform: `translateY(${offsetY}px)` }">
             <div
               v-for="(row, rowIndex) in visibleRows"
@@ -535,5 +539,16 @@ onUnmounted(() => {
   outline: 2px solid var(--accent-primary);
   outline-offset: -2px;
   z-index: 2;
+}
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 150px;
+  color: var(--text-secondary);
+  font-size: 20px;
+  font-weight: 500;
 }
 </style>

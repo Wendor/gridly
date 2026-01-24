@@ -1,5 +1,9 @@
 <template>
-  <div ref="wrapperRef" class="base-select-wrapper" :class="{ 'is-open': isOpen }">
+  <div
+    ref="wrapperRef"
+    class="base-select-wrapper"
+    :class="{ 'is-open': isOpen, 'inline-mode': inlineLabel }"
+  >
     <label v-if="label" class="select-label">{{ label }}</label>
     <div class="select-container" :title="$t('common.select')" @click="toggle">
       <div
@@ -70,13 +74,15 @@ const props = withDefaults(
     modelValue: string | number
     options: SelectOption[]
     label?: string
-    variant?: 'filled' | 'outline'
+    inlineLabel?: boolean
+    variant?: 'filled' | 'outline' | 'ghost'
     icon?: string
     highlightActive?: boolean
   }>(),
   {
     variant: 'filled',
-    highlightActive: false
+    highlightActive: false,
+    inlineLabel: false
   }
 )
 
@@ -123,10 +129,17 @@ onBeforeUnmount(() => {
   position: relative;
 }
 
+.base-select-wrapper.inline-mode {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
 .select-label {
   font-size: 12px;
   color: var(--text-secondary);
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .select-container {
@@ -168,6 +181,16 @@ onBeforeUnmount(() => {
 .variant-outline:hover,
 .variant-outline.is-active {
   border-color: var(--focus-border);
+  color: var(--text-primary);
+}
+
+.variant-ghost {
+  background: transparent;
+  border-color: transparent;
+}
+.variant-ghost:hover,
+.variant-ghost.is-active {
+  background: var(--bg-hover);
   color: var(--text-primary);
 }
 

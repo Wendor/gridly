@@ -351,7 +351,7 @@ watch(
 .sidebar-header h3 {
   margin: 0;
   font-size: 11px;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   letter-spacing: 0.5px;
 }
 /* .add-btn removed */

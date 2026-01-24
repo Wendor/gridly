@@ -52,7 +52,12 @@
             <BaseIcon name="chevronLeft" />
           </BaseButton>
 
-          <span class="pagination-text">{{ paginationText }}</span>
+          <div class="pagination-info">
+            <span class="pagination-range">{{ paginationRangeText }}</span>
+            <span v-if="currentQueryTab.pagination.total !== null" class="pagination-total">{{
+              paginationTotalText
+            }}</span>
+          </div>
 
           <BaseButton :disabled="!canGoNext" variant="ghost" icon-only @click="tabStore.nextPage">
             <BaseIcon name="chevronRight" />
@@ -63,6 +68,16 @@
         </div>
 
         <div class="toolbar-divider"></div>
+        <BaseSelect
+          v-if="currentQueryTab"
+          :model-value="currentQueryTab.pagination.limit"
+          :options="limitOptions"
+          :label="$t('pagination.limit')"
+          inline-label
+          variant="ghost"
+          class="limit-select-icon"
+          @update:model-value="onLimitChange"
+        />
 
         <BaseButton
           :title="$t('query.refresh')"
@@ -102,7 +117,11 @@
         style="width: 100%; height: 100%"
         @sort-change="onSortChange"
         @cell-context-menu="onCellContextMenu"
-      />
+      >
+        <template #empty>
+          <div class="no-data">{{ $t('query.noData') }}</div>
+        </template>
+      </BaseTable>
 
       <BaseContextMenu
         :visible="contextMenu.visible"
@@ -255,18 +274,29 @@ const canGoLast = computed(() => {
   return canGoNext.value
 })
 
-const paginationText = computed(() => {
+const paginationRangeText = computed(() => {
   if (!currentQueryTab.value) return ''
-  const { offset, total } = currentQueryTab.value.pagination
+  const { offset } = currentQueryTab.value.pagination
   const count = currentQueryTab.value.rows.length
   const start = count > 0 ? offset + 1 : 0
   const end = offset + count
+  return `${start} - ${end}`
+})
+
+const paginationTotalText = computed(() => {
+  if (!currentQueryTab.value) return ''
+  const { total } = currentQueryTab.value.pagination
+  const count = currentQueryTab.value.rows.length
+  const offset = currentQueryTab.value.pagination.offset
+  const end = offset + count
 
   if (total !== null) {
-    return `${start} - ${end} of ${total}`
+    return `${i18n.global.t('common.of')} ${total}`
   }
-  return `${start} - ${end} of ${end}+`
+  return `${i18n.global.t('common.of')} ${end}+`
 })
+
+// Auto Refresh (Timer logic is below)
 
 function goFirst(): void {
   if (currentQueryTab.value) {
@@ -296,6 +326,20 @@ const autoRefreshOptions = [
   { label: '1m', value: 60000 }
 ]
 
+const limitOptions = [
+  { label: '100', value: 100 },
+  { label: '300', value: 300 },
+  { label: '500', value: 500 },
+  { label: '1000', value: 1000 }
+]
+
+function onLimitChange(val: string | number): void {
+  if (currentQueryTab.value && val !== 0) {
+    currentQueryTab.value.pagination.limit = Number(val)
+    tabStore.runQuery()
+  }
+}
+
 function onAutoRefreshChange(val: string | number): void {
   const ms = Number(val)
   autoRefreshInterval.value = ms
@@ -315,9 +359,7 @@ function onAutoRefreshChange(val: string | number): void {
 }
 
 // Clear timer on unmount or tab change
-onUnmounted(() => {
-  if (autoRefreshTimer.value) clearInterval(autoRefreshTimer.value)
-})
+// (Moved to combined onUnmounted above)
 
 watch(
   () => currentQueryTab.value?.id,
@@ -406,6 +448,10 @@ const tableColumns = computed(() => {
 onMounted(() => {
   const saved = localStorage.getItem('editor-height')
   if (saved) editorHeight.value = parseInt(saved)
+})
+
+onUnmounted(() => {
+  if (autoRefreshTimer.value) clearInterval(autoRefreshTimer.value)
 })
 </script>
 
@@ -580,14 +626,6 @@ onMounted(() => {
   gap: 4px;
 }
 
-.pagination-text {
-  font-size: 12px;
-  color: var(--text-secondary);
-  min-width: 100px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
 .toolbar-divider {
   width: 1px;
   height: 20px;
@@ -597,6 +635,28 @@ onMounted(() => {
 
 .auto-refresh-select {
   width: auto;
+}
+
+.limit-select-icon {
+  width: auto;
+  margin-left: 0;
+}
+
+.pagination-range {
+  font-variant-numeric: tabular-nums;
+}
+
+.pagination-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.pagination-total {
+  margin-left: -2px;
+  color: var(--text-primary);
 }
 
 .results-toolbar .base-btn {
