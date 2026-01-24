@@ -151,7 +151,7 @@ onBeforeUnmount(() => {
 .variant-outline:hover,
 .variant-outline.is-active {
   border-color: var(--focus-border);
-  color: var(--text-white);
+  color: var(--text-primary);
 }
 
 .base-select.is-active {
@@ -176,7 +176,7 @@ onBeforeUnmount(() => {
 
 .variant-outline:hover .select-arrow,
 .variant-outline.is-active .select-arrow {
-  color: var(--text-white);
+  color: var(--text-primary);
 }
 
 /* DROPDOWN */
@@ -210,12 +210,12 @@ onBeforeUnmount(() => {
 
 .dropdown-item:hover {
   background: var(--list-hover-bg);
-  color: var(--text-white);
+  color: var(--list-hover-fg);
 }
 
 .dropdown-item.selected {
   background: var(--list-active-bg);
-  color: var(--text-white);
+  color: var(--list-active-fg);
 }
 
 .check-icon {

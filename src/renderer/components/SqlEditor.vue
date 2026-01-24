@@ -146,6 +146,8 @@ function customCompletionSource(
   return completeFromList(options)(context)
 }
 
+const themeConf = new Compartment()
+
 onMounted(() => {
   if (!editorRef.value) return
 
@@ -169,7 +171,9 @@ onMounted(() => {
           }
         }
       ]),
-      oneDark,
+      // Use Compartment for theme
+      themeConf.of(settingsStore.activeTheme.type === 'dark' ? oneDark : []),
+      
       syntaxHighlighting(defaultHighlightStyle),
 
       languageConf.of(sql({ dialect: currentDialect.value, schema: simpleSchema.value })),
@@ -186,12 +190,16 @@ onMounted(() => {
 watchEffect(() => {
   if (view) {
     view.dispatch({
-      effects: languageConf.reconfigure(
-        sql({
-          dialect: currentDialect.value,
-          schema: simpleSchema.value
-        })
-      )
+      effects: [
+        languageConf.reconfigure(
+          sql({
+            dialect: currentDialect.value,
+            schema: simpleSchema.value
+          })
+        ),
+        // Reconfigure theme based on settings
+        themeConf.reconfigure(settingsStore.activeTheme.type === 'dark' ? oneDark : [])
+      ]
     })
   }
 })
@@ -243,6 +251,45 @@ onBeforeUnmount(() => {
 
 /* Исправляем активную строку, чтобы она не перекрывала границы */
 :deep(.cm-activeLine) {
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: var(--list-hover-bg);
+}
+
+:deep(.cm-editor) {
+  background-color: var(--bg-app) !important;
+}
+
+:deep(.cm-gutters) {
+  background-color: var(--bg-app) !important;
+  border-right: 1px solid var(--border-color) !important;
+}
+</style>
+
+<style>
+/* --- Стили для автокомплита CodeMirror (Global because tooltips are in body) --- */
+
+/* Фон и границы списка */
+.cm-tooltip-autocomplete {
+  border: 1px solid var(--border-color) !important;
+  background-color: var(--bg-sidebar) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Пункты списка */
+.cm-tooltip-autocomplete > ul > li {
+  padding: 4px 8px !important;
+  font-family: var(--font-mono) !important;
+  font-size: 12px !important;
+}
+
+/* Активный пункт */
+.cm-tooltip-autocomplete > ul > li[aria-selected='true'] {
+  background-color: var(--accent-primary) !important;
+  color: #fff !important;
+}
+
+/* Иконки типов (t = table, key = keyword) */
+.cm-completionIcon {
+  margin-right: 8px !important;
 }
 </style>
