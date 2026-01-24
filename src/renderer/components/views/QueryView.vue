@@ -16,13 +16,7 @@
       </div>
 
       <div class="toolbar-right">
-        <BaseButton
-          :title="$t('query.exportCsv')"
-          :disabled="!currentQueryTab?.rows?.length"
-          @click="exportCsv"
-        >
-          <BaseIcon name="download" /> {{ $t('query.exportCsv') }}
-        </BaseButton>
+        <!-- REMOVED EXPORT BUTTON FROM TOP -->
 
         <BaseButton
           variant="primary"
@@ -35,11 +29,7 @@
     </div>
 
     <div class="editor-wrapper" :style="{ height: editorHeight + 'px' }">
-      <SqlEditor
-        v-if="currentQueryTab"
-        v-model="currentQueryTab.sql"
-        @run="tabStore.runQuery"
-      />
+      <SqlEditor v-if="currentQueryTab" v-model="currentQueryTab.sql" @run="tabStore.runQuery" />
     </div>
 
     <div class="resizer-horizontal" @mousedown="startResize"></div>
@@ -51,6 +41,57 @@
           <p>{{ connStore.error }}</p>
           <button @click="connStore.error = null">{{ $t('common.close') }}</button>
         </div>
+      </div>
+
+      <div v-if="currentQueryTab" class="results-toolbar">
+        <div class="pagination-controls">
+          <BaseButton :disabled="!canGoPrev" variant="ghost" icon-only @click="goFirst">
+            <BaseIcon name="chevronsLeft" />
+          </BaseButton>
+          <BaseButton :disabled="!canGoPrev" variant="ghost" icon-only @click="tabStore.prevPage">
+            <BaseIcon name="chevronLeft" />
+          </BaseButton>
+
+          <span class="pagination-text">{{ paginationText }}</span>
+
+          <BaseButton :disabled="!canGoNext" variant="ghost" icon-only @click="tabStore.nextPage">
+            <BaseIcon name="chevronRight" />
+          </BaseButton>
+          <BaseButton :disabled="!canGoLast" variant="ghost" icon-only @click="goLast">
+            <BaseIcon name="chevronsRight" />
+          </BaseButton>
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <BaseButton
+          :title="$t('query.refresh')"
+          variant="ghost"
+          icon-only
+          @click="tabStore.runQuery"
+        >
+          <BaseIcon name="refresh" :class="{ spin: connStore.loading }" />
+        </BaseButton>
+
+        <BaseSelect
+          :model-value="autoRefreshInterval"
+          :options="autoRefreshOptions"
+          icon="clock"
+          class="auto-refresh-select"
+          highlight-active
+          @update:model-value="onAutoRefreshChange"
+        />
+
+        <div class="spacer"></div>
+
+        <BaseButton
+          variant="ghost"
+          :title="$t('query.exportCsv')"
+          :disabled="!currentQueryTab?.rows?.length"
+          @click="exportCsv"
+        >
+          <BaseIcon name="download" /> {{ $t('query.exportCsv') }}
+        </BaseButton>
       </div>
 
       <BaseTable
@@ -77,7 +118,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed } from 'vue'
+import { ref, onMounted, onUnmounted, reactive, computed, watch } from 'vue'
 import { format } from 'sql-formatter'
 import { isWrappedValue } from '../../../shared/types'
 
@@ -96,7 +137,7 @@ const connStore = useConnectionStore()
 
 // Helper to get typed current tab
 const currentQueryTab = computed<QueryTab | null>(() => {
-  return (tabStore.currentTab?.type === 'query' ? tabStore.currentTab : null)
+  return tabStore.currentTab?.type === 'query' ? tabStore.currentTab : null
 })
 
 const editorHeight = ref(300)
@@ -188,6 +229,111 @@ function exportCsv(): void {
   link.download = `export_${Date.now()}.csv`
   link.click()
 }
+
+// Pagination & Toolbar Logic
+const canGoPrev = computed(() => {
+  if (!currentQueryTab.value) return false
+  return currentQueryTab.value.pagination.offset > 0
+})
+
+const canGoNext = computed(() => {
+  if (!currentQueryTab.value) return false
+  // If total is known
+  if (currentQueryTab.value.pagination.total !== null) {
+    return (
+      currentQueryTab.value.pagination.offset + currentQueryTab.value.pagination.limit <
+      currentQueryTab.value.pagination.total
+    )
+  }
+  // If total unknown, check if we have full page of rows
+  // If we have fewer rows than limit, we are at end
+  return currentQueryTab.value.rows.length === currentQueryTab.value.pagination.limit
+})
+
+const canGoLast = computed(() => {
+  if (!currentQueryTab.value || currentQueryTab.value.pagination.total === null) return false
+  return canGoNext.value
+})
+
+const paginationText = computed(() => {
+  if (!currentQueryTab.value) return ''
+  const { offset, total } = currentQueryTab.value.pagination
+  const count = currentQueryTab.value.rows.length
+  const start = count > 0 ? offset + 1 : 0
+  const end = offset + count
+
+  if (total !== null) {
+    return `${start} - ${end} of ${total}`
+  }
+  return `${start} - ${end} of ${end}+`
+})
+
+function goFirst(): void {
+  if (currentQueryTab.value) {
+    currentQueryTab.value.pagination.offset = 0
+    tabStore.runQuery()
+  }
+}
+
+function goLast(): void {
+  if (currentQueryTab.value && currentQueryTab.value.pagination.total !== null) {
+    const { total, limit } = currentQueryTab.value.pagination
+    const newOffset = Math.max(0, Math.floor((total - 1) / limit) * limit)
+    currentQueryTab.value.pagination.offset = newOffset
+    tabStore.runQuery()
+  }
+}
+
+// Auto Refresh
+const autoRefreshInterval = ref(0) // 0 = disabled
+const autoRefreshTimer = ref<number | null>(null)
+
+const autoRefreshOptions = [
+  { label: 'Auto: Off', value: 0 },
+  { label: '5s', value: 5000 },
+  { label: '10s', value: 10000 },
+  { label: '30s', value: 30000 },
+  { label: '1m', value: 60000 }
+]
+
+function onAutoRefreshChange(val: string | number): void {
+  const ms = Number(val)
+  autoRefreshInterval.value = ms
+
+  if (autoRefreshTimer.value) {
+    clearInterval(autoRefreshTimer.value)
+    autoRefreshTimer.value = null
+  }
+
+  if (ms > 0) {
+    autoRefreshTimer.value = window.setInterval(() => {
+      if (currentQueryTab.value && !connStore.loading) {
+        tabStore.runQuery()
+      }
+    }, ms)
+  }
+}
+
+// Clear timer on unmount or tab change
+onUnmounted(() => {
+  if (autoRefreshTimer.value) clearInterval(autoRefreshTimer.value)
+})
+
+watch(
+  () => currentQueryTab.value?.id,
+  () => {
+    // Reset auto refresh on tab switch/close? Or keep it per tab?
+    // User request didn't specify. Usually per-view.
+    // If I keep it simple, it's global for the view component.
+    // If I switch tabs, the view component stays mounted (it's in App.vue usually or View).
+    // Let's reset it to be safe.
+    autoRefreshInterval.value = 0
+    if (autoRefreshTimer.value) {
+      clearInterval(autoRefreshTimer.value)
+      autoRefreshTimer.value = null
+    }
+  }
+)
 
 const connectionOptions = computed(() => {
   const opts = connStore.savedConnections.map((conn, idx) => ({
@@ -336,17 +482,44 @@ onMounted(() => {
   flex-shrink: 0;
 }
 .resizer-horizontal {
-  height: 4px;
+  height: 0;
   background: transparent;
   cursor: row-resize;
-  border-top: 1px solid var(--border-color);
-  z-index: 10;
+  z-index: 20;
   flex-shrink: 0;
-  transition: background 0.2s;
+  position: relative;
+  /* Visual line is the border-bottom of the element above, or we add one here if needed */
 }
-.resizer-horizontal:hover,
-.resizer-horizontal:active {
-  background: var(--focus-border);
+
+/* Hit area */
+.resizer-horizontal::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  left: 0;
+  right: 0;
+  z-index: 20;
+}
+/* Visual line on hover */
+.resizer-horizontal::after {
+  content: '';
+  position: absolute;
+  top: -1px; /* Align with the border of the element above */
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent-primary);
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.resizer-horizontal:hover::after,
+.resizer-horizontal:active::after {
+  opacity: 1;
+  height: 4px;
+  top: -2px;
 }
 .grid-wrapper {
   flex: 1;
@@ -388,5 +561,49 @@ onMounted(() => {
 .ctx-item:hover {
   background: var(--list-hover-bg);
   color: var(--list-hover-fg);
+}
+
+.results-toolbar {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-app); /* Match grid background */
+  padding: 0 8px;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagination-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  min-width: 100px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  margin: 0 4px;
+}
+
+.auto-refresh-select {
+  width: auto;
+}
+
+.results-toolbar .base-btn {
+  color: var(--text-primary);
+}
+
+.spacer {
+  flex: 1;
 }
 </style>

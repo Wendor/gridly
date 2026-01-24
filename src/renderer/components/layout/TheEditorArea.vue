@@ -122,6 +122,7 @@ async function switchToTab(id: number): Promise<void> {
   overflow-x: auto;
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
+  box-sizing: border-box;
 }
 .tab {
   display: flex;

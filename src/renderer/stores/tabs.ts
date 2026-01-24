@@ -259,7 +259,7 @@ export const useTabStore = defineStore('tabs', () => {
       if (e instanceof Error) {
         connectionStore.error = e.message
         if (currentTab.value && currentTab.value.type === 'query') {
-             historyStore.addEntry(currentTab.value.sql, 'error', 0, connId)
+          historyStore.addEntry(currentTab.value.sql, 'error', 0, connId)
         }
       }
     } finally {
@@ -273,24 +273,24 @@ export const useTabStore = defineStore('tabs', () => {
     const dataToSave = tabs.value.map((t) => {
       if (t.type === 'query') {
         return {
-           id: t.id,
-           type: 'query',
-           name: t.name,
-           connectionId: t.connectionId,
-           database: t.database,
-           sql: t.sql,
-           meta: null,
-           pagination: t.pagination
+          id: t.id,
+          type: 'query',
+          name: t.name,
+          connectionId: t.connectionId,
+          database: t.database,
+          sql: t.sql,
+          meta: null,
+          pagination: t.pagination
         }
       } else if (t.type === 'document') {
-         // Document contents might be large if we allow custom docs,
-         // but for instructions it's fine.
-         return {
-            id: t.id,
-            type: 'document',
-            name: t.name,
-            content: t.content
-         }
+        // Document contents might be large if we allow custom docs,
+        // but for instructions it's fine.
+        return {
+          id: t.id,
+          type: 'document',
+          name: t.name,
+          content: t.content
+        }
       }
       return {
         id: t.id,
@@ -298,7 +298,7 @@ export const useTabStore = defineStore('tabs', () => {
         name: t.name
       }
     })
-    
+
     localStorage.setItem('tabs-state', JSON.stringify(dataToSave))
     localStorage.setItem('active-tab-id', String(activeTabId.value))
     localStorage.setItem('next-tab-id', String(nextTabId.value))
@@ -314,6 +314,7 @@ export const useTabStore = defineStore('tabs', () => {
         const parsed = JSON.parse(saved)
         // Need to reconstruct state correctly from parsed execution
         // We can't strict type check too easy here, so we cast
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         tabs.value = parsed.map((t: any) => {
           if (t.type === 'query') {
             return {
@@ -368,14 +369,14 @@ export const useTabStore = defineStore('tabs', () => {
 
   loadFromStorage()
   if (tabs.value.length === 0) {
-      if (connectionStore.savedConnections.length === 0) {
-          openDocumentTab(
-              i18n.global.t('common.instructions'),
-              `# ${i18n.global.t('common.instructions')}\n\n${i18n.global.t('common.instructionsText')}`
-          )
-      } else {
-          addTab()
-      }
+    if (connectionStore.savedConnections.length === 0) {
+      openDocumentTab(
+        i18n.global.t('common.instructions'),
+        `# ${i18n.global.t('common.instructions')}\n\n${i18n.global.t('common.instructionsText')}`
+      )
+    } else {
+      addTab()
+    }
   }
 
   return {

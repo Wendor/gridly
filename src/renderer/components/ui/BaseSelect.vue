@@ -2,19 +2,32 @@
   <div ref="wrapperRef" class="base-select-wrapper" :class="{ 'is-open': isOpen }">
     <label v-if="label" class="select-label">{{ label }}</label>
     <div class="select-container" :title="$t('common.select')" @click="toggle">
-      <div class="base-select" :class="[`variant-${variant}`, { 'is-active': isOpen }]">
-        <span class="selected-text">{{ selectedLabel }}</span>
-        <div class="select-arrow">
-          <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
-            <path
-              d="M1 1L5 5L9 1"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </div>
+      <div
+        class="base-select"
+        :class="[
+          `variant-${variant}`,
+          {
+            'is-active': isOpen,
+            'icon-mode': !!icon,
+            'active-highlight': highlightActive && !!modelValue
+          }
+        ]"
+      >
+        <BaseIcon v-if="icon" :name="icon" class="trigger-icon" />
+        <template v-else>
+          <span class="selected-text">{{ selectedLabel }}</span>
+          <div class="select-arrow">
+            <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
+              <path
+                d="M1 1L5 5L9 1"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </div>
+        </template>
       </div>
 
       <div v-show="isOpen" class="custom-dropdown">
@@ -45,6 +58,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import BaseIcon from './BaseIcon.vue'
 
 export interface SelectOption {
   label: string
@@ -57,9 +71,12 @@ const props = withDefaults(
     options: SelectOption[]
     label?: string
     variant?: 'filled' | 'outline'
+    icon?: string
+    highlightActive?: boolean
   }>(),
   {
-    variant: 'filled'
+    variant: 'filled',
+    highlightActive: false
   }
 )
 
@@ -179,13 +196,30 @@ onBeforeUnmount(() => {
   color: var(--text-primary);
 }
 
+.base-select.icon-mode {
+  padding: 6px;
+  width: auto;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.base-select.icon-mode:hover,
+.base-select.icon-mode.is-active {
+  color: var(--text-primary);
+  background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+}
+.base-select.icon-mode.active-highlight {
+  color: var(--accent-primary);
+}
+
 /* DROPDOWN */
 .custom-dropdown {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
   width: 100%;
-  /* min-width removed to strict align with trigger, or use min-width: 100% */
+  min-width: 150px; /* Ensure reasonable width for icon triggers */
   max-height: 200px;
   overflow-y: auto;
   background: var(--bg-input);

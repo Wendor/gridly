@@ -10,41 +10,14 @@
     </div>
 
     <div class="sb-section center">
-      <div v-if="tabStore.currentTab?.type === 'query'" class="pagination-controls">
-        <BaseButton
-          variant="ghost"
-          :icon-only="true"
-          :disabled="tabStore.currentTab.pagination.offset === 0 || connStore.loading"
-          :title="$t('pagination.prev')"
-          class="pg-btn-override"
-          @click="tabStore.prevPage"
-        >
-          <BaseIcon name="chevronLeft" />
-        </BaseButton>
-
-        <span class="pg-text">
-          {{ startRow }} - {{ endRow }}
-          <span v-if="tabStore.currentTab.pagination.total !== null" class="total-count">
-            {{ $t('common.of') }} {{ tabStore.currentTab.pagination.total }}
-          </span>
-        </span>
-
-        <BaseButton
-          variant="ghost"
-          :icon-only="true"
-          :disabled="isNextDisabled || connStore.loading"
-          :title="$t('pagination.next')"
-          class="pg-btn-override"
-          @click="tabStore.nextPage"
-        >
-          <BaseIcon name="chevronRight" />
-        </BaseButton>
-      </div>
+      <!-- Pagination removed (moved to results toolbar) -->
     </div>
 
     <div class="sb-section right">
       <div class="sb-item meta-info" :style="{ opacity: connStore.loading ? 0.5 : 1 }">
-        <span v-if="tabStore.currentTab?.type === 'query' && tabStore.currentTab.meta"> ⏱ {{ tabStore.currentTab.meta.duration }} ms </span>
+        <span v-if="tabStore.currentTab?.type === 'query' && tabStore.currentTab.meta">
+          ⏱ {{ tabStore.currentTab.meta.duration }} ms
+        </span>
       </div>
 
       <div class="sb-item connection-status" :class="{ active: isTabConnected }">
@@ -58,8 +31,6 @@
 import { computed } from 'vue'
 import { useTabStore } from '../../stores/tabs'
 import { useConnectionStore } from '../../stores/connections'
-import BaseButton from '../ui/BaseButton.vue'
-import BaseIcon from '../ui/BaseIcon.vue'
 
 const tabStore = useTabStore()
 const connStore = useConnectionStore()
@@ -69,31 +40,16 @@ const currentQueryTab = computed(() => {
 })
 
 const isTabConnected = computed(() => {
-  return currentQueryTab.value?.connectionId !== null && currentQueryTab.value?.connectionId !== undefined
+  return (
+    currentQueryTab.value?.connectionId !== null &&
+    currentQueryTab.value?.connectionId !== undefined
+  )
 })
 
 const currentConnectionName = computed(() => {
   if (!isTabConnected.value || !currentQueryTab.value) return ''
   const conn = connStore.savedConnections[currentQueryTab.value.connectionId!]
   return conn ? conn.name : 'Unknown'
-})
-
-// Вычисляемые свойства для пагинации
-const startRow = computed(() => (currentQueryTab.value?.pagination.offset || 0) + 1)
-const endRow = computed(() => {
-  if (!currentQueryTab.value) return 0
-  return (currentQueryTab.value.pagination.offset || 0) + currentQueryTab.value.rows.length
-})
-
-const isNextDisabled = computed(() => {
-  if (!currentQueryTab.value) return true
-  // Если загрузили меньше лимита, значит это конец
-  if (currentQueryTab.value.rows.length < currentQueryTab.value.pagination.limit) return true
-  // Если знаем тотал, проверяем по нему
-  if (currentQueryTab.value.pagination.total !== null) {
-    return endRow.value >= currentQueryTab.value.pagination.total
-  }
-  return false
 })
 </script>
 
@@ -156,41 +112,6 @@ const isNextDisabled = computed(() => {
 }
 .connection-status.active::before {
   background: #89d185; /* Зеленая точка */
-}
-
-/* Пагинация */
-.pagination-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Override ghost button color for status bar dark theme if needed */
-.pg-btn-override {
-  color: white !important;
-  opacity: 0.8;
-  padding: 0 !important;
-  width: 20px;
-  height: 20px;
-  min-height: 0 !important; /* Force override constraints */
-  min-width: 0 !important; /* Force override constraints */
-}
-.pg-btn-override:hover:not(:disabled) {
-  opacity: 1;
-  background: rgba(255, 255, 255, 0.1) !important;
-}
-
-.pg-text {
-  font-variant-numeric: tabular-nums; /* Фиксированная ширина цифр */
-  text-align: center;
-  /* Минимальная ширина, чтобы не дергалось при смене 9 -> 10 */
-  min-width: 100px;
-  display: inline-block;
-}
-
-.total-count {
-  opacity: 0.8;
-  margin-left: 2px;
 }
 
 .loading-label {

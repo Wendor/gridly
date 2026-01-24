@@ -173,7 +173,7 @@ onMounted(() => {
       ]),
       // Use Compartment for theme
       themeConf.of(settingsStore.activeTheme.type === 'dark' ? oneDark : []),
-      
+
       syntaxHighlighting(defaultHighlightStyle),
 
       languageConf.of(sql({ dialect: currentDialect.value, schema: simpleSchema.value })),

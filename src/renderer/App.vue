@@ -166,16 +166,44 @@ function doSidebarResize(e: MouseEvent): void {
 }
 
 .resizer-vertical {
-  width: 4px;
+  width: 0;
   cursor: col-resize;
   background: transparent;
-  z-index: 10;
-  border-right: 1px solid var(--border-color);
-  transition: background 0.2s;
+  z-index: 20;
+  position: relative;
+  /* Visual line is the border-right of element to the left */
 }
-.resizer-vertical:hover,
-.resizer-vertical:active {
-  background: var(--focus-border);
+
+/* Hit area */
+.resizer-vertical::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -3px;
+  right: -3px;
+  z-index: 20;
+}
+
+/* Visual line on hover */
+.resizer-vertical::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -1px; /* Center over the potential border position */
+  width: 2px;
+  background: var(--accent-primary);
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.resizer-vertical:hover::after,
+.resizer-vertical:active::after {
+  opacity: 1;
+  width: 4px;
+  left: -2px; /* Center the 4px line */
 }
 
 .main-container {

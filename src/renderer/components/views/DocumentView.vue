@@ -52,7 +52,8 @@ const renderedContent = computed(() => {
   margin-bottom: 1em;
 }
 
-:deep(ul), :deep(ol) {
+:deep(ul),
+:deep(ol) {
   margin-bottom: 1em;
   padding-left: 2em;
 }

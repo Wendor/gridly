@@ -397,7 +397,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   background: var(--bg-app);
-  border: 1px solid var(--border-color);
+  border: none;
   font-family: var(--font-mono, monospace);
   font-size: 13px;
   outline: none;
