@@ -1,23 +1,71 @@
 import { ipcMain } from 'electron'
-import { RowUpdate } from '../../shared/types'
+import { RowUpdate, DbConnection, AppSettings, IDataRequest } from '../../shared/types'
 import { DatabaseManager } from '../db/DatabaseManager'
-import { DbConnection, IDataRequest } from '../../shared/types'
+import { StorageService } from '../services/StorageService'
 
-export function setupIpcHandlers(dbManager: DatabaseManager): void {
-  // Принимаем { id, config }
-  ipcMain.handle(
-    'db:connect',
-    async (_event, { id, config }: { id: number; config: DbConnection }) => {
-      return await dbManager.connect(id, config)
-    }
-  )
+export function setupIpcHandlers(dbManager: DatabaseManager, storageService: StorageService): void {
+  // --- STORAGE HANDLERS ---
 
-  ipcMain.handle('db:disconnect', async (_event, id: number) => {
+  ipcMain.handle('db:get-connections', async () => {
+    return await storageService.getConnectionsMeta()
+  })
+
+  ipcMain.handle('db:save-connection', async (_event, connection: DbConnection) => {
+    await storageService.saveConnection(connection)
+  })
+
+  ipcMain.handle('db:delete-connection', async (_event, id: string) => {
+    await storageService.deleteConnection(id)
+    // Also disconnect if active
     await dbManager.disconnect(id)
   })
 
-  // Принимаем { id, sql }
-  ipcMain.handle('db:query', async (_event, { id, sql }: { id: number; sql: string }) => {
+  ipcMain.handle('db:get-settings', async () => {
+    return await storageService.getSettings()
+  })
+
+  ipcMain.handle('db:save-settings', async (_event, settings: AppSettings) => {
+    await storageService.saveSettings(settings)
+  })
+
+  // --- DB CONNECTION HANDLERS ---
+
+  // Connect now only takes ID, config is loaded from storage
+  ipcMain.handle('db:connect', async (_event, id: string) => {
+    const config = await storageService.getConnectionById(id)
+    if (!config) {
+      throw new Error(`Connection config for ID ${id} not found`)
+    }
+    return await dbManager.connect(id, config)
+  })
+
+  ipcMain.handle('db:disconnect', async (_event, id: string) => {
+    await dbManager.disconnect(id)
+  })
+
+  ipcMain.handle(
+    'db:test-connection',
+    async (_event, config: DbConnection, connectionId?: string) => {
+      let testConfig = config
+
+      if (connectionId) {
+        const existing = await storageService.getConnectionById(connectionId)
+        if (existing) {
+          testConfig = {
+            ...config,
+            password: config.password || existing.password,
+            sshPassword: config.sshPassword || existing.sshPassword
+          }
+        }
+      }
+
+      return await dbManager.testConnection(testConfig)
+    }
+  )
+
+  // --- QUERY HANDLERS ---
+
+  ipcMain.handle('db:query', async (_event, { id, sql }: { id: string; sql: string }) => {
     try {
       return await dbManager.execute(id, sql)
     } catch (e: unknown) {
@@ -26,10 +74,9 @@ export function setupIpcHandlers(dbManager: DatabaseManager): void {
     }
   })
 
-  // Принимаем просто id
   ipcMain.handle(
     'db:get-tables',
-    async (_event, { id, dbName }: { id: number; dbName?: string }) => {
+    async (_event, { id, dbName }: { id: string; dbName?: string }) => {
       try {
         return await dbManager.getTables(id, dbName)
       } catch (e: unknown) {
@@ -39,44 +86,37 @@ export function setupIpcHandlers(dbManager: DatabaseManager): void {
     }
   )
 
-  // Сложный запрос данных
   ipcMain.handle(
     'db:get-table-data',
-    async (_event, { connectionId, req }: { connectionId: number; req: IDataRequest }) => {
-      // Logic moved to DatabaseManager
+    async (_event, { connectionId, req }: { connectionId: string; req: IDataRequest }) => {
       return await dbManager.getTableData(connectionId, req)
     }
   )
 
   ipcMain.handle(
     'db:get-schema',
-    async (_event, { id, dbName }: { id: number; dbName?: string }) => {
+    async (_event, { id, dbName }: { id: string; dbName?: string }) => {
       return await dbManager.getSchema(id, dbName)
     }
   )
 
-  // Тест соединения не требует ID, так как оно временное
-  ipcMain.handle('db:test-connection', async (_event, config: DbConnection) => {
-    return await dbManager.testConnection(config)
-  })
-
   ipcMain.handle(
     'db:get-databases',
-    async (_event, { id, excludeList }: { id: number; excludeList?: string }) => {
+    async (_event, { id, excludeList }: { id: string; excludeList?: string }) => {
       return await dbManager.getDatabases(id, excludeList)
     }
   )
 
   ipcMain.handle(
     'db:set-active-database',
-    async (_event, { id, dbName }: { id: number; dbName: string }) => {
+    async (_event, { id, dbName }: { id: string; dbName: string }) => {
       await dbManager.setActiveDatabase(id, dbName)
     }
   )
 
   ipcMain.handle(
     'db:get-primary-keys',
-    async (_event, { id, tableName }: { id: number; tableName: string }) => {
+    async (_event, { id, tableName }: { id: string; tableName: string }) => {
       try {
         return await dbManager.getPrimaryKeys(id, tableName)
       } catch (e: unknown) {
@@ -88,7 +128,7 @@ export function setupIpcHandlers(dbManager: DatabaseManager): void {
 
   ipcMain.handle(
     'db:update-rows',
-    async (_event, { id, updates }: { id: number; updates: unknown[] }) => {
+    async (_event, { id, updates }: { id: string; updates: unknown[] }) => {
       try {
         return await dbManager.updateRows(id, updates as RowUpdate[])
       } catch (e: unknown) {
@@ -98,7 +138,7 @@ export function setupIpcHandlers(dbManager: DatabaseManager): void {
     }
   )
 
-  ipcMain.handle('db:get-dashboard-metrics', async (_event, { id }: { id: number }) => {
+  ipcMain.handle('db:get-dashboard-metrics', async (_event, { id }: { id: string }) => {
     try {
       return await dbManager.getDashboardMetrics(id)
     } catch (e: unknown) {

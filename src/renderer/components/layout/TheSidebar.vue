@@ -35,15 +35,15 @@ import HistorySidebar from '../HistorySidebar.vue'
 // ДОБАВЛЕНО: 'edit' в список событий
 defineEmits<{
   (e: 'open-create-modal'): void
-  (e: 'edit', id: number): void
+  (e: 'edit', id: string): void
 }>()
 
 const connStore = useConnectionStore()
 const tabStore = useTabStore()
 const uiStore = useUIStore()
 
-function handleTableClick(tableName: string, connIndex: number, dbName: string): void {
-  tabStore.openTableTab(connIndex, tableName, dbName)
+function handleTableClick(tableName: string, connId: string, dbName: string): void {
+  tabStore.openTableTab(connId, tableName, dbName)
 }
 </script>
 

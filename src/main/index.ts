@@ -4,8 +4,10 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { DatabaseManager } from './db/DatabaseManager'
 import { setupIpcHandlers } from './ipc/IpcHandlers'
+import { StorageService } from './services/StorageService'
 
 const dbManager = new DatabaseManager()
+const storageService = new StorageService()
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -45,7 +47,7 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  setupIpcHandlers(dbManager)
+  setupIpcHandlers(dbManager, storageService)
 
   createWindow()
 

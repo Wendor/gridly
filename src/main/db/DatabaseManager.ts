@@ -13,11 +13,11 @@ import { SshTunnelService } from './SshTunnelService'
 
 export class DatabaseManager {
   // Карта активных сервисов: connectionId -> Service
-  private services: Map<number, IDbService> = new Map()
+  private services: Map<string, IDbService> = new Map()
   // Карта SSH туннелей: connectionId -> SshService
-  private sshServices: Map<number, SshTunnelService> = new Map()
+  private sshServices: Map<string, SshTunnelService> = new Map()
 
-  private getService(id: number): IDbService {
+  private getService(id: string): IDbService {
     const service = this.services.get(id)
     if (!service) {
       throw new Error(`Connection with ID ${id} not found or not active`)
@@ -25,7 +25,7 @@ export class DatabaseManager {
     return service
   }
 
-  async connect(id: number, config: DbConnection): Promise<string> {
+  async connect(id: string, config: DbConnection): Promise<string> {
     try {
       // Если для этого ID уже есть соединение — разрываем его перед новым
       await this.disconnect(id)
@@ -80,7 +80,7 @@ export class DatabaseManager {
     }
   }
 
-  async disconnect(id: number): Promise<void> {
+  async disconnect(id: string): Promise<void> {
     // Отключаем БД
     const service = this.services.get(id)
     if (service) {
@@ -103,7 +103,7 @@ export class DatabaseManager {
     }
   }
 
-  async execute(id: number, sql: string): Promise<IDbResult> {
+  async execute(id: string, sql: string): Promise<IDbResult> {
     const result = await this.getService(id).execute(sql)
     return this.processResult(result)
   }
@@ -142,7 +142,7 @@ export class DatabaseManager {
     return { ...result, rows: newRows }
   }
 
-  async getSchema(id: number, dbName?: string): Promise<DbSchema> {
+  async getSchema(id: string, dbName?: string): Promise<DbSchema> {
     return await this.getService(id).getSchema(dbName)
   }
 
@@ -187,12 +187,12 @@ export class DatabaseManager {
     }
   }
 
-  async getTables(id: number, dbName?: string): Promise<string[]> {
+  async getTables(id: string, dbName?: string): Promise<string[]> {
     const service = this.getService(id)
     return await service.getTables(dbName)
   }
 
-  async getTableData(connectionId: number, req: IDataRequest): Promise<IDbResult> {
+  async getTableData(connectionId: string, req: IDataRequest): Promise<IDbResult> {
     try {
       const service = this.getService(connectionId)
       // Check tables (security check still useful here, or move entirely to service?)
@@ -205,7 +205,7 @@ export class DatabaseManager {
     }
   }
 
-  async getDatabases(id: number, excludeList?: string): Promise<string[]> {
+  async getDatabases(id: string, excludeList?: string): Promise<string[]> {
     const service = this.getService(id)
     const allDbs = await service.getDatabases()
 
@@ -222,22 +222,22 @@ export class DatabaseManager {
     return allDbs.filter((db) => !excluded.includes(db.toLowerCase()))
   }
 
-  async setActiveDatabase(id: number, dbName: string): Promise<void> {
+  async setActiveDatabase(id: string, dbName: string): Promise<void> {
     const service = this.getService(id)
     await service.setActiveDatabase(dbName)
   }
 
-  async getPrimaryKeys(id: number, tableName: string): Promise<string[]> {
+  async getPrimaryKeys(id: string, tableName: string): Promise<string[]> {
     const service = this.getService(id)
     return await service.getPrimaryKeys(tableName)
   }
 
-  async updateRows(id: number, updates: RowUpdate[]): Promise<UpdateResult> {
+  async updateRows(id: string, updates: RowUpdate[]): Promise<UpdateResult> {
     const service = this.getService(id)
     return await service.updateRows(updates)
   }
 
-  async getDashboardMetrics(id: number): Promise<import('../../shared/types').DashboardMetrics> {
+  async getDashboardMetrics(id: string): Promise<import('../../shared/types').DashboardMetrics> {
     const service = this.getService(id)
     return await service.getDashboardMetrics()
   }

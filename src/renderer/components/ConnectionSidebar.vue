@@ -13,19 +13,19 @@
     </div>
 
     <div class="saved-list">
-      <div v-for="(conn, index) in connections" :key="index">
+      <div v-for="conn in connections" :key="conn.id">
         <div
           class="saved-item"
-          :class="{ active: activeSidebarId === index }"
-          @click="onSelect(index)"
-          @contextmenu.prevent="onContextMenu($event, index)"
+          :class="{ active: activeSidebarId === conn.id }"
+          @click="onSelect(conn.id)"
+          @contextmenu.prevent="onContextMenu($event, conn.id)"
         >
           <div class="conn-main-row">
-            <div class="arrow-wrapper" @click.stop="toggleExpand(index)">
+            <div class="arrow-wrapper" @click.stop="toggleExpand(conn.id)">
               <BaseIcon
                 name="chevronRight"
                 class="arrow-icon"
-                :class="{ rotated: isExpanded(index) }"
+                :class="{ rotated: isExpanded(conn.id) }"
               />
             </div>
 
@@ -36,7 +36,7 @@
                     <BaseIcon name="database" />
                   </span>
                   <div
-                    v-if="connStore.isConnected(index)"
+                    v-if="connStore.isConnected(conn.id)"
                     class="status-dot"
                     title="Connected"
                   ></div>
@@ -51,7 +51,7 @@
                 :icon-only="true"
                 class="del-btn-wrap"
                 :title="$t('common.delete')"
-                @click.stop="$emit('delete', index)"
+                @click.stop="$emit('delete', conn.id)"
               >
                 <BaseIcon name="trash" />
               </BaseButton>
@@ -59,28 +59,28 @@
           </div>
         </div>
 
-        <div v-if="isExpanded(index)" class="databases-tree">
-          <div v-if="connStore.databasesError?.[index]" class="error-state">
-            {{ $t('common.error') }}: {{ connStore.databasesError[index] }}
+        <div v-if="isExpanded(conn.id)" class="databases-tree">
+          <div v-if="connStore.databasesError?.[conn.id]" class="error-state">
+            {{ $t('common.error') }}: {{ connStore.databasesError[conn.id] }}
           </div>
-          <div v-else-if="!connStore.databasesCache[index]" class="loading-state">
+          <div v-else-if="!connStore.databasesCache[conn.id]" class="loading-state">
             {{ $t('sidebar.loadingDbs') }}
           </div>
-          <div v-else-if="connStore.databasesCache[index].length === 0" class="empty-state">
+          <div v-else-if="connStore.databasesCache[conn.id].length === 0" class="empty-state">
             {{ $t('sidebar.noDbs') }}
           </div>
 
           <div
-            v-for="dbName in connStore.databasesCache[index]"
+            v-for="dbName in connStore.databasesCache[conn.id]"
             v-else
             :key="dbName"
             class="db-node"
           >
-            <div class="db-item" @click.stop="toggleDbExpand(index, dbName)">
+            <div class="db-item" @click.stop="toggleDbExpand(conn.id, dbName)">
               <BaseIcon
                 name="chevronRight"
                 class="arrow-icon-small"
-                :class="{ rotated: isDbExpanded(index, dbName) }"
+                :class="{ rotated: isDbExpanded(conn.id, dbName) }"
               />
               <span class="db-icon-small">
                 <BaseIcon name="database" />
@@ -88,22 +88,22 @@
               <span class="db-name-text">{{ dbName }}</span>
             </div>
 
-            <div v-if="isDbExpanded(index, dbName)" class="tables-tree">
-              <div v-if="!connStore.tablesCache[`${index}-${dbName}`]" class="loading-state">
+            <div v-if="isDbExpanded(conn.id, dbName)" class="tables-tree">
+              <div v-if="!connStore.tablesCache[`${conn.id}-${dbName}`]" class="loading-state">
                 {{ $t('sidebar.loadingTables') }}
               </div>
               <div
-                v-else-if="connStore.tablesCache[`${index}-${dbName}`].length === 0"
+                v-else-if="connStore.tablesCache[`${conn.id}-${dbName}`].length === 0"
                 class="empty-tables"
               >
                 {{ $t('sidebar.noTables') }}
               </div>
               <div
-                v-for="table in connStore.tablesCache[`${index}-${dbName}`]"
+                v-for="table in connStore.tablesCache[`${conn.id}-${dbName}`]"
                 v-else
                 :key="table"
                 class="table-item"
-                @click.stop="$emit('table-click', table, index, dbName)"
+                @click.stop="$emit('table-click', table, conn.id, dbName)"
               >
                 <span class="table-icon">
                   <BaseIcon name="table" />
@@ -117,27 +117,39 @@
     </div>
 
     <BaseContextMenu :visible="ctxMenu.visible" :x="ctxMenu.x" :y="ctxMenu.y" @close="closeCtxMenu">
-      <div v-if="!connStore.isConnected(ctxMenu.index)" class="ctx-item" @click="handleConnect">
+      <div
+        v-if="ctxMenu.id && !connStore.isConnected(ctxMenu.id)"
+        class="ctx-item"
+        @click="handleConnect"
+      >
         <span class="ctx-icon connect-icon">
           <BaseIcon name="play" />
         </span>
         {{ $t('sidebar.connect') }}
       </div>
 
-      <div v-if="connStore.isConnected(ctxMenu.index)" class="ctx-item" @click="handleRefresh">
+      <div
+        v-if="ctxMenu.id && connStore.isConnected(ctxMenu.id)"
+        class="ctx-item"
+        @click="handleRefresh"
+      >
         <span class="ctx-icon refresh-icon">
           <BaseIcon name="refresh" />
         </span>
         {{ $t('sidebar.refresh') }}
       </div>
 
-      <div v-if="connStore.isConnected(ctxMenu.index)" class="ctx-item" @click="handleDisconnect">
+      <div
+        v-if="ctxMenu.id && connStore.isConnected(ctxMenu.id)"
+        class="ctx-item"
+        @click="handleDisconnect"
+      >
         <span class="ctx-icon disconnect-icon">×</span>
         {{ $t('sidebar.disconnect') }}
       </div>
 
       <div
-        v-if="connStore.isConnected(ctxMenu.index)"
+        v-if="ctxMenu.id && connStore.isConnected(ctxMenu.id)"
         class="ctx-item"
         @click="handleOpenDashboard"
       >
@@ -168,35 +180,35 @@ import i18n from '../i18n'
 
 const props = defineProps<{
   connections: DbConnection[]
-  activeSidebarId: number | null
+  activeSidebarId: string | null
 }>()
 
 const emit = defineEmits<{
-  (e: 'select', index: number): void
-  (e: 'delete', index: number): void
-  (e: 'edit', index: number): void
+  (e: 'select', id: string): void
+  (e: 'delete', id: string): void
+  (e: 'edit', id: string): void
   (e: 'open-create-modal'): void
-  (e: 'table-click', table: string, index: number, dbName: string): void
+  (e: 'table-click', table: string, id: string, dbName: string): void
 }>()
 
 const connStore = useConnectionStore()
 const tabStore = useTabStore()
 
-const expandedIndices = ref<Set<number>>(new Set())
+const expandedIds = ref<Set<string>>(new Set())
 const expandedDbs = ref<Set<string>>(new Set())
 
 const ctxMenu = reactive({
   visible: false,
   x: 0,
   y: 0,
-  index: -1
+  id: null as string | null
 })
 
-function onContextMenu(event: MouseEvent, index: number): void {
+function onContextMenu(event: MouseEvent, id: string): void {
   ctxMenu.visible = true
   ctxMenu.x = event.clientX
   ctxMenu.y = event.clientY
-  ctxMenu.index = index
+  ctxMenu.id = id
 }
 
 function closeCtxMenu(): void {
@@ -204,104 +216,93 @@ function closeCtxMenu(): void {
 }
 
 function handleEdit(): void {
-  if (ctxMenu.index !== -1) emit('edit', ctxMenu.index)
+  if (ctxMenu.id) emit('edit', ctxMenu.id)
   closeCtxMenu()
 }
 
 function handleOpenDashboard(): void {
-  if (ctxMenu.index !== -1) {
-    const connId = ctxMenu.index
-    // We access the store via global or import.
-    // Since we are in script setup, we can use useTabStore
-    // Import it if not present, but wait, let's check imports.
-    // It's not imported yet. I need to add import first?
-    // Let's add the function body here and I will add import in another step or assumption.
-    // Actually better to add import in this step if possible or separate.
-    // I can't see imports here. I'll add useTabStore logic.
-    tabStore.openDashboardTab(connId)
+  if (ctxMenu.id) {
+    tabStore.openDashboardTab(ctxMenu.id)
   }
   closeCtxMenu()
 }
 
 function handleDelete(): void {
-  if (ctxMenu.index !== -1) {
+  if (ctxMenu.id) {
     if (confirm(i18n.global.t('sidebar.confirmDelete'))) {
-      emit('delete', ctxMenu.index)
+      emit('delete', ctxMenu.id)
     }
   }
   closeCtxMenu()
 }
 
 async function handleDisconnect(): Promise<void> {
-  if (ctxMenu.index !== -1) {
-    await connStore.disconnect(ctxMenu.index)
+  if (ctxMenu.id) {
+    await connStore.disconnect(ctxMenu.id)
   }
   closeCtxMenu()
 }
 
 async function handleConnect(): Promise<void> {
-  if (ctxMenu.index !== -1) {
-    // Явно устанавливаем соединение, даже если есть кэш
-    await connStore.ensureConnection(ctxMenu.index)
-    // Используем loadDatabases для загрузки списка баз
-    connStore.loadDatabases(ctxMenu.index)
-    // Также разворачиваем, если свернуто
-    if (!expandedIndices.value.has(ctxMenu.index)) {
-      expandedIndices.value.add(ctxMenu.index)
+  if (ctxMenu.id) {
+    // Явно устанавливаем соединение
+    await connStore.ensureConnection(ctxMenu.id)
+    // Используем loadDatabases
+    connStore.loadDatabases(ctxMenu.id)
+    // Разворачиваем
+    if (!expandedIds.value.has(ctxMenu.id)) {
+      expandedIds.value.add(ctxMenu.id)
     }
   }
   closeCtxMenu()
 }
 
 async function handleRefresh(): Promise<void> {
-  if (ctxMenu.index !== -1) {
-    // Принудительно обновляем список баз
-    await connStore.loadDatabases(ctxMenu.index, true)
-    // Если развернуто соединение, и мы обновили базы, возможно стоит обновить и активную базу, но это сложнее.
-    // Пока ограничимся списком баз.
+  if (ctxMenu.id) {
+    await connStore.loadDatabases(ctxMenu.id, true)
   }
   closeCtxMenu()
 }
 
-function isExpanded(index: number): boolean {
-  return expandedIndices.value.has(index)
+function isExpanded(id: string): boolean {
+  return expandedIds.value.has(id)
 }
 
-function toggleExpand(index: number): void {
-  if (expandedIndices.value.has(index)) {
-    expandedIndices.value.delete(index)
+function toggleExpand(id: string): void {
+  if (expandedIds.value.has(id)) {
+    expandedIds.value.delete(id)
   } else {
-    expandedIndices.value.add(index)
-    connStore.loadDatabases(index)
+    expandedIds.value.add(id)
+    connStore.loadDatabases(id)
   }
 }
 
-function isDbExpanded(index: number, dbName: string): boolean {
-  return expandedDbs.value.has(`${index}-${dbName}`)
+function isDbExpanded(id: string, dbName: string): boolean {
+  return expandedDbs.value.has(`${id}-${dbName}`)
 }
 
-function toggleDbExpand(index: number, dbName: string): void {
-  const key = `${index}-${dbName}`
+function toggleDbExpand(id: string, dbName: string): void {
+  const key = `${id}-${dbName}`
   if (expandedDbs.value.has(key)) {
     expandedDbs.value.delete(key)
   } else {
     expandedDbs.value.add(key)
-    connStore.loadTables(index, dbName) // Теперь принимает 2 аргумента
+    connStore.loadTables(id, dbName)
   }
 }
 
-function onSelect(index: number): void {
-  emit('select', index)
-  if (!expandedIndices.value.has(index)) {
-    toggleExpand(index)
+function onSelect(id: string): void {
+  emit('select', id)
+  if (!expandedIds.value.has(id)) {
+    toggleExpand(id)
   }
 }
 
 const STORAGE_KEY = 'sidebar-expanded-connections'
 
 function saveExpandedState(): void {
-  const expandedNames = Array.from(expandedIndices.value)
-    .map((idx) => props.connections[idx]?.name)
+  const expandedNames = Array.from(expandedIds.value)
+    .map((id) => props.connections.find((c) => c.id === id)?.name)
     .filter(Boolean)
   localStorage.setItem(STORAGE_KEY, JSON.stringify(expandedNames))
 }
@@ -312,22 +313,22 @@ function restoreExpandedState(): void {
   try {
     const names = JSON.parse(saved) as string[]
     if (!Array.isArray(names)) return
-    const newSet = new Set<number>()
+    const newSet = new Set<string>()
     names.forEach((name) => {
-      const idx = props.connections.findIndex((c) => c.name === name)
-      if (idx !== -1) {
-        newSet.add(idx)
-        connStore.loadDatabases(idx)
+      const conn = props.connections.find((c) => c.name === name)
+      if (conn && conn.id) {
+        newSet.add(conn.id)
+        connStore.loadDatabases(conn.id)
       }
     })
-    expandedIndices.value = newSet
+    expandedIds.value = newSet
   } catch (e) {
     console.error('Failed to restore sidebar state', e)
   }
 }
 
 watch(
-  () => expandedIndices.value,
+  () => expandedIds.value,
   () => saveExpandedState(),
   { deep: true }
 )
@@ -343,11 +344,9 @@ watch(
 watch(
   () => props.connections,
   (newConns) => {
-    newConns.forEach((_, index) => {
-      // Если соединение раскрыто, но кэша нет (он был сброшен при updateConnection),
-      // то перезагружаем список баз.
-      if (isExpanded(index) && !connStore.databasesCache[index]) {
-        connStore.loadDatabases(index)
+    newConns.forEach((conn) => {
+      if (conn.id && isExpanded(conn.id) && !connStore.databasesCache[conn.id]) {
+        connStore.loadDatabases(conn.id)
       }
     })
   },

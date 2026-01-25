@@ -1,67 +1,71 @@
 import { defineStore } from 'pinia'
 import { ref, reactive } from 'vue'
-import { DbConnection, DbSchema } from '../../shared/types'
+import { DbConnection, DbConnectionMeta, DbSchema } from '../../shared/types'
 
 export const useConnectionStore = defineStore('connections', () => {
-  // State
-  const savedConnections = ref<DbConnection[]>([])
+  const savedConnections = ref<DbConnectionMeta[]>([])
 
-  const activeId = ref<number | null>(null)
+  const activeId = ref<string | null>(null)
 
   // ИЗМЕНЕНИЕ: Используем Set для хранения множества активных соединений
-  const activeConnectionIds = ref<Set<number>>(new Set())
+  const activeConnectionIds = ref<Set<string>>(new Set())
 
   // Кеш списка таблиц (для сайдбара)
   const tablesCache = reactive<Record<string, string[]>>({})
 
   // Кеш схемы для автокомплита (Таблица -> Колонки)
-  const schemaCache = reactive<Record<number, DbSchema>>({})
+  const schemaCache = reactive<Record<string, DbSchema>>({})
 
-  const databasesCache = reactive<Record<number, string[]>>({})
-  const databasesError = reactive<Record<number, string | null>>({})
-
-  // ... (Rest of state)
+  const databasesCache = reactive<Record<string, string[]>>({})
+  const databasesError = reactive<Record<string, string | null>>({})
 
   const loading = ref(false)
   const error = ref<string | null>(null)
 
   // Actions
 
-  function loadFromStorage(): void {
-    const data = localStorage.getItem('db-connections')
-    if (data) savedConnections.value = JSON.parse(data)
+  async function loadFromStorage(): Promise<void> {
+    try {
+      loading.value = true
+      savedConnections.value = await window.dbApi.getConnections()
+    } catch (e) {
+      console.error('Failed to load connections', e)
+    } finally {
+      loading.value = false
+    }
   }
 
-  function saveToStorage(): void {
-    localStorage.setItem('db-connections', JSON.stringify(savedConnections.value))
+  async function addConnection(conn: DbConnection): Promise<void> {
+    // Generate ID if missing (should be handled by creator, but just in case)
+    if (!conn.id) {
+      conn.id = crypto.randomUUID()
+    }
+    await window.dbApi.saveConnection(conn)
+    await loadFromStorage()
   }
 
-  function addConnection(conn: DbConnection): void {
-    savedConnections.value.push(conn)
-    saveToStorage()
+  async function deleteConnection(id: string): Promise<void> {
+    await window.dbApi.deleteConnection(id)
+    await loadFromStorage()
+
+    delete tablesCache[id]
+    delete schemaCache[id]
+    delete databasesCache[id]
+    delete databasesError[id]
+
+    activeConnectionIds.value.delete(id)
+    if (activeId.value === id) activeId.value = null
   }
 
-  function deleteConnection(index: number): void {
-    savedConnections.value.splice(index, 1)
-    saveToStorage()
-
-    delete tablesCache[index]
-    delete schemaCache[index]
-    delete databasesCache[index]
-    delete databasesError[index]
-
-    activeConnectionIds.value.delete(index)
-    if (activeId.value === index) activeId.value = null
-  }
   // Проверка активности конкретного соединения
-  function isConnected(index: number): boolean {
-    return activeConnectionIds.value.has(index)
+  function isConnected(id: string): boolean {
+    return activeConnectionIds.value.has(id)
   }
 
   // Храним промисы активных подключений, чтобы не делать двойные запросы
-  const pendingConnections = new Map<number, Promise<void>>()
+  const pendingConnections = new Map<string, Promise<void>>()
 
-  async function ensureConnection(targetId: number | null): Promise<void> {
+  async function ensureConnection(targetId: string | null): Promise<void> {
     if (targetId === null) return
 
     // Если уже подключено, выходим
@@ -72,21 +76,12 @@ export const useConnectionStore = defineStore('connections', () => {
       return pendingConnections.get(targetId)
     }
 
-    // Check if connection exists
-    const conn = savedConnections.value[targetId]
-    if (!conn) {
-      throw new Error(`Connection with ID ${targetId} not found`)
-    }
-
-    // Глубокое копирование
-    const config = JSON.parse(JSON.stringify(conn))
-
     const connectPromise = (async () => {
       try {
         loading.value = true
         error.value = null
 
-        await window.dbApi.connect(targetId, config)
+        await window.dbApi.connect(targetId)
 
         activeConnectionIds.value.add(targetId)
         loadSchema(targetId)
@@ -104,13 +99,13 @@ export const useConnectionStore = defineStore('connections', () => {
     return connectPromise
   }
 
-  async function loadTables(index: number, dbName?: string): Promise<void> {
-    const cacheKey = dbName ? `${index}-${dbName}` : String(index)
+  async function loadTables(id: string, dbName?: string): Promise<void> {
+    const cacheKey = dbName ? `${id}-${dbName}` : id
     if (tablesCache[cacheKey]?.length) return
 
     try {
-      await ensureConnection(index)
-      const tables = await window.dbApi.getTables(index, dbName)
+      await ensureConnection(id)
+      const tables = await window.dbApi.getTables(id, dbName)
       tablesCache[cacheKey] = tables
     } catch (e) {
       console.error(e)
@@ -120,22 +115,17 @@ export const useConnectionStore = defineStore('connections', () => {
     }
   }
 
-  async function loadSchema(index: number, dbName?: string, force = false): Promise<void> {
+  async function loadSchema(id: string, dbName?: string, force = false): Promise<void> {
     // Если схема уже в кеше и не force, выходим
-    // Note: If dbName changes, we probably should force reload or have separate cache key?
-    // Current cache is just `schemaCache[index]`. It implies only ONE schema per connection.
-    // So if dbName is provided, we should probably force update active schema.
-    if (!force && !dbName && schemaCache[index] && Object.keys(schemaCache[index]).length > 0)
-      return
+    if (!force && !dbName && schemaCache[id] && Object.keys(schemaCache[id]).length > 0) return
 
     try {
-      await ensureConnection(index)
-      // ИЗМЕНЕНИЕ: Передаем index и dbName
-      const schema = await window.dbApi.getSchema(index, dbName)
-      schemaCache[index] = schema
+      await ensureConnection(id)
+      const schema = await window.dbApi.getSchema(id, dbName)
+      schemaCache[id] = schema
 
       console.log(
-        `Schema loaded for connection ${index} (db: ${dbName}):`,
+        `Schema loaded for connection ${id} (db: ${dbName}):`,
         Object.keys(schema).length,
         'tables'
       )
@@ -144,61 +134,72 @@ export const useConnectionStore = defineStore('connections', () => {
     }
   }
 
-  async function disconnect(index: number): Promise<void> {
+  async function disconnect(id: string): Promise<void> {
     try {
-      await window.dbApi.disconnect(index)
+      await window.dbApi.disconnect(id)
     } catch (e) {
       console.error('Disconnect failed', e)
     } finally {
-      activeConnectionIds.value.delete(index)
+      activeConnectionIds.value.delete(id)
 
       // Reset tab store state for this connection (active database)
       const tabStore = (await import('./tabs')).useTabStore()
-      tabStore.resetConnectionState(index)
+      tabStore.resetConnectionState(id)
     }
   }
 
-  function updateConnection(index: number, conn: DbConnection): void {
-    if (savedConnections.value[index]) {
-      savedConnections.value[index] = conn
-      saveToStorage()
+  async function updateConnection(conn: DbConnection): Promise<void> {
+    const id = conn.id
+    const wasActive = activeConnectionIds.value.has(id)
 
-      // Полная очистка кэша для этого соединения
-      delete databasesCache[index]
-      delete databasesError[index]
-      delete schemaCache[index]
+    await window.dbApi.saveConnection(conn)
+    await loadFromStorage()
 
-      // Удаляем все таблицы, связанные с этим индексом (например, "0-public", "0-db_name")
-      Object.keys(tablesCache).forEach((key) => {
-        if (key === String(index) || key.startsWith(`${index}-`)) {
-          delete tablesCache[key]
-        }
-      })
+    delete databasesCache[id]
+    delete databasesError[id]
+    delete schemaCache[id]
 
-      // Сбрасываем физическое соединение, так как настройки (host/port/user) могли измениться
-      activeConnectionIds.value.delete(index)
+    Object.keys(tablesCache).forEach((key) => {
+      if (key === id || key.startsWith(`${id}-`)) {
+        delete tablesCache[key]
+      }
+    })
+
+    activeConnectionIds.value.delete(id)
+
+    if (wasActive) {
+      try {
+        await ensureConnection(id)
+        await loadDatabases(id, true)
+      } catch (e) {
+        console.error('Failed to reconnect after update:', e)
+      }
     }
   }
 
-  async function loadDatabases(index: number, force = false): Promise<void> {
-    if (!force && databasesCache[index]?.length) return
+  async function loadDatabases(id: string, force = false): Promise<void> {
+    if (!force && databasesCache[id]?.length) return
 
     // Сбрасываем ошибку перед новой попыткой
-    databasesError[index] = null
+    databasesError[id] = null
 
     try {
-      const conn = savedConnections.value[index]
+      // Find connection to get excludeList? No, dbApi handles it inside via StorageService?
+      // Wait, getDatabases in backend uses `StorageService.getConnectionById`?
+      // No, currently `getDatabases` takes `excludeList` as argument in IpcHandlers.
+      // But `DatabaseManager` shouldn't depend on frontend passing it if we want to secure it?
+      // Actually `excludeList` is not sensitive.
+      // But we need to pass it.
+
+      const conn = savedConnections.value.find((c) => c.id === id)
       if (!conn) return
 
-      await ensureConnection(index)
-      // Передаем excludeList в API
-      const dbs = await window.dbApi.getDatabases(index, conn.excludeList)
-      databasesCache[index] = dbs
+      await ensureConnection(id)
+      const dbs = await window.dbApi.getDatabases(id, conn.excludeList)
+      databasesCache[id] = dbs
     } catch (e) {
       console.error('Failed to load databases', e)
-      databasesError[index] = e instanceof Error ? e.message : String(e)
-      // Важно: если произошла ошибка, можно либо очистить кэш, либо оставить как есть
-      // Но чтобы UI не весел, мы полагаемся на databasesError
+      databasesError[id] = e instanceof Error ? e.message : String(e)
     }
   }
 
@@ -208,14 +209,13 @@ export const useConnectionStore = defineStore('connections', () => {
   return {
     savedConnections,
     activeId,
-    activeConnectionIds, // Экспортируем Set вместо connectedId
+    activeConnectionIds,
     isConnected,
     tablesCache,
     schemaCache,
     loading,
     error,
     loadFromStorage,
-    saveToStorage,
     addConnection,
     deleteConnection,
     ensureConnection,

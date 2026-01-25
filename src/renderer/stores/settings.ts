@@ -4,6 +4,8 @@ import { themes } from '../lib/themes'
 
 export const useSettingsStore = defineStore('settings', () => {
   const currentThemeId = ref('atom-one-dark')
+  const fontSize = ref(14)
+  const language = ref('en')
 
   const activeTheme = computed(() => themes.find((t) => t.id === currentThemeId.value) || themes[0])
 
@@ -18,52 +20,65 @@ export const useSettingsStore = defineStore('settings', () => {
     root.setAttribute('data-theme', theme.type)
   }
 
-  const fontSize = ref(14)
+  async function saveSettings(): Promise<void> {
+    try {
+      await window.dbApi.saveSettings({
+        theme: currentThemeId.value,
+        locale: language.value,
+        fontSize: fontSize.value
+      })
+    } catch (e) {
+      console.error('Failed to save settings:', e)
+    }
+  }
 
   function setFontSize(size: number): void {
     fontSize.value = size
-    localStorage.setItem('editor-font-size', String(size))
+    saveSettings()
   }
 
   function initTheme(): void {
-    const saved = localStorage.getItem('app-theme')
-    if (saved && themes.find((t) => t.id === saved)) {
-      currentThemeId.value = saved
-    }
-    const savedFont = localStorage.getItem('editor-font-size')
-    if (savedFont) fontSize.value = parseInt(savedFont)
-
     applyTheme()
   }
 
   function setTheme(id: string): void {
     if (!themes.find((t) => t.id === id)) return
     currentThemeId.value = id
-    localStorage.setItem('app-theme', id)
     applyTheme()
+    saveSettings()
   }
-
-  const language = ref('en')
 
   function setLanguage(lang: string): void {
     language.value = lang
-    localStorage.setItem('app-locale', lang)
     // Update global i18n locale
-    // We need to import i18n or use it via window/global context if circular deps are an issue.
-    // However, importing it directly is usually fine.
-    // For now, let's rely on the component or main init to sync, OR import here.
-    // Dynamic import to avoid potential circular dependency issues with main
     import('../i18n').then((module) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       module.default.global.locale.value = lang as any
     })
+    saveSettings()
   }
 
-  function initSettings(): void {
-    initTheme()
-    const savedLang = localStorage.getItem('app-locale')
-    if (savedLang) {
-      setLanguage(savedLang)
+  async function initSettings(): Promise<void> {
+    try {
+      const settings = await window.dbApi.getSettings()
+
+      if (settings.theme && themes.find((t) => t.id === settings.theme)) {
+        currentThemeId.value = settings.theme
+      }
+
+      if (settings.fontSize) {
+        fontSize.value = settings.fontSize
+      }
+
+      if (settings.locale) {
+        language.value = settings.locale
+        setLanguage(settings.locale) // activates i18n
+      }
+
+      applyTheme()
+    } catch (e) {
+      console.error('Failed to load settings:', e)
+      // Fallback or defaults are already set
     }
   }
 

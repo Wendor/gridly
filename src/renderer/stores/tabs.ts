@@ -12,7 +12,7 @@ export interface BaseTab {
 
 export interface QueryTab extends BaseTab {
   type: 'query'
-  connectionId: number | null
+  connectionId: string | null
   database: string | null
   sql: string
   rows: Record<string, unknown>[]
@@ -40,7 +40,7 @@ export interface DocumentTab extends BaseTab {
 
 export interface DashboardTab extends BaseTab {
   type: 'dashboard'
-  connectionId: number
+  connectionId: string
 }
 
 export type Tab = QueryTab | SettingsTab | DocumentTab | DashboardTab
@@ -53,11 +53,11 @@ export const useTabStore = defineStore('tabs', () => {
   const activeTabId = ref(1)
   const nextTabId = ref(1)
 
-  const activeDatabaseCache = ref<Map<number, string | null>>(new Map())
+  const activeDatabaseCache = ref<Map<string, string | null>>(new Map())
 
   const currentTab = computed(() => tabs.value.find((t) => t.id === activeTabId.value))
 
-  function addTab(initialConnId: number | null = null): void {
+  function addTab(initialConnId: string | null = null): void {
     const id = nextTabId.value++
     let connId = initialConnId
 
@@ -65,7 +65,9 @@ export const useTabStore = defineStore('tabs', () => {
       if (currentTab.value?.type === 'query') {
         connId = currentTab.value.connectionId
       } else {
-        connId = connectionStore.savedConnections.length ? 0 : null
+        connId = connectionStore.savedConnections.length
+          ? connectionStore.savedConnections[0].id
+          : null
       }
     }
 
@@ -89,7 +91,7 @@ export const useTabStore = defineStore('tabs', () => {
   }
 
   async function openTableTab(
-    connectionId: number,
+    connectionId: string,
     tableName: string,
     database?: string
   ): Promise<void> {
@@ -126,7 +128,7 @@ export const useTabStore = defineStore('tabs', () => {
     runQuery()
   }
 
-  function openDashboardTab(connectionId: number): void {
+  function openDashboardTab(connectionId: string): void {
     const existing = tabs.value.find(
       (t) => t.type === 'dashboard' && t.connectionId === connectionId
     )
@@ -136,7 +138,7 @@ export const useTabStore = defineStore('tabs', () => {
     }
 
     const id = nextTabId.value++
-    const conn = connectionStore.savedConnections[connectionId]
+    const conn = connectionStore.savedConnections.find((c) => c.id === connectionId)
     tabs.value.push({
       id,
       type: 'dashboard',
@@ -146,7 +148,7 @@ export const useTabStore = defineStore('tabs', () => {
     activeTabId.value = id
   }
 
-  function resetConnectionState(connectionId: number): void {
+  function resetConnectionState(connectionId: string): void {
     activeDatabaseCache.value.delete(connectionId)
   }
 
@@ -252,11 +254,14 @@ export const useTabStore = defineStore('tabs', () => {
         finalSql += ` LIMIT ${currentTab.value.pagination.limit} OFFSET ${currentTab.value.pagination.offset}`
       }
 
-      // ИЗМЕНЕНИЕ: Передаем connId первым аргументом
       const res = await window.dbApi.query(connId, finalSql)
 
       if (res.error) {
         connectionStore.error = res.error
+        // History expects number ID? Need to check history store.
+        // Assuming history store also needs update or we cast/handle string.
+        // For now, let's assume we update history store later or cast if possible (but we can't cast UUID to number).
+        // Let's check history store next.
         historyStore.addEntry(currentTab.value.sql, 'error', 0, connId)
       } else {
         // Формируем колонки
@@ -265,7 +270,6 @@ export const useTabStore = defineStore('tabs', () => {
           headerName: col
         }))
 
-        // We assume rows are objects for matching QueryTab definition
         currentTab.value.rows = res.rows as Record<string, unknown>[]
         currentTab.value.meta = { duration: res.duration }
 
@@ -280,7 +284,6 @@ export const useTabStore = defineStore('tabs', () => {
           ) {
             try {
               const countSql = `SELECT COUNT(*) as total FROM ${tableName}`
-              // ИЗМЕНЕНИЕ: Передаем connId и сюда
               const countRes = await window.dbApi.query(connId, countSql)
               if (countRes.rows.length > 0) {
                 const row = countRes.rows[0] as Record<string, unknown>
@@ -329,8 +332,6 @@ export const useTabStore = defineStore('tabs', () => {
           pagination: t.pagination
         }
       } else if (t.type === 'document') {
-        // Document contents might be large if we allow custom docs,
-        // but for instructions it's fine.
         return {
           id: t.id,
           type: 'document',

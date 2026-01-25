@@ -255,10 +255,12 @@ async function copyRow(): Promise<void> {
 
 async function formatCurrentSql(): Promise<void> {
   if (!currentQueryTab.value) return
-  const dialect =
-    connStore.savedConnections[currentQueryTab.value.connectionId || 0]?.type === 'postgres'
-      ? 'postgresql'
-      : 'mysql'
+
+  const connId = currentQueryTab.value.connectionId
+  const conn = connStore.savedConnections.find((c) => c.id === connId)
+
+  const dialect = conn?.type === 'postgres' ? 'postgresql' : 'mysql'
+
   currentQueryTab.value.sql = format(currentQueryTab.value.sql, {
     language: dialect,
     keywordCase: 'upper'
@@ -458,19 +460,19 @@ watch(
 )
 
 const connectionOptions = computed(() => {
-  const opts = connStore.savedConnections.map((conn, idx) => ({
+  const opts = connStore.savedConnections.map((conn) => ({
     label: conn.name,
-    value: idx
+    value: conn.id
   }))
   return [{ label: i18n.global.t('connections.select'), value: '' }, ...opts]
 })
 
-async function onTabConnectionChange(val: string | number): Promise<void> {
+async function onTabConnectionChange(val: string): Promise<void> {
   if (currentQueryTab.value) {
     if (val === '') {
       currentQueryTab.value.connectionId = null
     } else {
-      currentQueryTab.value.connectionId = Number(val)
+      currentQueryTab.value.connectionId = val
     }
 
     if (currentQueryTab.value.connectionId !== null) {

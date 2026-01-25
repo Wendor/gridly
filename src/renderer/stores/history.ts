@@ -4,7 +4,7 @@ import { ref } from 'vue'
 export interface HistoryItem {
   id: string
   sql: string
-  connectionId: number | null // New field
+  connectionId: string | null // string ID
   timestamp: number
   status: 'success' | 'error'
   duration: number
@@ -27,7 +27,7 @@ export const useHistoryStore = defineStore('history', () => {
     sql: string,
     status: 'success' | 'error',
     duration: number,
-    connectionId: number | null
+    connectionId: string | null
   ): void {
     // Не сохраняем пустые или слишком короткие запросы
     if (!sql || sql.trim().length < 2) return

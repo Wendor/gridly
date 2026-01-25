@@ -19,11 +19,10 @@ const connStore = useConnectionStore()
 
 const connectionTitle = computed(() => {
   if (tabStore.currentTab?.type === 'query' && tabStore.currentTab.connectionId !== null) {
-    const conn = connStore.savedConnections[tabStore.currentTab.connectionId]
+    const connId = tabStore.currentTab.connectionId
+    const conn = connStore.savedConnections.find((c) => c.id === connId)
     if (conn) {
-      const status = connStore.isConnected(tabStore.currentTab.connectionId)
-        ? i18n.global.t('status.connectedInTitle')
-        : ''
+      const status = connStore.isConnected(connId) ? i18n.global.t('status.connectedInTitle') : ''
       return `${conn.name} ${status}`
     }
   }

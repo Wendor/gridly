@@ -63,7 +63,8 @@
     "sshUser": "SSH User",
     "sshPassword": "SSH Password/Passphrase",
     "sshKeyPath": "SSH Key Path",
-    "testingConnection": "Testing connection..."
+    "testingConnection": "Testing connection...",
+    "passwordHint": "ℹ️ Leave password fields empty to keep existing passwords"
   },
   "query": {
     "format": "Format",

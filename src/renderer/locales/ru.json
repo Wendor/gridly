@@ -63,7 +63,8 @@
     "sshUser": "SSH Пользователь",
     "sshPassword": "SSH Пароль/Фраза",
     "sshKeyPath": "Путь к SSH ключу",
-    "testingConnection": "Проверка подключения..."
+"testingConnection": "Проверка подключения...",
+    "passwordHint": "ℹ️ Оставьте поля паролей пустыми, чтобы сохранить существующие пароли"
   },
   "query": {
     "format": "Форматировать",

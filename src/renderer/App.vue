@@ -37,7 +37,7 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useConnectionStore } from './stores/connections'
 import { useTabStore } from './stores/tabs'
 import { useSettingsStore } from './stores/settings'
-import type { DbConnection } from '../shared/types'
+import type { DbConnection, DbConnectionMeta } from '../shared/types'
 
 import TheTitleBar from './components/layout/TheTitleBar.vue'
 import TheActivityBar from './components/layout/TheActivityBar.vue'
@@ -54,9 +54,8 @@ const isModalOpen = ref(false)
 const sidebarWidth = ref(250)
 const isResizingSidebar = ref(false)
 
-// Состояние редактирования
-const editingConnection = ref<DbConnection | null>(null)
-const editingIndex = ref<number | null>(null)
+const editingConnection = ref<DbConnectionMeta | null>(null)
+const editingId = ref<string | null>(null)
 const modalAvailableDatabases = ref<string[]>([])
 
 const handleGlobalKeydown = (e: KeyboardEvent): void => {
@@ -64,11 +63,8 @@ const handleGlobalKeydown = (e: KeyboardEvent): void => {
     const activeEl = document.activeElement
     if (!activeEl) return
 
-    // Allow tab if we are inside a table container
     const isTable = activeEl.closest('.base-table-container')
-    // Allow tab if we are inside a modal (e.g. connection form)
     const isModal = activeEl.closest('.base-modal-overlay')
-    // Allow tab if we are inside the SQL editor
     const isEditor = activeEl.closest('.sql-editor') || activeEl.closest('.cm-content')
 
     if (!isTable && !isModal && !isEditor) {
@@ -79,7 +75,7 @@ const handleGlobalKeydown = (e: KeyboardEvent): void => {
 }
 
 onMounted(() => {
-  window.addEventListener('keydown', handleGlobalKeydown, true) // capture phase toensure we catch it first
+  window.addEventListener('keydown', handleGlobalKeydown, true)
 
   settingsStore.initSettings()
 
@@ -91,28 +87,24 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleGlobalKeydown, true)
 })
 
-// --- Modal Logic ---
-
 function openCreateModal(): void {
-  editingIndex.value = null
+  editingId.value = null
   editingConnection.value = null
   modalAvailableDatabases.value = []
   isModalOpen.value = true
 }
 
-async function openEditModal(index: number): Promise<void> {
-  const conn = connStore.savedConnections[index]
+async function openEditModal(id: string): Promise<void> {
+  const conn = connStore.savedConnections.find((c) => c.id === id)
   if (conn) {
-    editingIndex.value = index
+    editingId.value = id
     modalAvailableDatabases.value = []
 
-    // Клонируем объект, чтобы не менять стор напрямую до сохранения
     editingConnection.value = JSON.parse(JSON.stringify(conn))
 
-    // Если подключение активно, загружаем список ВСЕХ баз (без excludeList)
-    if (connStore.isConnected(index)) {
+    if (connStore.isConnected(id)) {
       try {
-        const dbs = await window.dbApi.getDatabases(index, '')
+        const dbs = await window.dbApi.getDatabases(id, '')
         modalAvailableDatabases.value = dbs.sort()
       } catch (e) {
         console.error('Failed to load databases for modal:', e)
@@ -124,11 +116,9 @@ async function openEditModal(index: number): Promise<void> {
 }
 
 function handleModalSave(conn: DbConnection): void {
-  if (editingIndex.value !== null) {
-    // Обновляем существующее
-    connStore.updateConnection(editingIndex.value, conn)
+  if (editingId.value !== null) {
+    connStore.updateConnection(conn)
   } else {
-    // Создаем новое
     connStore.addConnection(conn)
   }
   isModalOpen.value = false

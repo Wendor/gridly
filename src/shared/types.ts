@@ -1,4 +1,5 @@
 export interface DbConnection {
+  id: string
   type: 'mysql' | 'postgres'
   name: string
   host: string
@@ -13,6 +14,28 @@ export interface DbConnection {
   sshUser?: string
   sshPassword?: string
   sshKeyPath?: string
+}
+
+export interface DbConnectionMeta {
+  id: string
+  type: 'mysql' | 'postgres'
+  name: string
+  host: string
+  port: string
+  user: string
+  database: string
+  excludeList?: string
+  useSsh?: boolean
+  sshHost?: string
+  sshPort?: string
+  sshUser?: string
+  sshKeyPath?: string
+}
+
+export interface AppSettings {
+  theme: string
+  locale: string
+  fontSize: number
 }
 
 export interface IDbResult {
@@ -46,18 +69,31 @@ export interface UpdateResult {
 }
 
 export interface IElectronAPI {
-  connect: (id: number, config: DbConnection) => Promise<string>
-  query: (id: number, sql: string) => Promise<IDbResult>
-  getTables: (id: number, dbName?: string) => Promise<string[]>
-  getDatabases: (id: number, excludeList?: string) => Promise<string[]>
-  getTableData: (req: IDataRequest) => Promise<IDbResult>
-  getSchema: (id: number) => Promise<DbSchema>
-  testConnection: (config: DbConnection) => Promise<string>
-  getPrimaryKeys: (id: number, tableName: string) => Promise<string[]>
-  updateRows: (id: number, updates: RowUpdate[]) => Promise<UpdateResult>
-  setActiveDatabase: (id: number, dbName: string) => Promise<void>
-  getDashboardMetrics: (id: number) => Promise<DashboardMetrics | null>
+  // Connections
+  connect: (id: string) => Promise<string>
+  disconnect: (id: string) => Promise<void>
+  testConnection: (config: DbConnection, connectionId?: string) => Promise<string>
+
+  // Storage
+  getConnections: () => Promise<DbConnectionMeta[]>
+  saveConnection: (connection: DbConnection) => Promise<void>
+  deleteConnection: (id: string) => Promise<void>
+
+  getSettings: () => Promise<AppSettings>
+  saveSettings: (settings: AppSettings) => Promise<void>
+
+  // Queries
+  query: (id: string, sql: string) => Promise<IDbResult>
+  getTables: (id: string, dbName?: string) => Promise<string[]>
+  getDatabases: (id: string, excludeList?: string) => Promise<string[]>
+  getTableData: (connectionId: string, req: IDataRequest) => Promise<IDbResult>
+  getSchema: (id: string, dbName?: string) => Promise<DbSchema>
+  getPrimaryKeys: (id: string, tableName: string) => Promise<string[]>
+  updateRows: (id: string, updates: RowUpdate[]) => Promise<UpdateResult>
+  setActiveDatabase: (id: string, dbName: string) => Promise<void>
+  getDashboardMetrics: (id: string) => Promise<DashboardMetrics | null>
 }
+
 export interface WrappedDbValue {
   __isWrapped: true
   display: string

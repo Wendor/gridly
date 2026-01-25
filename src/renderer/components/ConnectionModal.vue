@@ -43,6 +43,10 @@
         placeholder="my_app_db"
       />
 
+      <div v-if="isEditing" class="password-hint">
+        {{ $t('connections.passwordHint') }}
+      </div>
+
       <div
         v-if="isEditing && availableDatabases && availableDatabases.length > 0"
         class="exclude-section"
@@ -125,7 +129,7 @@
 
 <script setup lang="ts">
 import { reactive, computed, watch, ref } from 'vue'
-import type { DbConnection } from '../../shared/types'
+import type { DbConnection, DbConnectionMeta } from '../../shared/types'
 import BaseIcon from './ui/BaseIcon.vue'
 import BaseModal from './ui/BaseModal.vue'
 import BaseInput from './ui/BaseInput.vue'
@@ -135,7 +139,7 @@ import i18n from '../i18n'
 
 const props = defineProps<{
   isOpen: boolean
-  initialData?: DbConnection | null
+  initialData?: DbConnectionMeta | null
   availableDatabases?: string[]
 }>()
 
@@ -147,6 +151,7 @@ const emit = defineEmits<{
 const isEditing = computed(() => !!props.initialData)
 
 const defaultForm: DbConnection = {
+  id: '', // Initialize empty ID
   type: 'mysql',
   name: '',
   host: 'localhost',
@@ -224,11 +229,10 @@ function close(): void {
 }
 
 async function testConnection(): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
   testStatus.value = { type: 'loading', message: i18n.global.t('connections.testingConnection') }
   try {
-    const successMsg = await window.dbApi.testConnection({ ...form })
+    const connectionId = isEditing.value ? form.id : undefined
+    const successMsg = await window.dbApi.testConnection({ ...form }, connectionId)
     testStatus.value = { type: 'success', message: successMsg }
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
@@ -237,7 +241,11 @@ async function testConnection(): Promise<void> {
 }
 
 function save(): void {
-  const newConn = JSON.parse(JSON.stringify(form)) as DbConnection
+  const newConn: DbConnection = {
+    ...form,
+    password: form.password || (isEditing.value ? undefined : ''),
+    sshPassword: form.sshPassword || (isEditing.value ? undefined : '')
+  }
   if (!newConn.name) newConn.name = `${newConn.type} @ ${newConn.host}`
   emit('save', newConn)
   close()
