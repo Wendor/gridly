@@ -193,7 +193,7 @@ function doSidebarResize(e: MouseEvent): void {
   width: 0;
   cursor: col-resize;
   background: transparent;
-  z-index: 20;
+  z-index: 100;
   position: relative;
   /* Visual line is the border-right of element to the left */
 }

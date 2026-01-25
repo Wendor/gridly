@@ -593,6 +593,7 @@ function handleKeydown(e: KeyboardEvent): void {
   min-height: 100px; /* Гарантируем видимость */
 }
 .resizer-horizontal {
+  z-index: 100;
   height: 4px;
   background: transparent;
   cursor: row-resize;
