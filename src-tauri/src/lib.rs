@@ -1,15 +1,18 @@
 mod commands;
 mod db;
-mod models;
+pub mod error;
+pub mod models;
 mod storage;
 
 use commands::*;
+use db::DatabaseManager;
+use storage::StorageService;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let storage = storage::StorageService::new();
-    let db = db::DatabaseManager::new();
-    let app_state = commands::AppState { storage, db };
+    let storage = StorageService::new();
+    let db = DatabaseManager::new();
+    let app_state = TauriState { storage, db };
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())

@@ -1,9 +1,10 @@
 use ssh2::Session;
-use std::net::TcpStream;
-
-use tokio::net::TcpListener;
 use std::io::{Read, Write};
-use crate::models::DbConnection;
+use std::net::TcpStream;
+use tokio::net::TcpListener;
+
+use crate::error::Result;
+use crate::models::ConnectionConfig;
 
 pub struct SshTunnelService {
     stop_signal: Option<tokio::sync::oneshot::Sender<()>>,
@@ -16,19 +17,20 @@ impl SshTunnelService {
 
     pub async fn create_tunnel(
         &mut self,
-        config: &DbConnection,
+        config: &ConnectionConfig,
         remote_host: &str,
         remote_port: u16,
-    ) -> Result<u16, String> {
-        // Validation moved inside the connection loop or check here once to fail fast
-        if config.ssh_host.is_none() || config.ssh_user.is_none() {
-            return Err("Missing SSH host or user".to_string());
-        }
+    ) -> Result<u16> {
+        let _ssh_host = config.ssh_host.as_ref().ok_or_else(|| {
+            crate::error::DbError::Ssh("Missing SSH host".to_string())
+        })?;
+        let _ssh_user = config.ssh_user.as_ref().ok_or_else(|| {
+            crate::error::DbError::Ssh("Missing SSH user".to_string())
+        })?;
 
-        // Start local listener
-        let listener = TcpListener::bind("127.0.0.1:0").await.map_err(|e| e.to_string())?;
-        let local_port = listener.local_addr().map_err(|e| e.to_string())?.port();
-        
+        let listener = TcpListener::bind("127.0.0.1:0").await?;
+        let local_port = listener.local_addr()?.port();
+
         let (tx, mut rx) = tokio::sync::oneshot::channel::<()>();
         self.stop_signal = Some(tx);
 
@@ -38,132 +40,17 @@ impl SshTunnelService {
         tokio::spawn(async move {
             loop {
                 tokio::select! {
-                     _ = &mut rx => {
-                        println!("Stopping SSH tunnel");
+                    _ = &mut rx => {
+                        log::info!("Stopping SSH tunnel");
                         break;
                     }
                     Ok((socket, _)) = listener.accept() => {
                         let config = config_clone.clone();
                         let r_host = remote_host.clone();
-                        let r_port = remote_port;
-                        
+
                         tokio::spawn(async move {
                             let _ = tokio::task::spawn_blocking(move || {
-                                // 1. Establish NEW SSH Session per connection
-                                // This ensures thread safety as libssh2 Session is not thread safe
-                                let ssh_host = config.ssh_host.as_ref().unwrap();
-                                let ssh_port = config.ssh_port.as_ref().and_then(|p| p.parse::<u16>().ok()).unwrap_or(22);
-                                let ssh_user = config.ssh_user.as_ref().unwrap();
-
-                                let tcp = match TcpStream::connect(format!("{}:{}", ssh_host, ssh_port)) {
-                                    Ok(t) => t,
-                                    Err(e) => {
-                                        eprintln!("Failed to connect to SSH server: {}", e);
-                                        return;
-                                    }
-                                };
-                                
-                                let mut sess = match Session::new() {
-                                    Ok(s) => s,
-                                    Err(_) => return,
-                                };
-                                
-                                sess.set_tcp_stream(tcp);
-
-                                if let Err(e) = sess.handshake() {
-                                     eprintln!("SSH Handshake failed: {}", e);
-                                     return;
-                                }
-                                
-                                let mut authenticated = false;
-                                // Auth Logic
-                                if let Some(password) = &config.ssh_password {
-                                    if !password.is_empty() {
-                                        if sess.userauth_password(ssh_user, password).is_ok() {
-                                            authenticated = true;
-                                        }
-                                    }
-                                }
-                                if !authenticated {
-                                    if let Some(key_path) = &config.ssh_key_path {
-                                        if !key_path.is_empty() {
-                                            if sess.userauth_pubkey_file(ssh_user, None, std::path::Path::new(key_path), None).is_ok() {
-                                                authenticated = true;
-                                            }
-                                        }
-                                    }
-                                }
-                                if !authenticated { // Try agent
-                                     if sess.userauth_agent(ssh_user).is_ok() {
-                                         authenticated = true;
-                                     }
-                                }
-                                
-                                if !authenticated || !sess.authenticated() {
-                                    eprintln!("SSH Auth failed for new connection");
-                                    return;
-                                }
-
-                                // 2. Open Channel
-                                let mut channel = match sess.channel_direct_tcpip(&r_host, r_port, None) {
-                                    Ok(c) => c,
-                                    Err(e) => {
-                                        eprintln!("Failed to open SSH channel: {}", e);
-                                        return;
-                                    }
-                                };
-                                
-                                // 3. Forwarding Loop
-                                let std_socket = socket.into_std().ok();
-                                if std_socket.is_none() { return; }
-                                let mut std_socket = std_socket.unwrap();
-                                let _ = std_socket.set_nonblocking(true);
-                                let _ = sess.set_blocking(false); // Non-blocking IO for forwarding
-
-                                let mut buf_socket = [0u8; 8192];
-                                let mut buf_channel = [0u8; 8192];
-                                
-                                loop {
-                                    let mut did_work = false;
-                                    
-                                    // Read Socket -> Write Channel
-                                    match std_socket.read(&mut buf_socket) {
-                                        Ok(0) => return, // EOF
-                                        Ok(n) => {
-                                             let mut written = 0;
-                                             while written < n {
-                                                 match channel.write(&buf_socket[written..n]) {
-                                                     Ok(w) => { written += w; did_work = true; }
-                                                     Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                                                         // Wait for channel to be writable?
-                                                         // We can sleep briefly
-                                                         std::thread::sleep(std::time::Duration::from_micros(100));
-                                                     }
-                                                     Err(_) => return, 
-                                                 }
-                                             }
-                                        }
-                                        Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {},
-                                        Err(_) => return,
-                                    }
-                                    
-                                    // Read Channel -> Write Socket
-                                    match channel.read(&mut buf_channel) {
-                                        Ok(0) => return, // EOF
-                                        Ok(n) => {
-                                            match std_socket.write_all(&buf_channel[0..n]) {
-                                                Ok(_) => { did_work = true; },
-                                                Err(_) => return,
-                                            }
-                                        }
-                                        Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {},
-                                        Err(_) => return,
-                                    }
-                                    
-                                    if !did_work {
-                                        std::thread::sleep(std::time::Duration::from_millis(1));
-                                    }
-                                }
+                                handle_connection(config, r_host, remote_port, socket);
                             }).await;
                         });
                     }
@@ -177,6 +64,145 @@ impl SshTunnelService {
     pub fn close(&mut self) {
         if let Some(tx) = self.stop_signal.take() {
             let _ = tx.send(());
+        }
+    }
+}
+
+impl Default for SshTunnelService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+fn handle_connection(
+    config: ConnectionConfig,
+    remote_host: String,
+    remote_port: u16,
+    socket: tokio::net::TcpStream,
+) {
+    let ssh_host = match config.ssh_host.as_ref() {
+        Some(h) => h,
+        None => return,
+    };
+    let ssh_port = config
+        .ssh_port
+        .unwrap_or(22);
+    let ssh_user = match config.ssh_user.as_ref() {
+        Some(u) => u,
+        None => return,
+    };
+
+    let tcp = match TcpStream::connect(format!("{}:{}", ssh_host, ssh_port)) {
+        Ok(t) => t,
+        Err(e) => {
+            log::error!("Failed to connect to SSH server: {}", e);
+            return;
+        }
+    };
+
+    let mut sess = match Session::new() {
+        Ok(s) => s,
+        Err(e) => {
+            log::error!("Failed to create SSH session: {}", e);
+            return;
+        }
+    };
+
+    sess.set_tcp_stream(tcp);
+
+    if let Err(e) = sess.handshake() {
+        log::error!("SSH Handshake failed: {}", e);
+        return;
+    }
+
+    let authenticated = authenticate(&sess, ssh_user, &config);
+    if !authenticated || !sess.authenticated() {
+        log::error!("SSH Auth failed");
+        return;
+    }
+
+    let mut channel = match sess.channel_direct_tcpip(&remote_host, remote_port, None) {
+        Ok(c) => c,
+        Err(e) => {
+            log::error!("Failed to open SSH channel: {}", e);
+            return;
+        }
+    };
+
+    let std_socket = match socket.into_std() {
+        Ok(s) => s,
+        Err(_) => return,
+    };
+    let mut std_socket = std_socket;
+    let _ = std_socket.set_nonblocking(true);
+    sess.set_blocking(false);
+
+    forward_data(&mut std_socket, &mut channel);
+}
+
+fn authenticate(sess: &Session, ssh_user: &str, config: &ConnectionConfig) -> bool {
+    if let Some(password) = &config.ssh_password {
+        if !password.is_empty() && sess.userauth_password(ssh_user, password).is_ok() {
+            return true;
+        }
+    }
+
+    if let Some(key_path) = &config.ssh_key_path {
+        if !key_path.is_empty()
+            && sess
+                .userauth_pubkey_file(ssh_user, None, std::path::Path::new(key_path), None)
+                .is_ok()
+        {
+            return true;
+        }
+    }
+
+    sess.userauth_agent(ssh_user).is_ok()
+}
+
+fn forward_data(socket: &mut std::net::TcpStream, channel: &mut ssh2::Channel) {
+    let mut buf_socket = [0u8; 8192];
+    let mut buf_channel = [0u8; 8192];
+
+    loop {
+        let mut did_work = false;
+
+        match socket.read(&mut buf_socket) {
+            Ok(0) => return,
+            Ok(n) => {
+                let mut written = 0;
+                while written < n {
+                    match channel.write(&buf_socket[written..n]) {
+                        Ok(w) => {
+                            written += w;
+                            did_work = true;
+                        }
+                        Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                            std::thread::sleep(std::time::Duration::from_micros(100));
+                        }
+                        Err(_) => return,
+                    }
+                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+            Err(_) => return,
+        }
+
+        match channel.read(&mut buf_channel) {
+            Ok(0) => return,
+            Ok(n) => {
+                if socket.write_all(&buf_channel[0..n]).is_ok() {
+                    did_work = true;
+                } else {
+                    return;
+                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+            Err(_) => return,
+        }
+
+        if !did_work {
+            std::thread::sleep(std::time::Duration::from_millis(1));
         }
     }
 }
