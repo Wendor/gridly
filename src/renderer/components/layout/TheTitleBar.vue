@@ -1,7 +1,6 @@
 <template>
-  <div class="title-bar" @dblclick="maximizeWindow">
-    <div class="drag-region"></div>
-    <div class="title-content">
+  <div class="title-bar" data-tauri-drag-region>
+    <div class="title-content" data-tauri-drag-region>
       <span class="app-name">Gridly</span>
       <span v-if="connectionTitle" class="conn-info"> - {{ connectionTitle }}</span>
     </div>
@@ -28,13 +27,6 @@ const connectionTitle = computed(() => {
   }
   return null
 })
-
-function maximizeWindow(): void {
-  // System handling usually works, but double-click to max is nice to keep if we can,
-  // though without IPC it might be inactive. Keeping empty handler or removing entirely.
-  // User said "System ones are enough", implying standard traffic lights.
-  // Standard traffic lights work on drag regions usually.
-}
 </script>
 
 <style scoped>
@@ -50,22 +42,7 @@ function maximizeWindow(): void {
   position: relative;
 }
 
-.drag-region {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 100%;
-  -webkit-app-region: drag;
-  z-index: 1;
-}
-
 .title-content {
-  position: relative;
-  z-index: 2; /* Text must be visible but clicks usually should go to drag region...
-                 Actually, text is usually part of drag region.
-                 If z-index 2, it might block dragging if not app-region: drag.
-                 Text should likely be draggable too. */
   font-size: 13px;
   color: var(--text-secondary);
   font-weight: 500;
