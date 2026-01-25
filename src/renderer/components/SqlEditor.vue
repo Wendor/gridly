@@ -103,9 +103,9 @@ const activeQueryInfo = computed(() => {
   const tab = tabStore.currentTab
   // Check if tab exists and is of type 'query'
   if (tab && tab.type === 'query' && tab.connectionId) {
-    return { 
-      connId: tab.connectionId, 
-      dbName: tab.database 
+    return {
+      connId: tab.connectionId,
+      dbName: tab.database
     }
   }
   return null
