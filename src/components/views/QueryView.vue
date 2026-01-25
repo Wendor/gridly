@@ -173,7 +173,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, reactive, computed, watch } from 'vue'
 import { format } from 'sql-formatter'
-import { isWrappedValue } from '../../../shared/types'
+import { isWrappedValue } from '@/types'
 
 import { useTabStore, QueryTab } from '../../stores/tabs'
 import { useConnectionStore } from '../../stores/connections'

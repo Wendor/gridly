@@ -7,7 +7,7 @@ import type {
   HistoryItem,
   IDataRequest,
   RowUpdate
-} from '../../shared/types'
+} from '../types'
 
 export const tauriApi: IElectronAPI = {
   // Connections

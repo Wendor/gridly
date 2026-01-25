@@ -26,7 +26,7 @@ import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language'
 import { useTabStore } from '../stores/tabs'
 import { useConnectionStore } from '../stores/connections'
 import { useSettingsStore } from '../stores/settings'
-import { DbSchema } from '../../shared/types'
+import { DbSchema } from '../types'
 
 const props = defineProps<{ modelValue: string }>()
 const emit = defineEmits<{ (e: 'update:modelValue', val: string): void; (e: 'run'): void }>()

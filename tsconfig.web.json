@@ -1,18 +1,16 @@
 {
   "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
   "include": [
-    "src/renderer/env.d.ts",
-    "src/renderer/**/*",
-    "src/renderer/**/*.vue",
-    "src/preload/*.d.ts",
-    "src/shared/**/*"
+    "src/env.d.ts",
+    "src/**/*",
+    "src/**/*.vue"
   ],
   "compilerOptions": {
     "composite": true,
     "baseUrl": ".",
     "paths": {
-      "@renderer/*": [
-        "src/renderer/*"
+      "@/*": [
+        "src/*"
       ]
     }
   }

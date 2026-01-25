@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { useConnectionStore } from './connections'
 import { useHistoryStore } from './history'
-import { RowUpdate, UpdateResult } from '../../shared/types'
+import { RowUpdate, UpdateResult } from '@/types'
 import i18n from '../i18n'
 
 export interface BaseTab {

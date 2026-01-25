@@ -4,16 +4,15 @@ import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [vue()],
-  root: 'src/renderer',
+  root: 'src',
   base: './', // Tauri expects relative paths or absolute depending on config, but ./ is safe usually
   resolve: {
     alias: {
-      '@renderer': resolve(__dirname, 'src/renderer'),
-      '@': resolve(__dirname, 'src/renderer')
+      '@': resolve(__dirname, 'src')
     }
   },
   build: {
-    outDir: '../../dist',
+    outDir: '../dist',
     emptyOutDir: true,
     target: 'esnext',
     rollupOptions: {

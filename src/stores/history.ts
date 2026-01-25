@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { HistoryItem } from '../../shared/types'
+import type { HistoryItem } from '../types'
 
 export const useHistoryStore = defineStore('history', () => {
   const items = ref<HistoryItem[]>([])
