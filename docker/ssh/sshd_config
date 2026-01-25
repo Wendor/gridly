@@ -1,0 +1,5 @@
+PermitRootLogin no
+PasswordAuthentication yes
+AllowTcpForwarding yes
+GatewayPorts yes
+PrintMotd no

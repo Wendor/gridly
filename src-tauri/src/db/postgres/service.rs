@@ -42,7 +42,19 @@ impl PostgresService {
                     .flatten()
                     .map(serde_json::Value::Bool)
                     .unwrap_or(serde_json::Value::Null),
-                "int2" | "int4" | "int8" | "oid" => row
+                "int2" => row
+                    .try_get::<Option<i16>, _>(col.ordinal())
+                    .ok()
+                    .flatten()
+                    .map(|v| serde_json::Value::Number((v as i64).into()))
+                    .unwrap_or(serde_json::Value::Null),
+                "int4" => row
+                    .try_get::<Option<i32>, _>(col.ordinal())
+                    .ok()
+                    .flatten()
+                    .map(|v| serde_json::Value::Number((v as i64).into()))
+                    .unwrap_or(serde_json::Value::Null),
+                "int8" | "oid" => row
                     .try_get::<Option<i64>, _>(col.ordinal())
                     .ok()
                     .flatten()

@@ -19,7 +19,10 @@ impl StorageService {
     pub fn new() -> Self {
         let mut config_dir = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
         config_dir.push(APP_DIR);
+        Self::new_with_path(config_dir)
+    }
 
+    pub fn new_with_path(config_dir: PathBuf) -> Self {
         if let Err(e) = fs::create_dir_all(&config_dir) {
             log::error!("Failed to create config dir: {}", e);
         }
@@ -162,5 +165,75 @@ impl StorageService {
 impl Default for StorageService {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_storage_settings_persistence() {
+        let dir = tempdir().unwrap();
+        let service = StorageService::new_with_path(dir.path().to_path_buf());
+
+        let settings = AppSettings {
+            theme: "test-theme".to_string(),
+            locale: "fr".to_string(),
+            font_size: 20,
+        };
+
+        let result = service.save_settings(settings.clone());
+        assert!(result.is_ok());
+
+        let loaded = service.get_settings();
+        assert_eq!(loaded.theme, "test-theme");
+        assert_eq!(loaded.locale, "fr");
+        assert_eq!(loaded.font_size, 20);
+    }
+
+    #[test]
+    fn test_storage_connections_persistence() {
+        let dir = tempdir().unwrap();
+        let service = StorageService::new_with_path(dir.path().to_path_buf());
+
+        let conn = ConnectionConfig {
+            id: "conn1".to_string(),
+            name: "Test DB".to_string(),
+            driver: crate::models::DatabaseDriver::Postgres,
+            host: "localhost".to_string(),
+            port: 5432,
+            user: "admin".to_string(),
+            password: Some("secret".to_string()),
+            database: "testdb".to_string(),
+            exclude_list: None,
+            use_ssh: None,
+            ssh_host: None,
+            ssh_port: None,
+            ssh_user: None,
+            ssh_password: None,
+            ssh_key_path: None,
+        };
+
+        service.save_connection(conn.clone()).unwrap();
+
+        let connections = service.get_connections();
+        assert_eq!(connections.len(), 1);
+        assert_eq!(connections[0].id, "conn1");
+        assert_eq!(connections[0].name, "Test DB");
+        
+        // Test update
+        let mut updated_conn = conn.clone();
+        updated_conn.name = "Renamed DB".to_string();
+        service.save_connection(updated_conn).unwrap();
+        
+        let connections_v2 = service.get_connections();
+        assert_eq!(connections_v2.len(), 1);
+        assert_eq!(connections_v2[0].name, "Renamed DB");
+
+        // Test delete
+        service.delete_connection("conn1").unwrap();
+        assert!(service.get_connections().is_empty());
     }
 }

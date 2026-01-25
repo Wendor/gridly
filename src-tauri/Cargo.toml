@@ -32,3 +32,7 @@ async-trait = "0.1"
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "1.0"
+
+[dev-dependencies]
+mockall = "0.12.1"
+tempfile = "3"

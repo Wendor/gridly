@@ -154,8 +154,17 @@ impl DatabaseService for MysqlService {
             }
         }
 
+        let current_db = self
+            .last_config
+            .as_ref()
+            .map(|c| c.database.clone())
+            .unwrap_or_default();
+
         let pool = self.pool()?;
-        let rows = sqlx::query("SHOW TABLES").fetch_all(pool).await?;
+        let rows = sqlx::query("SELECT CAST(table_name AS CHAR) FROM information_schema.tables WHERE table_schema = ?")
+            .bind(current_db)
+            .fetch_all(pool)
+            .await?;
 
         let tables: Vec<String> = rows.iter().map(|r| r.get::<String, _>(0)).collect();
         Ok(tables)
@@ -163,7 +172,9 @@ impl DatabaseService for MysqlService {
 
     async fn get_databases(&self) -> Result<Vec<String>> {
         let pool = self.pool()?;
-        let rows = sqlx::query("SHOW DATABASES").fetch_all(pool).await?;
+        let rows = sqlx::query("SELECT CAST(schema_name AS CHAR) FROM information_schema.schemata")
+            .fetch_all(pool)
+            .await?;
         let dbs: Vec<String> = rows.iter().map(|r| r.get::<String, _>(0)).collect();
         Ok(dbs)
     }
@@ -188,7 +199,9 @@ impl DatabaseService for MysqlService {
             .unwrap_or_default();
 
         let sql = "
-            SELECT table_name, column_name 
+            SELECT 
+                CAST(table_name AS CHAR) as table_name, 
+                CAST(column_name AS CHAR) as column_name 
             FROM information_schema.columns 
             WHERE table_schema = ? 
             ORDER BY table_name, ordinal_position

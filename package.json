@@ -12,7 +12,12 @@
     "frontend:build": "npm run typecheck && vite build",
     "tauri": "tauri",
     "dev": "tauri dev",
-    "build": "tauri build"
+    "build": "tauri build",
+    "db:up": "cd docker && docker-compose up -d",
+    "db:down": "cd docker && docker-compose down",
+    "test:backend:unit": "cd src-tauri && cargo test --lib",
+    "test:backend:integration": "npm run db:up && cd src-tauri && cargo test --test integration_tests --test full_cycle_tests",
+    "test:backend": "npm run test:backend:unit && npm run test:backend:integration"
   },
   "dependencies": {
     "@codemirror/lang-sql": "^6.10.0",

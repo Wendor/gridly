@@ -5,6 +5,7 @@ use crate::models::{
 };
 use async_trait::async_trait;
 
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait DatabaseService: Send + Sync {
     async fn connect(&mut self, config: &ConnectionConfig) -> Result<String>;

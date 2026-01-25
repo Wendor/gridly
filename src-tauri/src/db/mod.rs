@@ -20,17 +20,44 @@ use tokio::sync::Mutex;
 
 
 
+
+#[cfg_attr(test, mockall::automock)]
+pub trait DatabaseServiceFactory: Send + Sync {
+    fn create(&self, driver: &DatabaseDriver) -> Box<dyn DatabaseService>;
+}
+
+pub struct DefaultDatabaseServiceFactory;
+
+impl DatabaseServiceFactory for DefaultDatabaseServiceFactory {
+    fn create(&self, driver: &DatabaseDriver) -> Box<dyn DatabaseService> {
+        match driver {
+            DatabaseDriver::Mysql => Box::new(MysqlService::new()),
+            DatabaseDriver::Postgres => Box::new(PostgresService::new()),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct DatabaseManager {
     services: Arc<Mutex<HashMap<String, Box<dyn DatabaseService>>>>,
     ssh_services: Arc<Mutex<HashMap<String, SshTunnelService>>>,
+    // Arc<Box<...>> needed because DatabaseManager is specific to be Clone + Send + Sync
+    // But Box<dyn IsNotClone>. We need to share the factory.
+    // DatabaseManager is Clone, so fields must be Clone.
+    // Box<dyn Trait> is not Clone. Arc<Box<dyn Trait>> is Clone.
+    factory: Arc<Box<dyn DatabaseServiceFactory>>,
 }
 
 impl DatabaseManager {
     pub fn new() -> Self {
+        Self::new_with_factory(Box::new(DefaultDatabaseServiceFactory))
+    }
+
+    pub fn new_with_factory(factory: Box<dyn DatabaseServiceFactory>) -> Self {
         DatabaseManager {
             services: Arc::new(Mutex::new(HashMap::new())),
             ssh_services: Arc::new(Mutex::new(HashMap::new())),
+            factory: Arc::new(factory),
         }
     }
 
@@ -52,10 +79,7 @@ impl DatabaseManager {
             config.port = local_port;
         }
 
-        let mut service: Box<dyn DatabaseService> = match config.driver {
-            DatabaseDriver::Mysql => Box::new(MysqlService::new()),
-            DatabaseDriver::Postgres => Box::new(PostgresService::new()),
-        };
+        let mut service = self.factory.create(&config.driver);
 
         service.connect(&config).await?;
         self.services.lock().await.insert(id, service);
@@ -140,8 +164,131 @@ impl DatabaseManager {
     }
 }
 
-impl Default for DatabaseManager {
-    fn default() -> Self {
-        Self::new()
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::traits::MockDatabaseService;
+
+    #[tokio::test]
+    async fn test_connect_success() {
+        let mut mock_factory = MockDatabaseServiceFactory::new();
+        let mut mock_service = MockDatabaseService::new();
+
+        mock_service.expect_connect()
+            .times(1)
+            .returning(|_| Ok("Connected".to_string()));
+
+        mock_factory.expect_create()
+            .times(1)
+            .return_once(move |_| Box::new(mock_service));
+
+        let manager = DatabaseManager::new_with_factory(Box::new(mock_factory));
+        let config = ConnectionConfig {
+            id: "conn1".to_string(),
+            name: "Test Connection".to_string(),
+            driver: DatabaseDriver::Postgres,
+            host: "localhost".to_string(),
+            port: 5432,
+            user: "user".to_string(),
+            password: Some("pass".to_string()),
+            database: "db".to_string(),
+            exclude_list: None,
+            use_ssh: Some(false),
+            ssh_host: None,
+            ssh_port: None,
+            ssh_user: None,
+            ssh_password: None,
+            ssh_key_path: None,
+        };
+
+        let result = manager.connect("conn1".to_string(), config).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "Connected");
+    }
+
+    #[tokio::test]
+    async fn test_disconnect() {
+        let mut mock_factory = MockDatabaseServiceFactory::new();
+        let mut mock_service = MockDatabaseService::new();
+
+        mock_service.expect_connect()
+            .returning(|_| Ok("Connected".to_string()));
+        mock_service.expect_disconnect()
+            .times(1)
+            .returning(|| Ok(()));
+
+        mock_factory.expect_create()
+            .return_once(move |_| Box::new(mock_service));
+
+        let manager = DatabaseManager::new_with_factory(Box::new(mock_factory));
+        let config = ConnectionConfig {
+            id: "conn1".to_string(),
+            name: "Test Connection".to_string(),
+            driver: DatabaseDriver::Postgres,
+            host: "localhost".to_string(),
+            port: 5432,
+            user: "user".to_string(),
+            password: Some("pass".to_string()),
+            database: "db".to_string(),
+            exclude_list: None,
+            use_ssh: None,
+            ssh_host: None,
+            ssh_port: None,
+            ssh_user: None,
+            ssh_password: None,
+            ssh_key_path: None,
+        };
+
+        let _ = manager.connect("conn1".to_string(), config).await;
+        let result = manager.disconnect("conn1".to_string()).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_execute_query() {
+        let mut mock_factory = MockDatabaseServiceFactory::new();
+        let mut mock_service = MockDatabaseService::new();
+
+        mock_service.expect_connect()
+            .returning(|_| Ok("Connected".to_string()));
+        
+        mock_service.expect_execute()
+            .with(mockall::predicate::eq("SELECT 1"))
+            .times(1)
+            .returning(|_| Ok(QueryResult {
+                rows: vec![],
+                columns: vec![],
+                error: None,
+                duration: 0.0,
+            }));
+
+        mock_factory.expect_create()
+            .return_once(move |_| Box::new(mock_service));
+
+        let manager = DatabaseManager::new_with_factory(Box::new(mock_factory));
+        let config = ConnectionConfig {
+            id: "conn1".to_string(),
+            name: "Test Connection".to_string(),
+            driver: DatabaseDriver::Mysql, // Test different driver
+            host: "localhost".to_string(),
+            port: 3306,
+            user: "user".to_string(),
+            password: None,
+            database: "".to_string(),
+            exclude_list: None,
+            use_ssh: None,
+            ssh_host: None,
+            ssh_port: None,
+            ssh_user: None,
+            ssh_password: None,
+            ssh_key_path: None,
+        };
+
+        let _ = manager.connect("conn1".to_string(), config).await;
+        let result = manager.execute("conn1".to_string(), "SELECT 1".to_string()).await;
+        assert!(result.is_ok());
     }
 }

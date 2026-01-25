@@ -106,3 +106,85 @@ pub fn build_select_sql(
         offset
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+    use serde_json::json;
+
+    #[test]
+    fn test_validate_identifier_valid() {
+        assert!(validate_identifier("valid_name").is_ok());
+        assert!(validate_identifier("_underscore").is_ok());
+        assert!(validate_identifier("table.column").is_ok());
+    }
+
+    #[test]
+    fn test_validate_identifier_invalid() {
+        assert!(validate_identifier("").is_err());
+        assert!(validate_identifier("1number").is_err());
+        assert!(validate_identifier("dash-char").is_err());
+        assert!(validate_identifier("space char").is_err());
+        assert!(validate_identifier("semi;colon").is_err());
+    }
+
+    #[test]
+    fn test_quote_style_double() {
+        let style = QuoteStyle::DoubleQuote;
+        assert_eq!(style.quote("table"), "\"table\"");
+        assert_eq!(style.quote("ta\"ble"), "\"ta\"\"ble\"");
+    }
+
+    #[test]
+    fn test_quote_style_backtick() {
+        let style = QuoteStyle::Backtick;
+        assert_eq!(style.quote("table"), "`table`");
+        assert_eq!(style.quote("ta`ble"), "`ta``ble`");
+    }
+
+    #[test]
+    fn test_escape_value() {
+        assert_eq!(escape_value(&json!(123)), "123");
+        assert_eq!(escape_value(&json!(12.34)), "12.34");
+        assert_eq!(escape_value(&json!(true)), "true");
+        assert_eq!(escape_value(&json!(false)), "false");
+        assert_eq!(escape_value(&json!(null)), "NULL");
+        assert_eq!(escape_value(&json!("string")), "'string'");
+        assert_eq!(escape_value(&json!("O'Reilly")), "'O''Reilly'");
+    }
+
+    #[test]
+    fn test_build_update_sql() {
+        let mut changes = HashMap::new();
+        changes.insert("col1".to_string(), json!("val1"));
+        changes.insert("col2".to_string(), json!(10));
+
+        let mut pks = HashMap::new();
+        pks.insert("id".to_string(), json!(1));
+
+        let sql = build_update_sql(
+            "users", 
+            &changes, 
+            &pks, 
+            QuoteStyle::DoubleQuote
+        ).unwrap();
+
+        assert!(sql.starts_with("UPDATE \"users\" SET"));
+        assert!(sql.contains("\"col1\" = 'val1'"));
+        assert!(sql.contains("\"col2\" = 10"));
+        assert!(sql.contains("WHERE \"id\" = 1"));
+    }
+
+    #[test]
+    fn test_build_select_sql() {
+        let sql = build_select_sql(
+            "users", 
+            10, 
+            0, 
+            QuoteStyle::Backtick
+        ).unwrap();
+        
+        assert_eq!(sql, "SELECT * FROM `users` LIMIT 10 OFFSET 0");
+    }
+}

@@ -1,5 +1,5 @@
 mod commands;
-mod db;
+pub mod db;
 pub mod error;
 pub mod models;
 mod storage;
