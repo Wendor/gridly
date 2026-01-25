@@ -58,13 +58,6 @@
                 v-for="col in normalizedColumns"
                 :key="col.prop"
                 class="table-cell"
-                v-memo="[
-                  row[col.prop],
-                  isCellSelected(startRowIndex + rowIndex, col.prop),
-                  isCellFocused(startRowIndex + rowIndex, col.prop),
-                  isCellChanged(startRowIndex + rowIndex, col.prop),
-                  isEditing(startRowIndex + rowIndex, col.prop)
-                ]"
                 :class="{
                   selected: isCellSelected(startRowIndex + rowIndex, col.prop),
                   focused: isCellFocused(startRowIndex + rowIndex, col.prop),
@@ -829,23 +822,23 @@ async function onPaste(): Promise<void> {
 }
 
 .table-cell.selected {
-  background: var(--list-active-bg);
-  box-shadow: inset 0 0 0 2px var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary), transparent 80%);
+  border: 1px solid var(--accent-primary);
+  box-shadow: none;
 }
 
 .table-cell.focused {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: -2px;
+  outline: none;
 }
 
 .table-cell.changed {
-  color: var(--warning);
+  background: color-mix(in srgb, var(--warning), transparent 85%);
 }
 
 .cell-input.singleton-input {
   position: absolute;
   z-index: 100;
-  border: 2px solid var(--accent-primary);
+  border: 1px solid var(--accent-primary);
   margin: 0;
   padding: 0 8px;
   box-sizing: border-box;
@@ -872,7 +865,7 @@ async function onPaste(): Promise<void> {
   padding: 0 8px;
   outline: none;
   box-sizing: border-box;
-  box-shadow: inset 0 0 0 2px var(--accent-primary);
+  box-shadow: none;
   z-index: 10;
 }
 

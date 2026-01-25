@@ -18,6 +18,8 @@
   /* Фирменный синий VS Code */
   --accent-hover: #0069b0;
   --focus-border: #007acc;
+  --warning: #cca700;
+  /* Желто-оранжевый для изменений */
 
   --text-primary: #cccccc;
   /* Мягкий серый текст */
