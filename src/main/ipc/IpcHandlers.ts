@@ -1,5 +1,12 @@
 import { ipcMain } from 'electron'
-import { RowUpdate, DbConnection, AppSettings, IDataRequest } from '../../shared/types'
+import {
+  RowUpdate,
+  DbConnection,
+  AppSettings,
+  AppState,
+  HistoryItem,
+  IDataRequest
+} from '../../shared/types'
 import { DatabaseManager } from '../db/DatabaseManager'
 import { StorageService } from '../services/StorageService'
 
@@ -16,7 +23,6 @@ export function setupIpcHandlers(dbManager: DatabaseManager, storageService: Sto
 
   ipcMain.handle('db:delete-connection', async (_event, id: string) => {
     await storageService.deleteConnection(id)
-    // Also disconnect if active
     await dbManager.disconnect(id)
   })
 
@@ -26,6 +32,26 @@ export function setupIpcHandlers(dbManager: DatabaseManager, storageService: Sto
 
   ipcMain.handle('db:save-settings', async (_event, settings: AppSettings) => {
     await storageService.saveSettings(settings)
+  })
+
+  ipcMain.handle('db:get-state', async () => {
+    return await storageService.getState()
+  })
+
+  ipcMain.handle('db:save-state', async (_event, state: AppState) => {
+    await storageService.saveState(state)
+  })
+
+  ipcMain.handle('db:update-state', async (_event, updates: Partial<AppState>) => {
+    await storageService.updateState(updates)
+  })
+
+  ipcMain.handle('db:get-history', async () => {
+    return await storageService.getHistory()
+  })
+
+  ipcMain.handle('db:save-history', async (_event, history: HistoryItem[]) => {
+    await storageService.saveHistory(history)
   })
 
   // --- DB CONNECTION HANDLERS ---

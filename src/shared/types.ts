@@ -38,6 +38,64 @@ export interface AppSettings {
   fontSize: number
 }
 
+export interface HistoryItem {
+  id: string
+  sql: string
+  connectionId: string | null
+  timestamp: number
+  status: 'success' | 'error'
+  duration: number
+}
+
+export interface SerializableQueryTab {
+  id: number
+  type: 'query'
+  name: string
+  connectionId: string | null
+  database: string | null
+  sql: string
+  tableName: string | null
+}
+
+export interface SerializableSettingsTab {
+  id: number
+  type: 'settings'
+  name: string
+}
+
+export interface SerializableDocumentTab {
+  id: number
+  type: 'document'
+  name: string
+  content: string
+}
+
+export interface SerializableDashboardTab {
+  id: number
+  type: 'dashboard'
+  name: string
+  connectionId: string
+}
+
+export type SerializableTab =
+  | SerializableQueryTab
+  | SerializableSettingsTab
+  | SerializableDocumentTab
+  | SerializableDashboardTab
+
+export interface AppState {
+  tabs: {
+    openTabs: SerializableTab[]
+    activeTabId: number | null
+    nextTabId: number
+  }
+  ui: {
+    sidebarWidth: number
+    editorHeight: number
+    expandedConnections: string[]
+  }
+}
+
 export interface IDbResult {
   rows: unknown[]
   columns: string[]
@@ -81,6 +139,13 @@ export interface IElectronAPI {
 
   getSettings: () => Promise<AppSettings>
   saveSettings: (settings: AppSettings) => Promise<void>
+
+  getState: () => Promise<AppState>
+  saveState: (state: AppState) => Promise<void>
+  updateState: (updates: Partial<AppState>) => Promise<void>
+
+  getHistory: () => Promise<HistoryItem[]>
+  saveHistory: (history: HistoryItem[]) => Promise<void>
 
   // Queries
   query: (id: string, sql: string) => Promise<IDbResult>

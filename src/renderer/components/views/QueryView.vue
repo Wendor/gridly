@@ -506,7 +506,9 @@ function startResize(e: MouseEvent): void {
   e.preventDefault()
 }
 function stopResize(): void {
-  localStorage.setItem('editor-height', String(editorHeight.value))
+  window.dbApi.updateState({
+    ui: { editorHeight: editorHeight.value }
+  })
   isResizing.value = false
   document.removeEventListener('mousemove', doResize)
   document.removeEventListener('mouseup', stopResize)
@@ -527,9 +529,9 @@ const tableColumns = computed(() => {
   }))
 })
 
-onMounted(() => {
-  const saved = localStorage.getItem('editor-height')
-  if (saved) editorHeight.value = parseInt(saved)
+onMounted(async () => {
+  const state = await window.dbApi.getState()
+  editorHeight.value = state.ui.editorHeight
 
   window.addEventListener('keydown', handleKeydown)
 })

@@ -42,6 +42,7 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { useHistoryStore } from '../stores/history'
 import { useTabStore } from '../stores/tabs'
 import BaseIcon from './ui/BaseIcon.vue'
@@ -49,6 +50,10 @@ import BaseButton from './ui/BaseButton.vue'
 
 const historyStore = useHistoryStore()
 const tabStore = useTabStore()
+
+onMounted(() => {
+  historyStore.loadFromStorage()
+})
 
 function formatTime(ts: number): string {
   // Показываем время чуть короче, без секунд, если места мало, или полностью

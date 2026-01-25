@@ -317,89 +317,98 @@ export const useTabStore = defineStore('tabs', () => {
   }
 
   // --- PERSISTENCE LOGIC ---
-  function saveToStorage(): void {
-    // Only save what is necessary to restore
+  async function saveToStorage(): Promise<void> {
     const dataToSave = tabs.value.map((t) => {
       if (t.type === 'query') {
         return {
           id: t.id,
-          type: 'query',
+          type: t.type,
           name: t.name,
           connectionId: t.connectionId,
           database: t.database,
           sql: t.sql,
-          meta: null,
-          pagination: t.pagination
-        }
-      } else if (t.type === 'document') {
-        return {
-          id: t.id,
-          type: 'document',
-          name: t.name,
-          content: t.content
+          tableName: t.tableName
         }
       } else if (t.type === 'dashboard') {
         return {
           id: t.id,
-          type: 'dashboard',
+          type: t.type,
           name: t.name,
           connectionId: t.connectionId
         }
-      }
-      return {
-        id: t.id,
-        type: t.type,
-        name: t.name
+      } else if (t.type === 'document') {
+        return {
+          id: t.id,
+          type: t.type,
+          name: t.name,
+          content: t.content
+        }
+      } else {
+        return {
+          id: t.id,
+          type: t.type,
+          name: t.name
+        }
       }
     })
 
-    localStorage.setItem('tabs-state', JSON.stringify(dataToSave))
-    localStorage.setItem('active-tab-id', String(activeTabId.value))
-    localStorage.setItem('next-tab-id', String(nextTabId.value))
+    await window.dbApi.updateState({
+      tabs: {
+        openTabs: dataToSave,
+        activeTabId: activeTabId.value,
+        nextTabId: nextTabId.value
+      }
+    })
   }
 
-  function loadFromStorage(): void {
-    const saved = localStorage.getItem('tabs-state')
-    const savedActive = localStorage.getItem('active-tab-id')
-    const savedNext = localStorage.getItem('next-tab-id')
+  async function loadFromStorage(): Promise<void> {
+    try {
+      const state = await window.dbApi.getState()
 
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        tabs.value = parsed.map((t: unknown) => {
-          if (typeof t === 'object' && t !== null && 'type' in t && t.type === 'query') {
-            const tab = t as Record<string, unknown>
+      if (state.tabs.openTabs.length > 0) {
+        tabs.value = state.tabs.openTabs.map((t) => {
+          if (t.type === 'query') {
             return {
-              ...tab,
+              ...t,
               rows: [],
               colDefs: [],
               meta: null,
-              tableName: tab.tableName ?? null,
-              primaryKeys: tab.primaryKeys ?? [],
+              primaryKeys: [],
               pendingChanges: new Map(),
-              originalRows: new Map()
-            }
-          } else if (t && typeof t === 'object' && 'type' in t && t.type === 'dashboard') {
-            const tab = t as DashboardTab
-            return {
-              ...tab
-            }
+              originalRows: new Map(),
+              pagination: {
+                limit: 100,
+                offset: 0,
+                total: null
+              }
+            } as QueryTab
+          } else {
+            return t as Tab
           }
-          return t
         })
-      } catch (e) {
-        console.error('Failed to load tabs', e)
+        activeTabId.value = state.tabs.activeTabId ?? 1
+        nextTabId.value = state.tabs.nextTabId
+      } else {
+        openHelpTab()
       }
+    } catch (e) {
+      console.error('Failed to load tabs', e)
+      openHelpTab()
     }
+  }
 
-    if (savedActive) activeTabId.value = parseInt(savedActive)
-    if (savedNext) nextTabId.value = parseInt(savedNext)
+  // Helper function for initial state if no tabs are loaded
+  function openHelpTab(): void {
+    openDocumentTab(
+      i18n.global.t('common.instructions'),
+      `# ${i18n.global.t('common.instructions')}\n\n${i18n.global.t('common.instructionsText')}`
+    )
   }
 
   watch(
     () => tabs.value,
-    () => {
-      saveToStorage()
+    async () => {
+      await saveToStorage()
     },
     { deep: true }
   )

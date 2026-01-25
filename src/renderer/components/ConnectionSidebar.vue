@@ -298,32 +298,21 @@ function onSelect(id: string): void {
   }
 }
 
-const STORAGE_KEY = 'sidebar-expanded-connections'
-
-function saveExpandedState(): void {
-  const expandedNames = Array.from(expandedIds.value)
-    .map((id) => props.connections.find((c) => c.id === id)?.name)
-    .filter(Boolean)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(expandedNames))
+async function saveExpandedState(): Promise<void> {
+  const expandedIds = Array.from(expandedIds.value)
+  await window.dbApi.updateState({
+    ui: { expandedConnections: expandedIds }
+  })
 }
 
-function restoreExpandedState(): void {
-  const saved = localStorage.getItem(STORAGE_KEY)
-  if (!saved) return
+async function restoreExpandedState(): Promise<void> {
   try {
-    const names = JSON.parse(saved) as string[]
-    if (!Array.isArray(names)) return
-    const newSet = new Set<string>()
-    names.forEach((name) => {
-      const conn = props.connections.find((c) => c.name === name)
-      if (conn && conn.id) {
-        newSet.add(conn.id)
-        connStore.loadDatabases(conn.id)
-      }
-    })
-    expandedIds.value = newSet
+    const state = await window.dbApi.getState()
+    if (state.ui.expandedConnections && state.ui.expandedConnections.length > 0) {
+      expandedIds.value = new Set(state.ui.expandedConnections)
+    }
   } catch (e) {
-    console.error('Failed to restore sidebar state', e)
+    console.error('Failed to restore expanded state', e)
   }
 }
 

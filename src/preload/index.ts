@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import { DbConnection, IDataRequest, AppSettings } from '../shared/types'
+import { DbConnection, IDataRequest, AppSettings, AppState, HistoryItem } from '../shared/types'
 
 const dbApi = {
   // Connections
@@ -22,6 +22,13 @@ const dbApi = {
 
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('db:get-settings'),
   saveSettings: (settings: AppSettings) => ipcRenderer.invoke('db:save-settings', settings),
+
+  getState: (): Promise<AppState> => ipcRenderer.invoke('db:get-state'),
+  saveState: (state: AppState) => ipcRenderer.invoke('db:save-state', state),
+  updateState: (updates: Partial<AppState>) => ipcRenderer.invoke('db:update-state', updates),
+
+  getHistory: (): Promise<HistoryItem[]> => ipcRenderer.invoke('db:get-history'),
+  saveHistory: (history: HistoryItem[]) => ipcRenderer.invoke('db:save-history', history),
 
   // Queries
   query: (id: string, sql: string) => {

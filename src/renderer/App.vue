@@ -78,9 +78,11 @@ onMounted(() => {
   window.addEventListener('keydown', handleGlobalKeydown, true)
 
   settingsStore.initSettings()
+  connStore.loadFromStorage()
+  tabStore.loadFromStorage()
 
-  const savedWidth = localStorage.getItem('sidebar-width')
-  if (savedWidth) sidebarWidth.value = parseInt(savedWidth)
+  const state = await window.dbApi.getState()
+  sidebarWidth.value = state.ui.sidebarWidth
 })
 
 onBeforeUnmount(() => {
@@ -131,7 +133,9 @@ function startSidebarResize(): void {
 
 function stopSidebarResize(): void {
   if (isResizingSidebar.value) {
-    localStorage.setItem('sidebar-width', String(sidebarWidth.value))
+    window.dbApi.updateState({
+      ui: { sidebarWidth: sidebarWidth.value }
+    })
   }
   isResizingSidebar.value = false
 }
