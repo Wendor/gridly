@@ -91,19 +91,32 @@ const simpleSchema = computed(() => {
   const tab = tabStore.currentTab
   if (tab?.type === 'query' && tab.connectionId !== null) {
     const connId = tab.connectionId
-    const dbName = tab.dbName
+    const dbName = tab.database
     const key = dbName ? `${connId}-${dbName}` : connId
     return JSON.parse(JSON.stringify(connStore.schemaCache[key] || {})) as DbSchema
   }
   return {}
 })
 
+// Helper computed to safely extract connection info
+const activeQueryInfo = computed(() => {
+  const tab = tabStore.currentTab
+  // Check if tab exists and is of type 'query'
+  if (tab && tab.type === 'query' && tab.connectionId) {
+    return { 
+      connId: tab.connectionId, 
+      dbName: tab.database 
+    }
+  }
+  return null
+})
+
 // Ensure schema is loaded when tab changes or editor mounts
 watch(
-  () => [tabStore.currentTab?.connectionId, tabStore.currentTab?.dbName],
-  async ([connId, dbName]) => {
-    if (connId && tabStore.currentTab?.type === 'query') {
-      await connStore.loadSchema(connId as string, dbName as string | undefined)
+  activeQueryInfo,
+  async (info) => {
+    if (info) {
+      await connStore.loadSchema(info.connId, info.dbName || undefined)
     }
   },
   { immediate: true }

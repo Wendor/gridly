@@ -78,7 +78,7 @@
 
       <MetricCard
         :title="$t('dashboard.uptime')"
-        :value="metrics?.uptime"
+        :value="formatUptime(metrics?.uptime)"
         :loading="isLoading"
         :error="error"
       />
@@ -126,8 +126,11 @@ import { useConnectionStore } from '../../stores/connections'
 import type { DashboardMetrics } from '../../../shared/types'
 import MetricCard from '../ui/MetricCard.vue'
 
+import { useI18n } from 'vue-i18n'
+
 const tabStore = useTabStore()
 const connStore = useConnectionStore()
+const { t } = useI18n()
 const metrics = ref<DashboardMetrics | null>(null)
 const isLoading = ref(false) // For initial skeleton load
 const isRefreshing = ref(false) // For spinner
@@ -137,6 +140,23 @@ let timer: ReturnType<typeof setInterval> | null = null
 const currentTab = computed(() => {
   return tabStore.currentTab?.type === 'dashboard' ? tabStore.currentTab : null
 })
+
+function formatUptime(seconds?: number): string {
+  if (seconds === undefined) return '-'
+  const days = Math.floor(seconds / 86400)
+  const hours = Math.floor((seconds % 86400) / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+
+  // Use optional chaining carefully or fallback
+  const d = t('common.time.d') || 'd'
+  const h = t('common.time.h') || 'h'
+  const m = t('common.time.m') || 'm'
+
+  if (days > 0) {
+    return `${days}${d} ${hours}${h} ${minutes}${m}`
+  }
+  return `${hours}${h} ${minutes}${m}`
+}
 
 function formatVersion(v: string): string {
   // Try to keep it short if it's very long (Postgres versions are verbose)

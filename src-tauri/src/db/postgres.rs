@@ -331,10 +331,11 @@ impl DbService for PostgresService {
              .get(0);
              
          // 2. Uptime
-         // Cast to text explicitly to ensure string mapping
-         let uptime_row = sqlx::query("SELECT (now() - pg_postmaster_start_time())::text")
+         // Get seconds as bigint
+         let uptime_row = sqlx::query("SELECT EXTRACT(EPOCH FROM (now() - pg_postmaster_start_time()))::bigint")
               .fetch_one(pool).await.map_err(|e| e.to_string())?;
-         let uptime: String = uptime_row.get(0);
+         let uptime_seconds: i64 = uptime_row.get(0);
+         let uptime_val = uptime_seconds;
          
          // 3. Database Size
          let db_name = self.last_config.as_ref().map(|c| c.database.clone()).unwrap_or("postgres".to_string());
@@ -366,7 +367,7 @@ impl DbService for PostgresService {
               
          Ok(DashboardMetrics {
              version,
-             uptime,
+             uptime: uptime_val,
              active_connections: conns as i32,
              max_connections: max_conns.parse().unwrap_or(100),
              db_size: format!("{:.2} MB", size_bytes as f64 / 1024.0 / 1024.0),

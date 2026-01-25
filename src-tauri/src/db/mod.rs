@@ -14,6 +14,19 @@ use mysql::MysqlService;
 use postgres::PostgresService;
 use ssh::SshTunnelService;
 
+pub fn format_uptime(seconds: i64) -> String {
+    let days = seconds / 86400;
+    let hours = (seconds % 86400) / 3600;
+    let minutes = (seconds % 3600) / 60;
+    let secs = seconds % 60;
+
+    if days > 0 {
+        format!("{}d {:02}:{:02}:{:02}", days, hours, minutes, secs)
+    } else {
+        format!("{:02}:{:02}:{:02}", hours, minutes, secs)
+    }
+}
+
 #[async_trait]
 pub trait DbService: Send + Sync {
     async fn connect(&mut self, config: &DbConnection) -> Result<String, String>;

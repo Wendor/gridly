@@ -16,7 +16,7 @@
     <div class="sb-section right">
       <div class="sb-item meta-info" :style="{ opacity: connStore.loading ? 0.5 : 1 }">
         <span v-if="tabStore.currentTab?.type === 'query' && tabStore.currentTab.meta">
-          ⏱ {{ tabStore.currentTab.meta.duration }} ms
+          ⏱ {{ Number(tabStore.currentTab.meta.duration).toFixed(2) }} ms
         </span>
       </div>
 
@@ -35,20 +35,30 @@ import { useConnectionStore } from '../../stores/connections'
 const tabStore = useTabStore()
 const connStore = useConnectionStore()
 
-const currentQueryTab = computed(() => {
-  return tabStore.currentTab?.type === 'query' ? tabStore.currentTab : null
+const connectedTab = computed(() => {
+  const t = tabStore.currentTab
+  // Both 'query' and 'dashboard' tabs have a connectionId
+  if (t && (t.type === 'query' || t.type === 'dashboard')) {
+    return t
+  }
+  return null
 })
 
 const isTabConnected = computed(() => {
   return (
-    currentQueryTab.value?.connectionId !== null &&
-    currentQueryTab.value?.connectionId !== undefined
+    connectedTab.value?.connectionId !== null &&
+    connectedTab.value?.connectionId !== undefined
   )
 })
 
 const currentConnectionName = computed(() => {
-  if (!isTabConnected.value || !currentQueryTab.value) return ''
-  const conn = connStore.savedConnections[currentQueryTab.value.connectionId!]
+  if (!isTabConnected.value || !connectedTab.value) return ''
+  const connId = connectedTab.value.connectionId
+  // Dashboard tab might have connectionId as string directly, check type definition if needed.
+  // In types.ts: DashboardTab { connectionId: string }, QueryTab { connectionId: string | null }
+  if (!connId) return ''
+
+  const conn = connStore.savedConnections.find((c) => c.id === connId)
   return conn ? conn.name : 'Unknown'
 })
 </script>

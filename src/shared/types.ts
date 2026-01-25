@@ -171,7 +171,7 @@ export function isWrappedValue(val: unknown): val is WrappedDbValue {
 
 export interface DashboardMetrics {
   version: string
-  uptime: string
+  uptime: number
   activeConnections: number
   maxConnections: number
   dbSize: string

@@ -212,75 +212,95 @@ export const useTabStore = defineStore('tabs', () => {
   }
 
   async function runQuery(): Promise<void> {
-    if (
-      !currentTab.value ||
-      currentTab.value.type !== 'query' ||
-      currentTab.value.connectionId === null
-    )
-      return
+    const tab = currentTab.value
+    if (!tab || tab.type !== 'query' || tab.connectionId === null) return
 
-    const connId = currentTab.value.connectionId
-    const dbName = currentTab.value.database
+    const connId = tab.connectionId
+    const dbName = tab.database
 
-    try {
-      connectionStore.loading = true
-      connectionStore.error = null
-
+    // Helper to execute the core query logic
+    const execute = async (forceDbSwitch = false) => {
       await connectionStore.ensureConnection(connId)
 
       if (dbName) {
+        // If forceDbSwitch is true, we ignore the cache
         const lastSetDb = activeDatabaseCache.value.get(connId)
-        if (lastSetDb !== dbName) {
+        if (forceDbSwitch || lastSetDb !== dbName) {
           await window.dbApi.setActiveDatabase(connId, dbName)
           activeDatabaseCache.value.set(connId, dbName)
         }
       }
 
-      let finalSql = currentTab.value.sql.trim()
+      let finalSql = tab.sql.trim()
 
-      // Парсим имя таблицы для возможного COUNT(*)
+      // Parse table name for count optimization
       const tableMatch = finalSql.match(/FROM\s+([`'"]?[\w.]+[`'"]?)/i)
       const tableName = tableMatch ? tableMatch[1] : null
 
       const isSimpleSelect =
         /^SELECT\s+\*\s+FROM/i.test(finalSql) && !/WHERE|JOIN|GROUP/i.test(finalSql)
 
-      // Обработка LIMIT / OFFSET
+      // Handle LIMIT / OFFSET
       const isSelect = /^SELECT\s/i.test(finalSql)
       const hasLimit = /LIMIT\s+\d+/i.test(finalSql)
 
       if (isSelect && !hasLimit) {
         finalSql = finalSql.replace(/;$/, '')
-        finalSql += ` LIMIT ${currentTab.value.pagination.limit} OFFSET ${currentTab.value.pagination.offset}`
+        finalSql += ` LIMIT ${tab.pagination.limit} OFFSET ${tab.pagination.offset}`
       }
 
       const res = await window.dbApi.query(connId, finalSql)
+      return { res, tableName, isSimpleSelect } // Return needed data
+    }
+
+    try {
+      connectionStore.loading = true
+      connectionStore.error = null
+
+      let result
+      try {
+        result = await execute(false)
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e)
+        // Check for specific DB errors indicating wrong context
+        const isMissingRelation =
+          msg.includes('relation') && msg.includes('does not exist') // Postgres
+        const isMissingTable = msg.includes("Table") && msg.includes("doesn't exist") // MySQL
+
+        if ((isMissingRelation || isMissingTable) && dbName) {
+          console.warn('Handling missing relation error: retrying with forced DB switch')
+          // Force switch and retry
+          activeDatabaseCache.value.delete(connId)
+          result = await execute(true)
+        } else {
+          throw e
+        }
+      }
+
+      if (!result) return // Should not happen if no throw
+
+      const { res, tableName, isSimpleSelect } = result
 
       if (res.error) {
         connectionStore.error = res.error
-        // History expects number ID? Need to check history store.
-        // Assuming history store also needs update or we cast/handle string.
-        // For now, let's assume we update history store later or cast if possible (but we can't cast UUID to number).
-        // Let's check history store next.
-        historyStore.addEntry(currentTab.value.sql, 'error', 0, connId)
+        historyStore.addEntry(tab.sql, 'error', 0, connId)
       } else {
-        // Формируем колонки
-        currentTab.value.colDefs = res.columns.map((col: string) => ({
+        // Columns
+        tab.colDefs = res.columns.map((col: string) => ({
           field: col,
           headerName: col
         }))
 
-        currentTab.value.rows = res.rows as Record<string, unknown>[]
-        currentTab.value.meta = { duration: res.duration }
+        tab.rows = res.rows as Record<string, unknown>[]
+        tab.meta = { duration: res.duration }
 
-        historyStore.addEntry(currentTab.value.sql, 'success', res.duration, connId)
+        historyStore.addEntry(tab.sql, 'success', res.duration, connId)
 
-        // --- ЛОГИКА ПОДСЧЕТА TOTAL ---
-
+        // Count Total
         if (tableName && isSimpleSelect) {
           if (
-            currentTab.value.pagination.total === null ||
-            currentTab.value.pagination.offset === 0
+            tab.pagination.total === null ||
+            tab.pagination.offset === 0
           ) {
             try {
               const countSql = `SELECT COUNT(*) as total FROM ${tableName}`
@@ -288,17 +308,17 @@ export const useTabStore = defineStore('tabs', () => {
               if (countRes.rows.length > 0) {
                 const row = countRes.rows[0] as Record<string, unknown>
                 const val = Object.values(row)[0]
-                currentTab.value.pagination.total = Number(val)
+                tab.pagination.total = Number(val)
               }
             } catch (e) {
               console.error('Count failed', e)
             }
           }
         } else {
-          if (res.rows.length < currentTab.value.pagination.limit) {
-            currentTab.value.pagination.total = currentTab.value.pagination.offset + res.rows.length
+          if (res.rows.length < tab.pagination.limit) {
+            tab.pagination.total = tab.pagination.offset + res.rows.length
           } else {
-            currentTab.value.pagination.total = null
+            tab.pagination.total = null
           }
         }
       }
@@ -307,8 +327,8 @@ export const useTabStore = defineStore('tabs', () => {
     } catch (e) {
       if (e instanceof Error) {
         connectionStore.error = e.message
-        if (currentTab.value && currentTab.value.type === 'query') {
-          historyStore.addEntry(currentTab.value.sql, 'error', 0, connId)
+        if (tab.type === 'query') {
+          historyStore.addEntry(tab.sql, 'error', 0, connId)
         }
       }
     } finally {

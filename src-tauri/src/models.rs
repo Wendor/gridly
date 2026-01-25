@@ -145,7 +145,7 @@ pub struct UpdateResult {
 #[serde(rename_all = "camelCase")]
 pub struct DashboardMetrics {
     pub version: String,
-    pub uptime: String,
+    pub uptime: i64,
     pub active_connections: i32,
     pub max_connections: i32,
     pub db_size: String,

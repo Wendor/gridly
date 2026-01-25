@@ -3,6 +3,11 @@
     "cancel": "Cancel",
     "save": "Save",
     "create": "Create",
+    "time": {
+        "d": "d",
+        "h": "h",
+        "m": "m"
+    },
     "delete": "Delete",
     "edit": "Edit",
     "close": "Close",

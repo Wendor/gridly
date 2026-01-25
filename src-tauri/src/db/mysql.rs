@@ -270,9 +270,12 @@ impl DbService for MysqlService {
             .get(0);
             
          // 2. Uptime
-         let uptime: String = sqlx::query("SHOW GLOBAL STATUS LIKE 'Uptime'")
+         let uptime_str: String = sqlx::query("SHOW GLOBAL STATUS LIKE 'Uptime'")
              .fetch_one(pool).await.map_err(|e| e.to_string())?
              .get(1); // Value column
+         
+         let uptime_seconds = uptime_str.parse::<i64>().unwrap_or(0);
+         let uptime = uptime_seconds;
              
          // 3. Size
          // Filter by current DB if possible, or all? 
@@ -307,7 +310,7 @@ impl DbService for MysqlService {
          
          Ok(DashboardMetrics {
              version,
-             uptime: format!("{} seconds", uptime),
+             uptime,
              active_connections: active_conns.parse().unwrap_or(0),
              max_connections: max_conns.parse().unwrap_or(100),
              db_size: format!("{:.2} MB", db_size_bytes / 1024.0 / 1024.0),
