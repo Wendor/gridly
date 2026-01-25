@@ -58,32 +58,42 @@
                 v-for="col in normalizedColumns"
                 :key="col.prop"
                 class="table-cell"
+                v-memo="[
+                  row[col.prop],
+                  isCellSelected(startRowIndex + rowIndex, col.prop),
+                  isCellFocused(startRowIndex + rowIndex, col.prop),
+                  isCellChanged(startRowIndex + rowIndex, col.prop),
+                  isEditing(startRowIndex + rowIndex, col.prop)
+                ]"
                 :class="{
                   selected: isCellSelected(startRowIndex + rowIndex, col.prop),
                   focused: isCellFocused(startRowIndex + rowIndex, col.prop),
                   changed: isCellChanged(startRowIndex + rowIndex, col.prop)
                 }"
                 :style="{ width: col.width + 'px', minWidth: col.width + 'px' }"
-                @click="handleCellClick(startRowIndex + rowIndex, col.prop, $event)"
+                @mousedown="handleCellClick(startRowIndex + rowIndex, col.prop, $event)"
                 @dblclick="handleCellDblClick(startRowIndex + rowIndex, col.prop)"
-                @contextmenu.prevent="
+                @contextmenu="
                   onCellContextMenu($event, row, row[col.prop], startRowIndex + rowIndex, col.prop)
                 "
               >
-                <input
-                  v-if="isEditing(startRowIndex + rowIndex, col.prop)"
-                  ref="editInputRef"
-                  v-model="editValue"
-                  class="cell-input"
-                  @blur="finishEdit"
-                  @keydown.enter.stop="onInputEnter"
-                  @keydown.esc.stop="cancelEdit"
-                  @keydown.tab.prevent.stop="onInputTab"
-                />
-                <span v-else>{{ formatValue(row[col.prop]) }}</span>
+                <span :style="{ opacity: isEditing(startRowIndex + rowIndex, col.prop) ? 0 : 1 }">
+                  {{ formatTableValue(row[col.prop]) }}
+                </span>
               </div>
             </div>
           </div>
+          <input
+            v-if="editingCell"
+            ref="editInputRef"
+            v-model="editValue"
+            class="cell-input singleton-input"
+            :style="singletonInputStyle"
+            @blur="finishEdit"
+            @keydown.enter.stop="onInputEnter"
+            @keydown.esc.stop="cancelEdit"
+            @keydown.tab.prevent.stop="onInputTab"
+          />
         </div>
       </div>
     </div>
@@ -92,6 +102,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { formatTableValue } from '@/utils/tableFormatter'
 
 export interface TableColumn {
   prop: string
@@ -141,6 +152,7 @@ const emit = defineEmits<{
 
 const scrollerRef = ref<HTMLElement | null>(null)
 const tableContainerRef = ref<HTMLElement | null>(null)
+const editInputRef = ref<HTMLInputElement | null>(null)
 const headerHeight = 28
 
 const containerHeight = ref(0)
@@ -171,6 +183,33 @@ const normalizedColumns = computed(() => {
 
 const totalWidth = computed(() => {
   return normalizedColumns.value.reduce((acc, col) => acc + col.width, 0)
+})
+
+const columnOffsets = computed(() => {
+  const offsets: Record<string, number> = {}
+  let current = 0
+  for (const col of normalizedColumns.value) {
+    offsets[col.prop] = current
+    current += col.width
+  }
+  return offsets
+})
+
+const singletonInputStyle = computed(() => {
+  if (!editingCell.value) return {}
+  const { rowIndex, colKey } = editingCell.value
+  const col = normalizedColumns.value.find((c) => c.prop === colKey)
+  if (!col) return {}
+
+  const top = rowIndex * props.rowHeight
+  const left = rowNumWidth.value + (columnOffsets.value[colKey] || 0)
+
+  return {
+    top: `${top}px`,
+    left: `${left}px`,
+    width: `${col.width}px`,
+    height: `${props.rowHeight}px`
+  }
 })
 
 watch(
@@ -256,6 +295,11 @@ function selectCell(rowIndex: number, colKey: string, multi: boolean, range: boo
 }
 
 function handleCellClick(rowIndex: number, colProp: string, event: MouseEvent): void {
+  // Prevent native text selection and focus loss
+  if (!isEditing(rowIndex, colProp)) {
+    event.preventDefault()
+    tableContainerRef.value?.focus()
+  }
   selectCell(rowIndex, colProp, event.metaKey || event.ctrlKey, event.shiftKey)
 }
 
@@ -429,16 +473,8 @@ function onCellContextMenu(
   emit('cell-context-menu', { event, value, data: row })
 }
 
-function formatValue(val: unknown): string {
-  if (val === null || val === undefined) return '(NULL)'
-  if (typeof val === 'object') {
-    if (val && (val as Record<string, unknown>).__isWrapped) {
-      return (val as Record<string, unknown>).display as string
-    }
-    return JSON.stringify(val)
-  }
-  return String(val)
-}
+// function formatValue removed, replaced by import
+
 
 function isCellChanged(rowIndex: number, colKey: string): boolean {
   return props.changedCells.has(getCellKey(rowIndex, colKey))
@@ -467,16 +503,15 @@ function startEdit(
   if (clearContent) {
     editValue.value = initialKey
   } else {
-    editValue.value = formatValue(row[colKey])
+    editValue.value = formatTableValue(row[colKey])
   }
   nextTick(() => {
-    const inputEl = document.querySelector('.cell-input') as HTMLInputElement
-    if (inputEl) {
-      inputEl.focus()
+    if (editInputRef.value) {
+      editInputRef.value.focus()
       if (clearContent) {
-        inputEl.setSelectionRange(initialKey.length, initialKey.length)
+        editInputRef.value.setSelectionRange(initialKey.length, initialKey.length)
       } else {
-        inputEl.select()
+        editInputRef.value.select()
       }
     }
   })
@@ -496,17 +531,25 @@ function finishEdit(): void {
   if (!editingCell.value) return
 
   const { rowIndex, colKey } = editingCell.value
-  emit('cell-change', { rowIndex, column: colKey, value: editValue.value })
+  const valueToEmit = editValue.value
 
+  // 1. Update UI state immediately (Hide input)
   editingCell.value = null
   editValue.value = ''
+
+  // 2. Restore focus immediately to prevent focus loss (with preventScroll to stop Jumping)
+  tableContainerRef.value?.focus({ preventScroll: true })
+
+  // 3. Emit change async to allow UI to paint "hidden input" state first
+  // This prevents the "Exit Lag" caused by heavy synchronous store updates
+  setTimeout(() => {
+    emit('cell-change', { rowIndex, column: colKey, value: valueToEmit })
+  }, 0)
 }
 
 function onInputEnter(): void {
   finishEdit()
-  nextTick(() => {
-    tableContainerRef.value?.focus()
-  })
+  // Focus already restored in finishEdit
 }
 
 function onInputTab(e: KeyboardEvent): void {
@@ -544,16 +587,15 @@ function onInputTab(e: KeyboardEvent): void {
   }
 
   nextTick(() => {
-    tableContainerRef.value?.focus()
+    // Focus already restored in finishEdit, but keep this for safety if logic diverges
+    tableContainerRef.value?.focus({ preventScroll: true })
   })
 }
 
 function cancelEdit(): void {
   editingCell.value = null
   editValue.value = ''
-  nextTick(() => {
-    tableContainerRef.value?.focus()
-  })
+  tableContainerRef.value?.focus({ preventScroll: true })
 }
 
 let resizeObserver: ResizeObserver | null = null
@@ -616,7 +658,7 @@ function onCopy(): void {
     // If we want to preserve empty cells between selected ones, logic is more complex.
     // Standard spreadsheet behavior for non-contiguous selection can vary.
     // Here we just join valid selected values in order.
-    const line = rowCells.map((rc) => formatValue(rc.val)).join('\t')
+    const line = rowCells.map((rc) => formatTableValue(rc.val)).join('\t')
     resultLines.push(line)
   }
 
@@ -765,9 +807,6 @@ async function onPaste(): Promise<void> {
   align-items: center;
   justify-content: flex-end;
   padding-right: 8px;
-  background: var(--bg-sidebar);
-  color: var(--text-secondary);
-  font-size: 11px;
   border-right: 1px solid var(--border-color);
   box-sizing: border-box;
   flex-shrink: 0;
@@ -785,9 +824,9 @@ async function onPaste(): Promise<void> {
   text-overflow: ellipsis;
   box-sizing: border-box;
   flex-shrink: 0;
+  user-select: none;
+  cursor: default;
 }
-
-/* Removed duplicate .cell-input block */
 
 .table-cell.selected {
   background: var(--list-active-bg);
@@ -800,8 +839,24 @@ async function onPaste(): Promise<void> {
 }
 
 .table-cell.changed {
-  background: rgba(255, 165, 0, 0.15);
+  color: var(--warning);
 }
+
+.cell-input.singleton-input {
+  position: absolute;
+  z-index: 100;
+  border: 2px solid var(--accent-primary);
+  margin: 0;
+  padding: 0 8px;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: inherit;
+  background: var(--bg-app);
+  color: var(--text-primary);
+  outline: none;
+}
+
+
 
 .cell-input {
   position: absolute;
