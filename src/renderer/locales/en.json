@@ -4,9 +4,9 @@
     "save": "Save",
     "create": "Create",
     "time": {
-        "d": "d",
-        "h": "h",
-        "m": "m"
+      "d": "d",
+      "h": "h",
+      "m": "m"
     },
     "delete": "Delete",
     "edit": "Edit",
@@ -69,7 +69,7 @@
     "sshPassword": "SSH Password/Passphrase",
     "sshKeyPath": "SSH Key Path",
     "testingConnection": "Testing connection...",
-    "passwordHint": "ℹ️ Leave password fields empty to keep existing passwords"
+    "passwordHint": "Leave password fields empty to keep existing passwords"
   },
   "query": {
     "format": "Format",
