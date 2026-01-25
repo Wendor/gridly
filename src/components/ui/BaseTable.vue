@@ -655,7 +655,9 @@ async function onPaste(): Promise<void> {
   flex-direction: column;
   background: var(--bg-app);
   border: none;
-  font-family: var(--font-mono, monospace);
+  font-family:
+    'Fira Code', 'Cascadia Code', 'Source Code Pro', ui-monospace, SFMono-Regular,
+    Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
   font-size: 13px;
   outline: none;
   overflow: hidden;
@@ -676,7 +678,7 @@ async function onPaste(): Promise<void> {
   display: flex;
   position: sticky;
   top: 0;
-  z-index: 0;
+  z-index: 1;
   background: var(--bg-panel-header);
   border-bottom: 1px solid var(--border-color);
   box-sizing: border-box;
