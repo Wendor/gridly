@@ -74,12 +74,12 @@ const handleGlobalKeydown = (e: KeyboardEvent): void => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('keydown', handleGlobalKeydown, true)
 
-  settingsStore.initSettings()
-  connStore.loadFromStorage()
-  tabStore.loadFromStorage()
+  await settingsStore.initSettings()
+  await connStore.loadFromStorage()
+  await tabStore.loadFromStorage()
 
   const state = await window.dbApi.getState()
   sidebarWidth.value = state.ui.sidebarWidth
@@ -133,8 +133,14 @@ function startSidebarResize(): void {
 
 function stopSidebarResize(): void {
   if (isResizingSidebar.value) {
-    window.dbApi.updateState({
-      ui: { sidebarWidth: sidebarWidth.value }
+    const state = window.dbApi.getState()
+    state.then((s) => {
+      window.dbApi.updateState({
+        ui: {
+          ...s.ui,
+          sidebarWidth: sidebarWidth.value
+        }
+      })
     })
   }
   isResizingSidebar.value = false

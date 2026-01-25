@@ -299,9 +299,13 @@ function onSelect(id: string): void {
 }
 
 async function saveExpandedState(): Promise<void> {
-  const expandedIds = Array.from(expandedIds.value)
+  const ids = Array.from(expandedIds.value)
+  const state = await window.dbApi.getState()
   await window.dbApi.updateState({
-    ui: { expandedConnections: expandedIds }
+    ui: {
+      ...state.ui,
+      expandedConnections: ids
+    }
   })
 }
 

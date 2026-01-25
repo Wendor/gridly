@@ -467,12 +467,12 @@ const connectionOptions = computed(() => {
   return [{ label: i18n.global.t('connections.select'), value: '' }, ...opts]
 })
 
-async function onTabConnectionChange(val: string): Promise<void> {
+async function onTabConnectionChange(val: string | number): Promise<void> {
   if (currentQueryTab.value) {
     if (val === '') {
       currentQueryTab.value.connectionId = null
     } else {
-      currentQueryTab.value.connectionId = val
+      currentQueryTab.value.connectionId = String(val)
     }
 
     if (currentQueryTab.value.connectionId !== null) {
@@ -506,8 +506,13 @@ function startResize(e: MouseEvent): void {
   e.preventDefault()
 }
 function stopResize(): void {
-  window.dbApi.updateState({
-    ui: { editorHeight: editorHeight.value }
+  window.dbApi.getState().then((state) => {
+    window.dbApi.updateState({
+      ui: {
+        ...state.ui,
+        editorHeight: editorHeight.value
+      }
+    })
   })
   isResizing.value = false
   document.removeEventListener('mousemove', doResize)

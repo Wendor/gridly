@@ -599,6 +599,7 @@ export const useTabStore = defineStore('tabs', () => {
     updateCellValue,
     revertChanges,
     commitChanges,
-    resetConnectionState
+    resetConnectionState,
+    loadFromStorage
   }
 })
