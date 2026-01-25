@@ -314,6 +314,10 @@ async function restoreExpandedState(): Promise<void> {
     const state = await window.dbApi.getState()
     if (state.ui.expandedConnections && state.ui.expandedConnections.length > 0) {
       expandedIds.value = new Set(state.ui.expandedConnections)
+      // Trigger load for restored IDs
+      state.ui.expandedConnections.forEach((id) => {
+        connStore.loadDatabases(id)
+      })
     }
   } catch (e) {
     console.error('Failed to restore expanded state', e)
