@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import mysql from 'mysql2/promise'
 import {
   DbSchema,
@@ -34,30 +33,26 @@ export class MysqlService implements IDbService {
     try {
       if (!this.connection) throw new Error('Нет соединения с базой данных')
       const [results, fields] = await this.connection.query(sql)
-      let rows: any[] = []
+      let rows: Record<string, unknown>[] = []
       let columns: string[] = []
 
       if (Array.isArray(results) && results.length > 0 && Array.isArray(results[0])) {
         for (let i = results.length - 1; i >= 0; i--) {
           if (Array.isArray(results[i])) {
-            rows = results[i] as unknown[]
+            rows = results[i] as Record<string, unknown>[]
             if (Array.isArray(fields)) {
               const currentFields = (fields as unknown[])[i]
               if (Array.isArray(currentFields)) {
-                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                // @ts-ignore
-                columns = currentFields.map((f) => f.name)
+                columns = (currentFields as { name: string }[]).map((f) => f.name)
               }
             }
             break
           }
         }
       } else if (Array.isArray(results)) {
-        rows = results
+        rows = results as Record<string, unknown>[]
         if (Array.isArray(fields)) {
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore
-          columns = fields.map((f) => f.name)
+          columns = (fields as { name: string }[]).map((f) => f.name)
         }
       }
 
@@ -218,9 +213,7 @@ export class MysqlService implements IDbService {
         const sql = `UPDATE \`${tableName}\` SET ${setClauses.join(', ')} WHERE ${whereClauses.join(' AND ')}`
 
         const [result] = await this.connection.query(sql, values)
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
-        totalAffected += result.affectedRows || 0
+        totalAffected += (result as { affectedRows?: number }).affectedRows || 0
       }
 
       return { success: true, affectedRows: totalAffected }
@@ -235,19 +228,21 @@ export class MysqlService implements IDbService {
 
     // 1. Version
     const [verRows] = await this.connection.query("SHOW VARIABLES LIKE 'version'")
-    const version = (verRows as any[])[0].Value
+    const version = (verRows as Record<string, unknown>[])[0].Value as string
 
     // 2. Uptime
     const [upRows] = await this.connection.query("SHOW GLOBAL STATUS LIKE 'Uptime'")
-    const uptimeSec = parseInt((upRows as any[])[0].Value)
+    const uptimeSec = parseInt((upRows as Record<string, unknown>[])[0].Value as string)
     const uptime = this.formatDuration(uptimeSec * 1000)
 
     // 3. Active/Max Connections
     const [connRows] = await this.connection.query("SHOW STATUS LIKE 'Threads_connected'")
-    const activeConnections = parseInt((connRows as any[])[0].Value) || 0
+    const activeConnections =
+      parseInt((connRows as Record<string, unknown>[])[0].Value as string) || 0
 
     const [maxConnRows] = await this.connection.query("SHOW VARIABLES LIKE 'max_connections'")
-    const maxConnections = parseInt((maxConnRows as any[])[0].Value) || 151 // MySQL default
+    const maxConnections =
+      parseInt((maxConnRows as Record<string, unknown>[])[0].Value as string) || 151
 
     // 4. DB Size
     // Note: This is an approximation for all databases. For specific DB, filter by table_schema
@@ -256,7 +251,9 @@ export class MysqlService implements IDbService {
       FROM information_schema.tables
       WHERE table_schema = DATABASE()
     `)
-    const sizeMb = parseFloat((sizeRows as any[])[0].size_mb || 0).toFixed(1)
+    const sizeMb = parseFloat(
+      ((sizeRows as Record<string, unknown>[])[0].size_mb as string) || '0'
+    ).toFixed(1)
     const dbSize = `${sizeMb} MB`
 
     // 5. Indexes Size
@@ -265,14 +262,16 @@ export class MysqlService implements IDbService {
       FROM information_schema.tables
       WHERE table_schema = DATABASE()
     `)
-    const idxMb = parseFloat((idxRows as any[])[0].size_mb || 0).toFixed(1)
+    const idxMb = parseFloat(
+      ((idxRows as Record<string, unknown>[])[0].size_mb as string) || '0'
+    ).toFixed(1)
     const indexesSize = `${idxMb} MB`
 
     // 6. Table Count
     const [tblRows] = await this.connection.query(
       'SELECT count(*) as cnt FROM information_schema.tables WHERE table_schema = DATABASE()'
     )
-    const tableCount = parseInt((tblRows as any[])[0].cnt) || 0
+    const tableCount = parseInt((tblRows as Record<string, unknown>[])[0].cnt as string) || 0
 
     // 7. Cache Hit Ratio (InnoDB Buffer Pool)
     const [readRows] = await this.connection.query(
@@ -280,8 +279,8 @@ export class MysqlService implements IDbService {
     )
     // Map status rows to object
     const status: Record<string, number> = {}
-    ;(readRows as any[]).forEach((r) => {
-      status[r.Variable_name] = parseInt(r.Value)
+    ;(readRows as Record<string, unknown>[]).forEach((r) => {
+      status[r.Variable_name as string] = parseInt(r.Value as string)
     })
 
     const reads = status['Innodb_buffer_pool_reads'] || 0
@@ -291,16 +290,21 @@ export class MysqlService implements IDbService {
 
     // 8. Top Queries
     const [procRows] = await this.connection.query('SHOW PROCESSLIST')
-    const topQueries = (procRows as any[])
-      .filter((r) => r.Command === 'Query' && r.Info && r.Id !== (this.connection as any).threadId)
-      .sort((a, b) => b.Time - a.Time)
+    const topQueries = (procRows as Record<string, unknown>[])
+      .filter(
+        (r) =>
+          r.Command === 'Query' &&
+          r.Info &&
+          r.Id !== (this.connection as mysql.Connection & { threadId: number }).threadId
+      )
+      .sort((a, b) => (b.Time as number) - (a.Time as number))
       .slice(0, 5)
       .map((r) => ({
-        pid: r.Id,
-        user: r.User,
-        state: r.Command,
+        pid: r.Id as number,
+        user: r.User as string,
+        state: r.Command as string,
         duration: `${r.Time}s`,
-        query: r.Info
+        query: r.Info as string
       }))
 
     return {

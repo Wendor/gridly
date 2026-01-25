@@ -50,10 +50,8 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function setLanguage(lang: string): void {
     language.value = lang
-    // Update global i18n locale
     import('../i18n').then((module) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      module.default.global.locale.value = lang as any
+      module.default.global.locale.value = lang as 'en' | 'ru'
     })
     saveSettings()
   }

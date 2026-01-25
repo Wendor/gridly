@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Client } from 'pg'
 import {
   DbSchema,
@@ -31,7 +30,7 @@ export class PostgresService implements IDbService {
     try {
       if (!this.client) throw new Error('Not connected')
       const res = await this.client.query(sql)
-      let rows: any[] = []
+      let rows: Record<string, unknown>[] = []
       let columns: string[] = []
       if (Array.isArray(res)) {
         for (let i = res.length - 1; i >= 0; i--) {
@@ -47,8 +46,9 @@ export class PostgresService implements IDbService {
         columns = res.fields.map((f) => f.name)
       }
       return { rows, columns, duration: Math.round(performance.now() - start) }
-    } catch (err: any) {
-      return { rows: [], columns: [], duration: 0, error: err.message }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return { rows: [], columns: [], duration: 0, error: msg }
     }
   }
 
@@ -200,7 +200,7 @@ export class PostgresService implements IDbService {
 
         const setClauses: string[] = []
         const whereClauses: string[] = []
-        const values: any[] = []
+        const values: unknown[] = []
         let paramIndex = 1
 
         for (const [col, val] of Object.entries(changes)) {

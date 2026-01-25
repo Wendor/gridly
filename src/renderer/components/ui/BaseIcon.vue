@@ -1,5 +1,4 @@
 <template>
-  <!-- eslint-disable-next-line vue/no-v-html -->
   <span class="base-icon" :class="[sizeClass, customClass]" v-html="svgContent"></span>
 </template>
 

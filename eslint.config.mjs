@@ -26,7 +26,24 @@ export default defineConfig(
     rules: {
       'vue/require-default-prop': 'off',
       'vue/multi-word-component-names': 'off',
+      'vue/no-v-html': 'off',
       '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/ban-ts-comment': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_'
+        }
+      ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'Program > :matches(ExpressionStatement, BlockStatement) > ExpressionStatement > Literal[value=/eslint-disable/]',
+          message: 'Do not use eslint-disable comments. Fix the issue instead.'
+        }
+      ],
       'vue/block-lang': [
         'error',
         {

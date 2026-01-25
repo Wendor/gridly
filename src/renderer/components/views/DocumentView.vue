@@ -1,7 +1,6 @@
 <template>
   <div class="document-view">
-    <!-- eslint-disable-next-line vue/no-v-html -->
-    <div class="markdown-body" v-html="renderedContent"></div>
+    <div class="markdown-content" v-html="renderedContent"></div>
   </div>
 </template>
 

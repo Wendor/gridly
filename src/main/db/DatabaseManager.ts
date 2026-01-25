@@ -131,8 +131,7 @@ export class DatabaseManager {
       } else if (typeof row === 'object' && row !== null) {
         const newRow: Record<string, unknown> = {}
         for (const k in row) {
-          // @ts-ignore - we know row is object
-          newRow[k] = processValue(row[k])
+          newRow[k] = processValue((row as Record<string, unknown>)[k])
         }
         return newRow
       }

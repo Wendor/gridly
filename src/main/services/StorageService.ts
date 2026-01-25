@@ -43,8 +43,7 @@ export class StorageService {
   }
 
   private stripSensitiveData(conn: DbConnection): DbConnectionMeta {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, sshPassword, ...meta } = conn
+    const { password: _password, sshPassword: _sshPassword, ...meta } = conn
     return meta
   }
 

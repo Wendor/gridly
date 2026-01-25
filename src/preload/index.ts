@@ -66,8 +66,7 @@ if (process.contextIsolated) {
     console.error(error)
   }
 } else {
-  // @ts-ignore (define in d.ts)
-  window.electron = electronAPI
-  // @ts-ignore (define in d.ts)
-  window.dbApi = dbApi
+  ;(window as unknown as { electron: typeof electronAPI; dbApi: typeof dbApi }).electron =
+    electronAPI
+  ;(window as unknown as { electron: typeof electronAPI; dbApi: typeof dbApi }).dbApi = dbApi
 }
