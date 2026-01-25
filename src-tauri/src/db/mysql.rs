@@ -120,13 +120,17 @@ impl DbService for MysqlService {
         }
     }
 
-    async fn get_tables(&self, db_name: Option<String>) -> Result<Vec<String>, String> {
+    async fn get_tables(&mut self, db_name: Option<String>) -> Result<Vec<String>, String> {
+        if let Some(db) = &db_name {
+            let current_db = self.last_config.as_ref().map(|c| c.database.clone()).unwrap_or_default();
+            if *db != current_db {
+               self.set_active_database(db.clone()).await?;
+            }
+        }
+
         let pool = self.pool.as_ref().ok_or("Not connected")?;
-        let sql = match db_name {
-            Some(name) => format!("SHOW TABLES FROM {}", name),
-            None => "SHOW TABLES".to_string(),
-        };
-        let rows = sqlx::query(&sql).fetch_all(pool).await.map_err(|e| e.to_string())?;
+        let sql = "SHOW TABLES";
+        let rows = sqlx::query(sql).fetch_all(pool).await.map_err(|e| e.to_string())?;
         
         let tables: Vec<String> = rows.iter().map(|r| r.get::<String, _>(0)).collect();
         Ok(tables)
@@ -140,8 +144,41 @@ impl DbService for MysqlService {
          Ok(dbs)
     }
 
-    async fn get_schema(&self, _db_name: Option<String>) -> Result<DbSchema, String> {
-        Ok(HashMap::new())
+    async fn get_schema(&mut self, db_name: Option<String>) -> Result<DbSchema, String> {
+        if let Some(db) = &db_name {
+             let current_db = self.last_config.as_ref().map(|c| c.database.clone()).unwrap_or_default();
+             if *db != current_db {
+                self.set_active_database(db.clone()).await?;
+             }
+        }
+        
+        let pool = self.pool.as_ref().ok_or("Not connected")?;
+        
+        let db_name = self.last_config.as_ref().map(|c| c.database.clone()).unwrap_or_default();
+        
+        let sql = "
+            SELECT table_name, column_name 
+            FROM information_schema.columns 
+            WHERE table_schema = ? 
+            ORDER BY table_name, ordinal_position
+        ";
+        
+        let rows = sqlx::query(sql)
+            .bind(db_name)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| e.to_string())?;
+            
+        let mut schema: DbSchema = HashMap::new();
+        
+        for row in rows {
+            let table: String = row.get("table_name");
+            let column: String = row.get("column_name");
+            
+            schema.entry(table).or_insert_with(Vec::new).push(column);
+        }
+        
+        Ok(schema)
     }
 
     async fn get_table_data(&self, req: DataRequest) -> Result<DbResult, String> {
@@ -165,7 +202,7 @@ impl DbService for MysqlService {
         }
     }
 
-    async fn get_primary_keys(&self, table_name: String) -> Result<Vec<String>, String> {
+    async fn get_primary_keys(&mut self, table_name: String) -> Result<Vec<String>, String> {
         let pool = self.pool.as_ref().ok_or("Not connected")?;
         // Use SHOW KEYS which is much faster than information_schema joins
         let sql = format!("SHOW KEYS FROM `{}` WHERE Key_name = 'PRIMARY'", table_name);

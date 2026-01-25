@@ -160,9 +160,18 @@ impl DbService for PostgresService {
         }
     }
 
-    async fn get_tables(&self, _db_name: Option<String>) -> Result<Vec<String>, String> {
+    async fn get_tables(&mut self, db_name: Option<String>) -> Result<Vec<String>, String> {
+        if let Some(db) = &db_name {
+            let current_db = self.last_config.as_ref().map(|c| c.database.clone()).unwrap_or_default();
+            if *db != current_db {
+               self.set_active_database(db.clone()).await?;
+            }
+        }
+        
         let pool = self.pool.as_ref().ok_or("Not connected")?;
         
+        // Always query public schema for now, or maybe parameterize later?
+        // But since we switched DB, we get tables of that DB.
         let schema = "public";
         
         let sql = "SELECT table_name FROM information_schema.tables WHERE table_schema = $1";
@@ -184,8 +193,38 @@ impl DbService for PostgresService {
          Ok(dbs)
     }
 
-    async fn get_schema(&self, _db_name: Option<String>) -> Result<DbSchema, String> {
-        Ok(HashMap::new())
+    async fn get_schema(&mut self, db_name: Option<String>) -> Result<DbSchema, String> {
+        if let Some(db) = &db_name {
+            let current_db = self.last_config.as_ref().map(|c| c.database.clone()).unwrap_or_default();
+            if *db != current_db {
+               self.set_active_database(db.clone()).await?;
+            }
+        }
+
+        let pool = self.pool.as_ref().ok_or("Not connected")?;
+        
+        let sql = "
+            SELECT table_name, column_name 
+            FROM information_schema.columns 
+            WHERE table_schema = 'public' 
+            ORDER BY table_name, ordinal_position
+        ";
+        
+        let rows = sqlx::query(sql)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| e.to_string())?;
+            
+        let mut schema: DbSchema = HashMap::new();
+        
+        for row in rows {
+            let table: String = row.get("table_name");
+            let column: String = row.get("column_name");
+            
+            schema.entry(table).or_insert_with(Vec::new).push(column);
+        }
+        
+        Ok(schema)
     }
 
     async fn get_table_data(&self, req: DataRequest) -> Result<DbResult, String> {
@@ -207,7 +246,7 @@ impl DbService for PostgresService {
         }
     }
 
-    async fn get_primary_keys(&self, table_name: String) -> Result<Vec<String>, String> {
+    async fn get_primary_keys(&mut self, table_name: String) -> Result<Vec<String>, String> {
         let pool = self.pool.as_ref().ok_or("Not connected")?;
         
         let (schema, table) = if table_name.contains('.') {

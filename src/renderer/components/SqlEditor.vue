@@ -91,10 +91,23 @@ const simpleSchema = computed(() => {
   const tab = tabStore.currentTab
   if (tab?.type === 'query' && tab.connectionId !== null) {
     const connId = tab.connectionId
-    return JSON.parse(JSON.stringify(connStore.schemaCache[connId] || {})) as DbSchema
+    const dbName = tab.dbName
+    const key = dbName ? `${connId}-${dbName}` : connId
+    return JSON.parse(JSON.stringify(connStore.schemaCache[key] || {})) as DbSchema
   }
   return {}
 })
+
+// Ensure schema is loaded when tab changes or editor mounts
+watch(
+  () => [tabStore.currentTab?.connectionId, tabStore.currentTab?.dbName],
+  async ([connId, dbName]) => {
+    if (connId && tabStore.currentTab?.type === 'query') {
+      await connStore.loadSchema(connId as string, dbName as string | undefined)
+    }
+  },
+  { immediate: true }
+)
 
 // FIX 2: Расширяем возвращаемый тип (добавляем Promise)
 function customCompletionSource(

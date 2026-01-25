@@ -19,12 +19,12 @@ pub trait DbService: Send + Sync {
     async fn connect(&mut self, config: &DbConnection) -> Result<String, String>;
     async fn disconnect(&mut self) -> Result<(), String>;
     async fn execute(&self, sql: &str) -> Result<DbResult, String>;
-    async fn get_tables(&self, db_name: Option<String>) -> Result<Vec<String>, String>;
+    async fn get_tables(&mut self, db_name: Option<String>) -> Result<Vec<String>, String>;
     async fn get_databases(&self) -> Result<Vec<String>, String>;
-    async fn get_schema(&self, db_name: Option<String>) -> Result<DbSchema, String>;
+    async fn get_schema(&mut self, db_name: Option<String>) -> Result<DbSchema, String>;
     async fn get_table_data(&self, req: DataRequest) -> Result<DbResult, String>;
     async fn set_active_database(&mut self, db_name: String) -> Result<(), String>;
-    async fn get_primary_keys(&self, table_name: String) -> Result<Vec<String>, String>;
+    async fn get_primary_keys(&mut self, table_name: String) -> Result<Vec<String>, String>;
     async fn update_rows(&self, updates: Vec<RowUpdate>) -> Result<UpdateResult, String>;
     async fn get_dashboard_metrics(&self) -> Result<DashboardMetrics, String>;
 }
@@ -103,8 +103,8 @@ impl DatabaseManager {
     }
 
     pub async fn get_tables(&self, id: String, db_name: Option<String>) -> Result<Vec<String>, String> {
-        let services = self.services.lock().await;
-        if let Some(service) = services.get(&id) {
+        let mut services = self.services.lock().await;
+        if let Some(service) = services.get_mut(&id) {
             service.get_tables(db_name).await
         } else {
             Err(format!("Connection {} not found", id))
@@ -121,8 +121,8 @@ impl DatabaseManager {
     }
 
     pub async fn get_schema(&self, id: String, db_name: Option<String>) -> Result<DbSchema, String> {
-        let services = self.services.lock().await;
-        if let Some(service) = services.get(&id) {
+        let mut services = self.services.lock().await;
+        if let Some(service) = services.get_mut(&id) {
             service.get_schema(db_name).await
         } else {
             Err(format!("Connection {} not found", id))
@@ -148,8 +148,8 @@ impl DatabaseManager {
     }
 
     pub async fn get_primary_keys(&self, id: String, table_name: String) -> Result<Vec<String>, String> {
-        let services = self.services.lock().await;
-        if let Some(service) = services.get(&id) {
+        let mut services = self.services.lock().await;
+        if let Some(service) = services.get_mut(&id) {
             service.get_primary_keys(table_name).await
         } else {
             Err(format!("Connection {} not found", id))

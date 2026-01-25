@@ -106,7 +106,7 @@ export const useConnectionStore = defineStore('connections', () => {
     try {
       await ensureConnection(id)
       const tables = await window.dbApi.getTables(id, dbName)
-      tablesCache[cacheKey] = tables
+      tablesCache[cacheKey] = tables.sort()
     } catch (e) {
       console.error(e)
       if (e instanceof Error) {
@@ -116,16 +116,17 @@ export const useConnectionStore = defineStore('connections', () => {
   }
 
   async function loadSchema(id: string, dbName?: string, force = false): Promise<void> {
+    const key = dbName ? `${id}-${dbName}` : id
     // Если схема уже в кеше и не force, выходим
-    if (!force && !dbName && schemaCache[id] && Object.keys(schemaCache[id]).length > 0) return
+    if (!force && schemaCache[key] && Object.keys(schemaCache[key]).length > 0) return
 
     try {
       await ensureConnection(id)
       const schema = await window.dbApi.getSchema(id, dbName)
-      schemaCache[id] = schema
+      schemaCache[key] = schema
 
       console.log(
-        `Schema loaded for connection ${id} (db: ${dbName}):`,
+        `Schema loaded for connection ${id} (db: ${dbName || 'default'}):`,
         Object.keys(schema).length,
         'tables'
       )
