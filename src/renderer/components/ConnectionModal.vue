@@ -22,7 +22,7 @@
         <BaseInput
           v-model="form.port"
           :label="$t('connections.port')"
-          placeholder="3306"
+          placeholder="5432"
           class="port-input"
         />
       </div>
