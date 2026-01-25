@@ -6,6 +6,9 @@ const dbApi = {
   connect: (id: number, config: DbConnection): Promise<string> => {
     return ipcRenderer.invoke('db:connect', { id, config })
   },
+  disconnect: (id: number): Promise<void> => {
+    return ipcRenderer.invoke('db:disconnect', id)
+  },
   query: (id: number, sql: string) => {
     return ipcRenderer.invoke('db:query', { id, sql })
   },
@@ -15,8 +18,8 @@ const dbApi = {
   getTableData: (connectionId: number, req: IDataRequest) => {
     return ipcRenderer.invoke('db:get-table-data', { connectionId, req })
   },
-  getSchema: (id: number) => {
-    return ipcRenderer.invoke('db:get-schema', id)
+  getSchema: (id: number, dbName?: string) => {
+    return ipcRenderer.invoke('db:get-schema', { id, dbName })
   },
   testConnection: (config: DbConnection) => {
     return ipcRenderer.invoke('db:test-connection', config)

@@ -234,14 +234,16 @@ function handleDelete(): void {
 
 async function handleDisconnect(): Promise<void> {
   if (ctxMenu.index !== -1) {
-    connStore.activeConnectionIds.delete(ctxMenu.index)
+    await connStore.disconnect(ctxMenu.index)
   }
   closeCtxMenu()
 }
 
 async function handleConnect(): Promise<void> {
   if (ctxMenu.index !== -1) {
-    // Используем loadDatabases для подключения и загрузки списка баз
+    // Явно устанавливаем соединение, даже если есть кэш
+    await connStore.ensureConnection(ctxMenu.index)
+    // Используем loadDatabases для загрузки списка баз
     connStore.loadDatabases(ctxMenu.index)
     // Также разворачиваем, если свернуто
     if (!expandedIndices.value.has(ctxMenu.index)) {

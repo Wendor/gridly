@@ -13,7 +13,9 @@ export interface IDbService {
   disconnect(): Promise<void>
   getTables(dbName?: string): Promise<string[]>
   getDatabases(): Promise<string[]>
-  getSchema(): Promise<DbSchema>
+  getDatabases(): Promise<string[]>
+  getSchema(dbName?: string): Promise<DbSchema>
+  getTableData(req: IDataRequest): Promise<IDbResult>
   getTableData(req: IDataRequest): Promise<IDbResult>
   setActiveDatabase(dbName: string): Promise<void>
   getPrimaryKeys(tableName: string): Promise<string[]>

@@ -146,6 +146,10 @@ export const useTabStore = defineStore('tabs', () => {
     activeTabId.value = id
   }
 
+  function resetConnectionState(connectionId: number): void {
+    activeDatabaseCache.value.delete(connectionId)
+  }
+
   function openSettingsTab(): void {
     const existing = tabs.value.find((t) => t.type === 'settings')
     if (existing) {
@@ -418,6 +422,9 @@ export const useTabStore = defineStore('tabs', () => {
           await connectionStore.ensureConnection(newTab.connectionId)
           await window.dbApi.setActiveDatabase(newTab.connectionId, newTab.database)
           activeDatabaseCache.value.set(newTab.connectionId, newTab.database)
+          // Force reload schema for the new database
+          const dbName = newTab.database || undefined
+          await connectionStore.loadSchema(newTab.connectionId, dbName, true)
         } catch (e) {
           console.error('Failed to set active database on tab switch:', e)
         }
@@ -579,6 +586,7 @@ export const useTabStore = defineStore('tabs', () => {
     loadPrimaryKeys,
     updateCellValue,
     revertChanges,
-    commitChanges
+    commitChanges,
+    resetConnectionState
   }
 })

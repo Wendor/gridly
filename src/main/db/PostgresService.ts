@@ -88,15 +88,28 @@ export class PostgresService implements IDbService {
     }
   }
 
-  async getSchema(): Promise<DbSchema> {
+  async getSchema(dbName?: string): Promise<DbSchema> {
     if (!this.client) return {}
+    
+    // Если dbName не передан, пытаемся использовать current_schema(), но лучше явно
+    // Но для обратной совместимости: если dbName есть - используем его.
+    // Если нет - используем current_schema() как раньше (или 'public' если так было)
+    
+    let whereClause = "table_schema = current_schema()"
+    const params: any[] = []
+    
+    if (dbName) {
+        whereClause = "table_schema = $1"
+        params.push(dbName)
+    }
+
     const sql = `
       SELECT table_name, column_name
       FROM information_schema.columns
-      WHERE table_schema = 'public'
+      WHERE ${whereClause}
       ORDER BY table_name, ordinal_position;
     `
-    const res = await this.client.query(sql)
+    const res = await this.client.query(sql, params)
     const schema: DbSchema = {}
     for (const row of res.rows) {
       const tableName = row.table_name

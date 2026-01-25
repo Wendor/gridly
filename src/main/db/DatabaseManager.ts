@@ -143,8 +143,8 @@ export class DatabaseManager {
     return { ...result, rows: newRows }
   }
 
-  async getSchema(id: number): Promise<DbSchema> {
-    return await this.getService(id).getSchema()
+  async getSchema(id: number, dbName?: string): Promise<DbSchema> {
+    return await this.getService(id).getSchema(dbName)
   }
 
   // Тест соединения остается без изменений, так как он создает временные сервисы

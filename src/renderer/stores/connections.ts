@@ -120,19 +120,37 @@ export const useConnectionStore = defineStore('connections', () => {
     }
   }
 
-  async function loadSchema(index: number): Promise<void> {
-    // Если схема уже в кеше, выходим
-    if (schemaCache[index] && Object.keys(schemaCache[index]).length > 0) return
+  async function loadSchema(index: number, dbName?: string, force = false): Promise<void> {
+    // Если схема уже в кеше и не force, выходим
+    // Note: If dbName changes, we probably should force reload or have separate cache key?
+    // Current cache is just `schemaCache[index]`. It implies only ONE schema per connection.
+    // So if dbName is provided, we should probably force update active schema.
+    if (!force && !dbName && schemaCache[index] && Object.keys(schemaCache[index]).length > 0) return
 
     try {
       await ensureConnection(index)
-      // ИЗМЕНЕНИЕ: Передаем index
-      const schema = await window.dbApi.getSchema(index)
+      // ИЗМЕНЕНИЕ: Передаем index и dbName
+      const schema = await window.dbApi.getSchema(index, dbName)
       schemaCache[index] = schema
 
-      console.log(`Schema loaded for connection ${index}:`, Object.keys(schema).length, 'tables')
+      console.log(`Schema loaded for connection ${index} (db: ${dbName}):`, Object.keys(schema).length, 'tables')
     } catch (e) {
       console.error('Failed to load schema', e)
+    }
+  }
+
+
+  async function disconnect(index: number): Promise<void> {
+    try {
+      await window.dbApi.disconnect(index)
+    } catch (e) {
+      console.error('Disconnect failed', e)
+    } finally {
+      activeConnectionIds.value.delete(index)
+      
+      // Reset tab store state for this connection (active database)
+      const tabStore = (await import('./tabs')).useTabStore()
+      tabStore.resetConnectionState(index)
     }
   }
 
@@ -202,6 +220,7 @@ export const useConnectionStore = defineStore('connections', () => {
     updateConnection,
     databasesCache,
     databasesError,
-    loadDatabases
+    loadDatabases,
+    disconnect
   }
 })

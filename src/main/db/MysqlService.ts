@@ -96,12 +96,13 @@ export class MysqlService implements IDbService {
     }
   }
 
-  async getSchema(): Promise<DbSchema> {
+  async getSchema(dbName?: string): Promise<DbSchema> {
     if (!this.connection) return {}
+    const queryDb = dbName ? `'${dbName}'` : 'DATABASE()'
     const sql = `
       SELECT TABLE_NAME, COLUMN_NAME
       FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE()
+      WHERE TABLE_SCHEMA = ${queryDb}
       ORDER BY TABLE_NAME, ORDINAL_POSITION;
     `
     const [rows] = (await this.connection.execute(sql)) as any[]
