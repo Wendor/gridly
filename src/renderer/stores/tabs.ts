@@ -602,6 +602,16 @@ export const useTabStore = defineStore('tabs', () => {
     }
   }
 
+  function reorderTabs(fromIndex: number, toIndex: number): void {
+    if (fromIndex < 0 || fromIndex >= tabs.value.length || toIndex < 0 || toIndex >= tabs.value.length) {
+      return
+    }
+    const [movedTab] = tabs.value.splice(fromIndex, 1)
+    tabs.value.splice(toIndex, 0, movedTab)
+    // Persist change immediately
+    saveToStorage()
+  }
+
   return {
     tabs,
     activeTabId,
@@ -620,6 +630,7 @@ export const useTabStore = defineStore('tabs', () => {
     revertChanges,
     commitChanges,
     resetConnectionState,
-    loadFromStorage
+    loadFromStorage,
+    reorderTabs
   }
 })
