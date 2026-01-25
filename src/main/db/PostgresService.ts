@@ -20,8 +20,9 @@ export class PostgresService implements IDbService {
       this.client = new Client({ connectionString: connectionUri })
       await this.client.connect()
       return 'PostgreSQL Connected!'
-    } catch (err: any) {
-      throw new Error(err.message)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new Error(msg)
     }
   }
 
@@ -37,7 +38,7 @@ export class PostgresService implements IDbService {
           const r = res[i]
           if (r.command === 'SELECT') {
             rows = r.rows
-            columns = r.fields.map((f: any) => f.name)
+            columns = r.fields.map((f) => f.name)
             break
           }
         }
@@ -90,17 +91,17 @@ export class PostgresService implements IDbService {
 
   async getSchema(dbName?: string): Promise<DbSchema> {
     if (!this.client) return {}
-    
+
     // Если dbName не передан, пытаемся использовать current_schema(), но лучше явно
     // Но для обратной совместимости: если dbName есть - используем его.
     // Если нет - используем current_schema() как раньше (или 'public' если так было)
-    
-    let whereClause = "table_schema = current_schema()"
-    const params: any[] = []
-    
+
+    let whereClause = 'table_schema = current_schema()'
+    const params: string[] = []
+
     if (dbName) {
-        whereClause = "table_schema = $1"
-        params.push(dbName)
+      whereClause = 'table_schema = $1'
+      params.push(dbName)
     }
 
     const sql = `
@@ -151,8 +152,9 @@ export class PostgresService implements IDbService {
       sql += ` LIMIT ${limit} OFFSET ${offset}`
 
       return await this.execute(sql)
-    } catch (e: any) {
-      return { rows: [], columns: [], error: e.message, duration: 0 }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      return { rows: [], columns: [], error: msg, duration: 0 }
     }
   }
 
@@ -218,8 +220,9 @@ export class PostgresService implements IDbService {
       }
 
       return { success: true, affectedRows: totalAffected }
-    } catch (e: any) {
-      return { success: false, affectedRows: 0, error: e.message }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      return { success: false, affectedRows: 0, error: msg }
     }
   }
 

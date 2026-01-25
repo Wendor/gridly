@@ -106,8 +106,8 @@ function customCompletionSource(
   const dbSchema = simpleSchema.value
   const docText = context.state.doc.toString()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const options: any[] = [...SQL_KEYWORDS]
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  const options: { label: string; type?: string; apply?: string; detail?: string; boost?: number }[] = [...SQL_KEYWORDS]
 
   const schemaKeys = Object.keys(dbSchema)
   schemaKeys.forEach((tableName) => {

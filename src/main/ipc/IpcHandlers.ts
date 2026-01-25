@@ -48,9 +48,12 @@ export function setupIpcHandlers(dbManager: DatabaseManager): void {
     }
   )
 
-  ipcMain.handle('db:get-schema', async (_event, { id, dbName }: { id: number; dbName?: string }) => {
-    return await dbManager.getSchema(id, dbName)
-  })
+  ipcMain.handle(
+    'db:get-schema',
+    async (_event, { id, dbName }: { id: number; dbName?: string }) => {
+      return await dbManager.getSchema(id, dbName)
+    }
+  )
 
   // Тест соединения не требует ID, так как оно временное
   ipcMain.handle('db:test-connection', async (_event, config: DbConnection) => {

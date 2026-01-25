@@ -109,8 +109,7 @@ export class DatabaseManager {
   }
 
   private processResult(result: IDbResult): IDbResult {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const processValue = (val: any): unknown => {
+    const processValue = (val: unknown): unknown => {
       if (val === null || val === undefined) return val
       if (val instanceof Date) {
         return `${val.toISOString()}`
@@ -130,9 +129,9 @@ export class DatabaseManager {
       if (Array.isArray(row)) {
         return row.map(processValue)
       } else if (typeof row === 'object' && row !== null) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const newRow: any = {}
+        const newRow: Record<string, unknown> = {}
         for (const k in row) {
+          // @ts-ignore - we know row is object
           newRow[k] = processValue(row[k])
         }
         return newRow

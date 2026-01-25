@@ -265,7 +265,8 @@ export const useTabStore = defineStore('tabs', () => {
           headerName: col
         }))
 
-        currentTab.value.rows = res.rows
+        // We assume rows are objects for matching QueryTab definition
+        currentTab.value.rows = res.rows as Record<string, unknown>[]
         currentTab.value.meta = { duration: res.duration }
 
         historyStore.addEntry(currentTab.value.sql, 'success', res.duration, connId)
@@ -282,7 +283,8 @@ export const useTabStore = defineStore('tabs', () => {
               // ИЗМЕНЕНИЕ: Передаем connId и сюда
               const countRes = await window.dbApi.query(connId, countSql)
               if (countRes.rows.length > 0) {
-                const val = Object.values(countRes.rows[0])[0]
+                const row = countRes.rows[0] as Record<string, unknown>
+                const val = Object.values(row)[0]
                 currentTab.value.pagination.total = Number(val)
               }
             } catch (e) {

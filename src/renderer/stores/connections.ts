@@ -125,7 +125,8 @@ export const useConnectionStore = defineStore('connections', () => {
     // Note: If dbName changes, we probably should force reload or have separate cache key?
     // Current cache is just `schemaCache[index]`. It implies only ONE schema per connection.
     // So if dbName is provided, we should probably force update active schema.
-    if (!force && !dbName && schemaCache[index] && Object.keys(schemaCache[index]).length > 0) return
+    if (!force && !dbName && schemaCache[index] && Object.keys(schemaCache[index]).length > 0)
+      return
 
     try {
       await ensureConnection(index)
@@ -133,12 +134,15 @@ export const useConnectionStore = defineStore('connections', () => {
       const schema = await window.dbApi.getSchema(index, dbName)
       schemaCache[index] = schema
 
-      console.log(`Schema loaded for connection ${index} (db: ${dbName}):`, Object.keys(schema).length, 'tables')
+      console.log(
+        `Schema loaded for connection ${index} (db: ${dbName}):`,
+        Object.keys(schema).length,
+        'tables'
+      )
     } catch (e) {
       console.error('Failed to load schema', e)
     }
   }
-
 
   async function disconnect(index: number): Promise<void> {
     try {
@@ -147,7 +151,7 @@ export const useConnectionStore = defineStore('connections', () => {
       console.error('Disconnect failed', e)
     } finally {
       activeConnectionIds.value.delete(index)
-      
+
       // Reset tab store state for this connection (active database)
       const tabStore = (await import('./tabs')).useTabStore()
       tabStore.resetConnectionState(index)

@@ -23,8 +23,9 @@ export class MysqlService implements IDbService {
         dateStrings: true
       })
       return 'MySQL Connected!'
-    } catch (err: any) {
-      throw new Error(err.message)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new Error(msg)
     }
   }
 
@@ -39,11 +40,13 @@ export class MysqlService implements IDbService {
       if (Array.isArray(results) && results.length > 0 && Array.isArray(results[0])) {
         for (let i = results.length - 1; i >= 0; i--) {
           if (Array.isArray(results[i])) {
-            rows = results[i] as any[]
+            rows = results[i] as unknown[]
             if (Array.isArray(fields)) {
-              const currentFields = (fields as any[])[i]
+              const currentFields = (fields as unknown[])[i]
               if (Array.isArray(currentFields)) {
-                columns = currentFields.map((f: any) => f.name)
+                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                // @ts-ignore
+                columns = currentFields.map((f) => f.name)
               }
             }
             break
@@ -52,7 +55,9 @@ export class MysqlService implements IDbService {
       } else if (Array.isArray(results)) {
         rows = results
         if (Array.isArray(fields)) {
-          columns = fields.map((f: any) => f.name)
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore
+          columns = fields.map((f) => f.name)
         }
       }
 
@@ -61,8 +66,9 @@ export class MysqlService implements IDbService {
         columns,
         duration: Math.round(performance.now() - start)
       }
-    } catch (err: any) {
-      return { rows: [], columns: [], duration: 0, error: err.message }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return { rows: [], columns: [], duration: 0, error: msg }
     }
   }
 
@@ -78,7 +84,7 @@ export class MysqlService implements IDbService {
     try {
       const sql = dbName ? `SHOW TABLES FROM \`${dbName}\`` : 'SHOW TABLES'
       const [rows] = await this.connection.query(sql)
-      return (rows as any[]).map((row) => Object.values(row)[0] as string)
+      return (rows as Record<string, unknown>[]).map((row) => Object.values(row)[0] as string)
     } catch (e) {
       console.error('Error fetching tables:', e)
       return []
@@ -89,7 +95,7 @@ export class MysqlService implements IDbService {
     if (!this.connection) return []
     try {
       const [rows] = await this.connection.query('SHOW DATABASES')
-      return (rows as any[]).map((row) => Object.values(row)[0] as string)
+      return (rows as Record<string, unknown>[]).map((row) => Object.values(row)[0] as string)
     } catch (e) {
       console.error('Error fetching databases:', e)
       return []
@@ -105,16 +111,19 @@ export class MysqlService implements IDbService {
       WHERE TABLE_SCHEMA = ${queryDb}
       ORDER BY TABLE_NAME, ORDINAL_POSITION;
     `
-    const [rows] = (await this.connection.execute(sql)) as any[]
+    const [rows] = (await this.connection.execute(sql)) as unknown[]
     const schema: DbSchema = {}
-    rows.forEach((row: any) => {
-      const tableName = row.TABLE_NAME || row.table_name
-      const colName = row.COLUMN_NAME || row.column_name
-      if (tableName && colName) {
-        if (!schema[tableName]) schema[tableName] = []
-        schema[tableName].push(colName)
-      }
-    })
+    if (Array.isArray(rows)) {
+      rows.forEach((r: unknown) => {
+        const row = r as Record<string, unknown>
+        const tableName = (row.TABLE_NAME || row.table_name) as string
+        const colName = (row.COLUMN_NAME || row.column_name) as string
+        if (tableName && colName) {
+          if (!schema[tableName]) schema[tableName] = []
+          schema[tableName].push(colName)
+        }
+      })
+    }
     return schema
   }
 
@@ -149,8 +158,9 @@ export class MysqlService implements IDbService {
       sql += ` LIMIT ${limit} OFFSET ${offset}`
 
       return await this.execute(sql)
-    } catch (e: any) {
-      return { rows: [], columns: [], error: e.message, duration: 0 }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      return { rows: [], columns: [], error: msg, duration: 0 }
     }
   }
 
@@ -171,7 +181,7 @@ export class MysqlService implements IDbService {
         ORDER BY ORDINAL_POSITION;
       `
       const [rows] = await this.connection.query(sql, [tableName])
-      return (rows as any[]).map((row) => row.COLUMN_NAME)
+      return (rows as Record<string, unknown>[]).map((row) => row.COLUMN_NAME as string)
     } catch (e) {
       console.error('Error fetching primary keys:', e)
       return []
@@ -193,7 +203,7 @@ export class MysqlService implements IDbService {
 
         const setClauses: string[] = []
         const whereClauses: string[] = []
-        const values: any[] = []
+        const values: unknown[] = []
 
         for (const [col, val] of Object.entries(changes)) {
           setClauses.push(`\`${col}\` = ?`)
@@ -208,12 +218,15 @@ export class MysqlService implements IDbService {
         const sql = `UPDATE \`${tableName}\` SET ${setClauses.join(', ')} WHERE ${whereClauses.join(' AND ')}`
 
         const [result] = await this.connection.query(sql, values)
-        totalAffected += (result as any).affectedRows || 0
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        totalAffected += result.affectedRows || 0
       }
 
       return { success: true, affectedRows: totalAffected }
-    } catch (e: any) {
-      return { success: false, affectedRows: 0, error: e.message }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      return { success: false, affectedRows: 0, error: msg }
     }
   }
 

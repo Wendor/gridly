@@ -16,8 +16,7 @@ export interface DbConnection {
 }
 
 export interface IDbResult {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  rows: any[]
+  rows: unknown[]
   columns: string[]
   error?: string
   duration: number
@@ -62,13 +61,11 @@ export interface IElectronAPI {
 export interface WrappedDbValue {
   __isWrapped: true
   display: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  raw: any
+  raw: unknown
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function isWrappedValue(val: any): val is WrappedDbValue {
-  return typeof val === 'object' && val !== null && val.__isWrapped === true
+export function isWrappedValue(val: unknown): val is WrappedDbValue {
+  return typeof val === 'object' && val !== null && (val as WrappedDbValue).__isWrapped === true
 }
 
 export interface DashboardMetrics {

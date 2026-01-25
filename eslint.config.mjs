@@ -26,6 +26,7 @@ export default defineConfig(
     rules: {
       'vue/require-default-prop': 'off',
       'vue/multi-word-component-names': 'off',
+      '@typescript-eslint/no-explicit-any': 'error',
       'vue/block-lang': [
         'error',
         {
