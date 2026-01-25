@@ -558,7 +558,6 @@ function handleKeydown(e: KeyboardEvent): void {
     return
   }
 }
-
 </script>
 
 <style scoped>

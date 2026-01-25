@@ -237,4 +237,9 @@ export class DatabaseManager {
     const service = this.getService(id)
     return await service.updateRows(updates)
   }
+
+  async getDashboardMetrics(id: number): Promise<import('../../shared/types').DashboardMetrics> {
+    const service = this.getService(id)
+    return await service.getDashboardMetrics()
+  }
 }

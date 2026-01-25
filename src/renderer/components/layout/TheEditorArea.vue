@@ -55,6 +55,7 @@
     <div v-if="tabStore.currentTab" class="main-view-container">
       <SettingsView v-if="tabStore.currentTab.type === 'settings'" />
       <DocumentView v-else-if="tabStore.currentTab.type === 'document'" />
+      <DashboardView v-else-if="tabStore.currentTab.type === 'dashboard'" />
       <QueryView v-else-if="tabStore.currentTab.type === 'query'" />
     </div>
 
@@ -90,20 +91,32 @@ import { useConnectionStore } from '../../stores/connections'
 import SettingsView from '../views/SettingsView.vue'
 import QueryView from '../views/QueryView.vue'
 import DocumentView from '../views/DocumentView.vue'
+import DashboardView from '../views/DashboardView.vue'
 
 const tabStore = useTabStore()
 const connStore = useConnectionStore()
 
 async function switchToTab(id: number): Promise<void> {
   tabStore.activeTabId = id
-  if (tabStore.currentTab?.type === 'query' && tabStore.currentTab.connectionId !== null) {
+  const tab = tabStore.currentTab
+  if (tab && (tab.type === 'query' || tab.type === 'dashboard') && tab.connectionId !== null) {
     try {
-      await connStore.ensureConnection(tabStore.currentTab.connectionId)
+      await connStore.ensureConnection(tab.connectionId)
     } catch (e) {
       console.error(e)
     }
   }
 }
+
+// Restore connection for active tab on mount
+import { onMounted } from 'vue'
+
+onMounted(() => {
+  const tab = tabStore.currentTab
+  if (tab && (tab.type === 'query' || tab.type === 'dashboard') && tab.connectionId !== null) {
+    connStore.ensureConnection(tab.connectionId).catch(console.error)
+  }
+})
 </script>
 
 <style scoped>

@@ -1,5 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import { DbConnection, IDbResult, IDataRequest, DbSchema } from '../shared/types'
+import { DbConnection, IDbResult, IDataRequest, DbSchema, DashboardMetrics } from '../shared/types'
 
 declare global {
   interface Window {
@@ -20,6 +20,7 @@ declare global {
       setActiveDatabase: (id: number, dbName: string) => Promise<void>
       getPrimaryKeys: (id: number, tableName: string) => Promise<string[]>
       updateRows: (id: number, updates: unknown[]) => Promise<unknown>
+      getDashboardMetrics: (id: number) => Promise<DashboardMetrics | null>
     }
   }
 }

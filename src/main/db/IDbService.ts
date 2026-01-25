@@ -18,4 +18,5 @@ export interface IDbService {
   setActiveDatabase(dbName: string): Promise<void>
   getPrimaryKeys(tableName: string): Promise<string[]>
   updateRows(updates: RowUpdate[]): Promise<UpdateResult>
+  getDashboardMetrics(): Promise<import('../../shared/types').DashboardMetrics>
 }

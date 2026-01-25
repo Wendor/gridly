@@ -38,7 +38,12 @@ export interface DocumentTab extends BaseTab {
   content: string
 }
 
-export type Tab = QueryTab | SettingsTab | DocumentTab
+export interface DashboardTab extends BaseTab {
+  type: 'dashboard'
+  connectionId: number
+}
+
+export type Tab = QueryTab | SettingsTab | DocumentTab | DashboardTab
 
 export const useTabStore = defineStore('tabs', () => {
   const connectionStore = useConnectionStore()
@@ -119,6 +124,26 @@ export const useTabStore = defineStore('tabs', () => {
 
     activeTabId.value = id
     runQuery()
+  }
+
+  function openDashboardTab(connectionId: number): void {
+    const existing = tabs.value.find(
+      (t) => t.type === 'dashboard' && t.connectionId === connectionId
+    )
+    if (existing) {
+      activeTabId.value = existing.id
+      return
+    }
+
+    const id = nextTabId.value++
+    const conn = connectionStore.savedConnections[connectionId]
+    tabs.value.push({
+      id,
+      type: 'dashboard',
+      name: `${i18n.global.t('sidebar.overview')} - ${conn?.name || connectionId}`,
+      connectionId
+    })
+    activeTabId.value = id
   }
 
   function openSettingsTab(): void {
@@ -306,6 +331,13 @@ export const useTabStore = defineStore('tabs', () => {
           name: t.name,
           content: t.content
         }
+      } else if (t.type === 'dashboard') {
+        return {
+          id: t.id,
+          type: 'dashboard',
+          name: t.name,
+          connectionId: t.connectionId
+        }
       }
       return {
         id: t.id,
@@ -339,6 +371,11 @@ export const useTabStore = defineStore('tabs', () => {
               primaryKeys: tab.primaryKeys ?? [],
               pendingChanges: new Map(),
               originalRows: new Map()
+            }
+          } else if (t && typeof t === 'object' && 'type' in t && t.type === 'dashboard') {
+            const tab = t as DashboardTab
+            return {
+              ...tab
             }
           }
           return t
@@ -533,6 +570,7 @@ export const useTabStore = defineStore('tabs', () => {
     addTab,
     openTableTab,
     openSettingsTab,
+    openDashboardTab,
     openDocumentTab,
     closeTab,
     runQuery,

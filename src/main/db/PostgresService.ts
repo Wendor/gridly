@@ -209,4 +209,99 @@ export class PostgresService implements IDbService {
       return { success: false, affectedRows: 0, error: e.message }
     }
   }
+
+  async getDashboardMetrics(): Promise<import('../../shared/types').DashboardMetrics> {
+    if (!this.client) throw new Error('Not connected')
+
+    // 1. Version
+    const verRes = await this.client.query('SELECT version()')
+    const version = verRes.rows[0].version
+
+    // 2. Uptime (Postmaster start time)
+    const timeRes = await this.client.query('SELECT pg_postmaster_start_time()')
+    const startTime = new Date(timeRes.rows[0].pg_postmaster_start_time)
+    const uptimeMs = Date.now() - startTime.getTime()
+    // Simple duration formatter
+    const uptime = this.formatDuration(uptimeMs)
+
+    // 3. Active/Max Connections
+    const conRes = await this.client.query('SELECT count(*) as cnt FROM pg_stat_activity')
+    const activeConnections = parseInt(conRes.rows[0].cnt) || 0
+
+    const maxConRes = await this.client.query('SHOW max_connections')
+    const maxConnections = parseInt(maxConRes.rows[0].max_connections) || 100 // Default to 100 if fetch fails
+
+    // 4. DB Size
+    const sizeRes = await this.client.query(
+      'SELECT pg_size_pretty(pg_database_size(current_database())) as size'
+    )
+    const dbSize = sizeRes.rows[0].size || '0 B'
+
+    // 5. Indexes Size
+    const idxSizeRes = await this.client.query(
+      'SELECT pg_size_pretty(sum(pg_relation_size(indexrelid))) as size FROM pg_stat_user_indexes'
+    )
+    const indexesSize = idxSizeRes.rows[0].size || '0 B'
+
+    // 6. Table Count
+    const tableRes = await this.client.query(
+      "SELECT count(*) as cnt FROM information_schema.tables WHERE table_schema = 'public'"
+    )
+    const tableCount = parseInt(tableRes.rows[0].cnt) || 0
+
+    // 7. Cache Hit Ratio
+    const cacheRes = await this.client.query(`
+      SELECT 
+        sum(heap_blks_hit) as hits,
+        sum(heap_blks_read) as reads
+      FROM pg_statio_user_tables
+    `)
+    const hits = parseInt(cacheRes.rows[0].hits || 0)
+    const reads = parseInt(cacheRes.rows[0].reads || 0)
+    const total = hits + reads
+    const cacheHitRatio = total > 0 ? hits / total : 0
+
+    // 8. Top Queries
+    const queriesSql = `
+      SELECT pid, usename as user, state,
+             (extract(epoch from (now() - query_start))::numeric(10, 2) || 's') as duration,
+             query
+      FROM pg_stat_activity
+      WHERE state = 'active' AND pid <> pg_backend_pid()
+      ORDER BY query_start ASC
+      LIMIT 5
+    `
+    const qRes = await this.client.query(queriesSql)
+    const topQueries = qRes.rows.map((r) => ({
+      pid: r.pid,
+      user: r.user || 'system',
+      state: r.state || 'active',
+      duration: r.duration,
+      query: r.query || ''
+    }))
+
+    return {
+      version,
+      uptime,
+      activeConnections,
+      maxConnections,
+      dbSize,
+      indexesSize,
+      tableCount,
+      cacheHitRatio,
+      topQueries
+    }
+  }
+
+  private formatDuration(ms: number): string {
+    const seconds = Math.floor(ms / 1000)
+    const minutes = Math.floor(seconds / 60)
+    const hours = Math.floor(minutes / 60)
+    const days = Math.floor(hours / 24)
+
+    if (days > 0) return `${days}d ${hours % 24}h`
+    if (hours > 0) return `${hours}h ${minutes % 60}m`
+    if (minutes > 0) return `${minutes}m ${seconds % 60}s`
+    return `${seconds}s`
+  }
 }

@@ -89,7 +89,18 @@
     "noDbs": "Нет баз",
     "loadingTables": "Загрузка...",
     "noTables": "Нет таблиц",
-    "confirmDelete": "Вы уверены, что хотите удалить это подключение?"
+    "confirmDelete": "Вы уверены, что хотите удалить это подключение?",
+    "overview": "Обзор"
+  },
+  "dashboard": {
+    "activeConnections": "Активные соединения",
+    "dbSize": "Размер БД",
+    "indexesSize": "Размер индексов",
+    "uptime": "Время работы",
+    "tableCount": "Всего таблиц",
+    "cacheHit": "Эффективность кэша",
+    "longRunningQueries": "Долгие запросы",
+    "noActiveQueries": "Нет активных запросов"
   },
   "history": {
     "title": "История",

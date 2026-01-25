@@ -59,7 +59,7 @@ const editingConnection = ref<DbConnection | null>(null)
 const editingIndex = ref<number | null>(null)
 const modalAvailableDatabases = ref<string[]>([])
 
-const handleGlobalKeydown = (e: KeyboardEvent) => {
+const handleGlobalKeydown = (e: KeyboardEvent): void => {
   if (e.key === 'Tab') {
     const activeEl = document.activeElement
     if (!activeEl) return

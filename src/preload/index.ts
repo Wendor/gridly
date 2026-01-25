@@ -29,6 +29,9 @@ const dbApi = {
   },
   updateRows: (id: number, updates: unknown[]) => {
     return ipcRenderer.invoke('db:update-rows', { id, updates })
+  },
+  getDashboardMetrics: (id: number) => {
+    return ipcRenderer.invoke('db:get-dashboard-metrics', { id })
   }
 }
 

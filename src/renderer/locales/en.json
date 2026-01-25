@@ -89,7 +89,18 @@
     "noDbs": "No databases",
     "loadingTables": "Loading...",
     "noTables": "No tables",
-    "confirmDelete": "Are you sure you want to delete this connection?"
+    "confirmDelete": "Are you sure you want to delete this connection?",
+    "overview": "Overview"
+  },
+  "dashboard": {
+    "activeConnections": "Active Connections",
+    "dbSize": "Database Size",
+    "indexesSize": "Indexes Size",
+    "uptime": "Uptime",
+    "tableCount": "Total Tables",
+    "cacheHit": "Cache Hit Ratio",
+    "longRunningQueries": "Long Running Queries",
+    "noActiveQueries": "No active queries"
   },
   "history": {
     "title": "History",

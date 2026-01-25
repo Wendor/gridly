@@ -215,4 +215,102 @@ export class MysqlService implements IDbService {
       return { success: false, affectedRows: 0, error: e.message }
     }
   }
+
+  async getDashboardMetrics(): Promise<import('../../shared/types').DashboardMetrics> {
+    if (!this.connection) throw new Error('Not connected')
+
+    // 1. Version
+    const [verRows] = await this.connection.query("SHOW VARIABLES LIKE 'version'")
+    const version = (verRows as any[])[0].Value
+
+    // 2. Uptime
+    const [upRows] = await this.connection.query("SHOW GLOBAL STATUS LIKE 'Uptime'")
+    const uptimeSec = parseInt((upRows as any[])[0].Value)
+    const uptime = this.formatDuration(uptimeSec * 1000)
+
+    // 3. Active/Max Connections
+    const [connRows] = await this.connection.query("SHOW STATUS LIKE 'Threads_connected'")
+    const activeConnections = parseInt((connRows as any[])[0].Value) || 0
+
+    const [maxConnRows] = await this.connection.query("SHOW VARIABLES LIKE 'max_connections'")
+    const maxConnections = parseInt((maxConnRows as any[])[0].Value) || 151 // MySQL default
+
+    // 4. DB Size
+    // Note: This is an approximation for all databases. For specific DB, filter by table_schema
+    const [sizeRows] = await this.connection.query(`
+      SELECT SUM(data_length + index_length) / 1024 / 1024 as size_mb
+      FROM information_schema.tables
+      WHERE table_schema = DATABASE()
+    `)
+    const sizeMb = parseFloat((sizeRows as any[])[0].size_mb || 0).toFixed(1)
+    const dbSize = `${sizeMb} MB`
+
+    // 5. Indexes Size
+    const [idxRows] = await this.connection.query(`
+      SELECT SUM(index_length) / 1024 / 1024 as size_mb
+      FROM information_schema.tables
+      WHERE table_schema = DATABASE()
+    `)
+    const idxMb = parseFloat((idxRows as any[])[0].size_mb || 0).toFixed(1)
+    const indexesSize = `${idxMb} MB`
+
+    // 6. Table Count
+    const [tblRows] = await this.connection.query(
+      'SELECT count(*) as cnt FROM information_schema.tables WHERE table_schema = DATABASE()'
+    )
+    const tableCount = parseInt((tblRows as any[])[0].cnt) || 0
+
+    // 7. Cache Hit Ratio (InnoDB Buffer Pool)
+    const [readRows] = await this.connection.query(
+      "SHOW GLOBAL STATUS LIKE 'Innodb_buffer_pool_read%'"
+    )
+    // Map status rows to object
+    const status: Record<string, number> = {}
+    ;(readRows as any[]).forEach((r) => {
+      status[r.Variable_name] = parseInt(r.Value)
+    })
+
+    const reads = status['Innodb_buffer_pool_reads'] || 0
+    const requests = status['Innodb_buffer_pool_read_requests'] || 0
+    // If requests is 0, we can say 100% or 0%. 1 is safer to assume "no misses".
+    const cacheHitRatio = requests > 0 ? 1 - reads / requests : 1
+
+    // 8. Top Queries
+    const [procRows] = await this.connection.query('SHOW PROCESSLIST')
+    const topQueries = (procRows as any[])
+      .filter((r) => r.Command === 'Query' && r.Info && r.Id !== (this.connection as any).threadId)
+      .sort((a, b) => b.Time - a.Time)
+      .slice(0, 5)
+      .map((r) => ({
+        pid: r.Id,
+        user: r.User,
+        state: r.Command,
+        duration: `${r.Time}s`,
+        query: r.Info
+      }))
+
+    return {
+      version,
+      uptime,
+      activeConnections,
+      maxConnections,
+      dbSize,
+      indexesSize,
+      tableCount,
+      cacheHitRatio,
+      topQueries
+    }
+  }
+
+  private formatDuration(ms: number): string {
+    const seconds = Math.floor(ms / 1000)
+    const minutes = Math.floor(seconds / 60)
+    const hours = Math.floor(minutes / 60)
+    const days = Math.floor(hours / 24)
+
+    if (days > 0) return `${days}d ${hours % 24}h`
+    if (hours > 0) return `${hours}h ${minutes % 60}m`
+    if (minutes > 0) return `${minutes}m ${seconds % 60}s`
+    return `${seconds}s`
+  }
 }

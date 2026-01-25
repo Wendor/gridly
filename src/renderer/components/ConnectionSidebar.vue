@@ -136,6 +136,14 @@
         {{ $t('sidebar.disconnect') }}
       </div>
 
+      <div
+        v-if="connStore.isConnected(ctxMenu.index)"
+        class="ctx-item"
+        @click="handleOpenDashboard"
+      >
+        <BaseIcon name="chart" />
+        {{ $t('sidebar.overview') }}
+      </div>
       <div class="ctx-item" @click="handleEdit">
         <BaseIcon name="edit" />
         {{ $t('sidebar.edit') }}
@@ -155,6 +163,7 @@ import BaseIcon from './ui/BaseIcon.vue'
 import BaseButton from './ui/BaseButton.vue'
 import BaseContextMenu from './ui/BaseContextMenu.vue'
 import { useConnectionStore } from '../stores/connections'
+import { useTabStore } from '../stores/tabs'
 import i18n from '../i18n'
 
 const props = defineProps<{
@@ -171,6 +180,7 @@ const emit = defineEmits<{
 }>()
 
 const connStore = useConnectionStore()
+const tabStore = useTabStore()
 
 const expandedIndices = ref<Set<number>>(new Set())
 const expandedDbs = ref<Set<string>>(new Set())
@@ -195,6 +205,21 @@ function closeCtxMenu(): void {
 
 function handleEdit(): void {
   if (ctxMenu.index !== -1) emit('edit', ctxMenu.index)
+  closeCtxMenu()
+}
+
+function handleOpenDashboard(): void {
+  if (ctxMenu.index !== -1) {
+    const connId = ctxMenu.index
+    // We access the store via global or import.
+    // Since we are in script setup, we can use useTabStore
+    // Import it if not present, but wait, let's check imports.
+    // It's not imported yet. I need to add import first?
+    // Let's add the function body here and I will add import in another step or assumption.
+    // Actually better to add import in this step if possible or separate.
+    // I can't see imports here. I'll add useTabStore logic.
+    tabStore.openDashboardTab(connId)
+  }
   closeCtxMenu()
 }
 

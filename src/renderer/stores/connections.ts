@@ -58,42 +58,50 @@ export const useConnectionStore = defineStore('connections', () => {
     return activeConnectionIds.value.has(index)
   }
 
+  // Храним промисы активных подключений, чтобы не делать двойные запросы
+  const pendingConnections = new Map<number, Promise<void>>()
+
   async function ensureConnection(targetId: number | null): Promise<void> {
     if (targetId === null) return
 
-    // ИЗМЕНЕНИЕ: Проверяем наличие в Set, а не сравниваем с одним числом
+    // Если уже подключено, выходим
     if (activeConnectionIds.value.has(targetId)) return
+
+    // Если уже идет процесс подключения, возвращаем его промис
+    if (pendingConnections.has(targetId)) {
+      return pendingConnections.get(targetId)
+    }
 
     // Check if connection exists
     const conn = savedConnections.value[targetId]
     if (!conn) {
-      // Throwing here prevents the caller from proceeding to use the connection
       throw new Error(`Connection with ID ${targetId} not found`)
     }
 
-    // Глубокое копирование, чтобы разорвать реактивность перед отправкой в Electron
+    // Глубокое копирование
     const config = JSON.parse(JSON.stringify(conn))
 
-    try {
-      loading.value = true
-      error.value = null
+    const connectPromise = (async () => {
+      try {
+        loading.value = true
+        error.value = null
 
-      // ИЗМЕНЕНИЕ: Передаем targetId первым аргументом
-      await window.dbApi.connect(targetId, config)
+        await window.dbApi.connect(targetId, config)
 
-      // Добавляем в список активных
-      activeConnectionIds.value.add(targetId)
+        activeConnectionIds.value.add(targetId)
+        loadSchema(targetId)
+      } catch (e) {
+        activeConnectionIds.value.delete(targetId)
+        if (e instanceof Error) throw e
+        throw new Error(String(e))
+      } finally {
+        loading.value = false
+        pendingConnections.delete(targetId)
+      }
+    })()
 
-      // При успешном подключении можно сразу подгрузить схему в фоне
-      loadSchema(targetId)
-    } catch (e) {
-      // Если ошибка, убираем из активных
-      activeConnectionIds.value.delete(targetId)
-      if (e instanceof Error) throw e
-      throw new Error(String(e))
-    } finally {
-      loading.value = false
-    }
+    pendingConnections.set(targetId, connectPromise)
+    return connectPromise
   }
 
   async function loadTables(index: number, dbName?: string): Promise<void> {

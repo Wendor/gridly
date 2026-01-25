@@ -90,4 +90,13 @@ export function setupIpcHandlers(dbManager: DatabaseManager): void {
       }
     }
   )
+
+  ipcMain.handle('db:get-dashboard-metrics', async (_event, { id }: { id: number }) => {
+    try {
+      return await dbManager.getDashboardMetrics(id)
+    } catch (e: unknown) {
+      console.error(e)
+      return null
+    }
+  })
 }

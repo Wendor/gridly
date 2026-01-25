@@ -645,7 +645,6 @@ async function onPaste(): Promise<void> {
     console.error('Failed to read clipboard', e)
   }
 }
-
 </script>
 
 <style scoped>
@@ -786,7 +785,7 @@ async function onPaste(): Promise<void> {
   flex-shrink: 0;
 }
 
-  /* Removed duplicate .cell-input block */
+/* Removed duplicate .cell-input block */
 
 .table-cell.selected {
   background: var(--list-active-bg);

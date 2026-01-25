@@ -57,6 +57,7 @@ export interface IElectronAPI {
   getPrimaryKeys: (id: number, tableName: string) => Promise<string[]>
   updateRows: (id: number, updates: RowUpdate[]) => Promise<UpdateResult>
   setActiveDatabase: (id: number, dbName: string) => Promise<void>
+  getDashboardMetrics: (id: number) => Promise<DashboardMetrics | null>
 }
 export interface WrappedDbValue {
   __isWrapped: true
@@ -68,4 +69,22 @@ export interface WrappedDbValue {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function isWrappedValue(val: any): val is WrappedDbValue {
   return typeof val === 'object' && val !== null && val.__isWrapped === true
+}
+
+export interface DashboardMetrics {
+  version: string
+  uptime: string
+  activeConnections: number
+  maxConnections: number
+  dbSize: string
+  indexesSize: string
+  tableCount: number
+  cacheHitRatio: number
+  topQueries: Array<{
+    pid: number
+    user: string
+    state: string
+    duration: string
+    query: string
+  }>
 }
