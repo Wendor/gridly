@@ -15,7 +15,27 @@ export default defineConfig({
   build: {
     outDir: '../../dist',
     emptyOutDir: true,
-    target: 'esnext'
+    target: 'esnext',
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('vue') || id.includes('pinia') || id.includes('vue-i18n')) {
+              return 'vendor-vue'
+            }
+            if (id.includes('@codemirror') || id.includes('vue-codemirror') || id.includes('sql-formatter')) {
+              return 'vendor-editor'
+            }
+            if (id.includes('@tauri-apps')) {
+              return 'vendor-tauri'
+            }
+            if (id.includes('markdown-it')) {
+              return 'vendor-utils'
+            }
+          }
+        }
+      }
+    }
   },
   server: {
     port: 5173,
