@@ -26,6 +26,12 @@ pub enum DbError {
 
     #[error("Configuration error: {0}")]
     Config(String),
+
+    #[error("Connection error: {0}")]
+    Connection(String),
+
+    #[error("Query error: {0}")]
+    Query(String),
 }
 
 impl Serialize for DbError {

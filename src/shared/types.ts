@@ -1,6 +1,6 @@
 export interface DbConnection {
   id: string
-  type: 'mysql' | 'postgres'
+  type: 'mysql' | 'postgres' | 'clickhouse'
   name: string
   host: string
   port: string
@@ -18,7 +18,7 @@ export interface DbConnection {
 
 export interface DbConnectionMeta {
   id: string
-  type: 'mysql' | 'postgres'
+  type: 'mysql' | 'postgres' | 'clickhouse'
   name: string
   host: string
   port: string

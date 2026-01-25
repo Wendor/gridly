@@ -219,7 +219,9 @@ export const useTabStore = defineStore('tabs', () => {
     const dbName = tab.database
 
     // Helper to execute the core query logic
-    const execute = async (forceDbSwitch = false) => {
+    const execute = async (
+      forceDbSwitch = false
+    ): Promise<{ res: unknown; tableName: string | null; isSimpleSelect: boolean }> => {
       await connectionStore.ensureConnection(connId)
 
       if (dbName) {
@@ -263,9 +265,8 @@ export const useTabStore = defineStore('tabs', () => {
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
         // Check for specific DB errors indicating wrong context
-        const isMissingRelation =
-          msg.includes('relation') && msg.includes('does not exist') // Postgres
-        const isMissingTable = msg.includes("Table") && msg.includes("doesn't exist") // MySQL
+        const isMissingRelation = msg.includes('relation') && msg.includes('does not exist') // Postgres
+        const isMissingTable = msg.includes('Table') && msg.includes("doesn't exist") // MySQL
 
         if ((isMissingRelation || isMissingTable) && dbName) {
           console.warn('Handling missing relation error: retrying with forced DB switch')
@@ -298,10 +299,7 @@ export const useTabStore = defineStore('tabs', () => {
 
         // Count Total
         if (tableName && isSimpleSelect) {
-          if (
-            tab.pagination.total === null ||
-            tab.pagination.offset === 0
-          ) {
+          if (tab.pagination.total === null || tab.pagination.offset === 0) {
             try {
               const countSql = `SELECT COUNT(*) as total FROM ${tableName}`
               const countRes = await window.dbApi.query(connId, countSql)
@@ -603,7 +601,12 @@ export const useTabStore = defineStore('tabs', () => {
   }
 
   function reorderTabs(fromIndex: number, toIndex: number): void {
-    if (fromIndex < 0 || fromIndex >= tabs.value.length || toIndex < 0 || toIndex >= tabs.value.length) {
+    if (
+      fromIndex < 0 ||
+      fromIndex >= tabs.value.length ||
+      toIndex < 0 ||
+      toIndex >= tabs.value.length
+    ) {
       return
     }
     const [movedTab] = tabs.value.splice(fromIndex, 1)

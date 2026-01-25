@@ -676,7 +676,7 @@ async function onPaste(): Promise<void> {
   display: flex;
   position: sticky;
   top: 0;
-  z-index: 30;
+  z-index: 0;
   background: var(--bg-panel-header);
   border-bottom: 1px solid var(--border-color);
   box-sizing: border-box;
@@ -700,7 +700,7 @@ async function onPaste(): Promise<void> {
 .header-cell.corner-cell {
   position: sticky;
   left: 0;
-  z-index: 40;
+  z-index: 0;
   background: var(--bg-panel-header);
   justify-content: center;
 }

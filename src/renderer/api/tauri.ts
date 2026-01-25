@@ -34,15 +34,12 @@ export const tauriApi: IElectronAPI = {
   // Queries
   query: (id: string, sql: string) => invoke('query', { id, sql }),
   getTables: (id: string, dbName?: string) => invoke('get_tables', { id, dbName }),
-  getDatabases: (id: string, excludeList?: string) =>
-    invoke('get_databases', { id, excludeList }),
+  getDatabases: (id: string, excludeList?: string) => invoke('get_databases', { id, excludeList }),
   getTableData: (connectionId: string, req: IDataRequest) =>
     invoke('get_table_data', { connectionId, req }),
   getSchema: (id: string, dbName?: string) => invoke('get_schema', { id, dbName }),
-  getPrimaryKeys: (id: string, tableName: string) =>
-    invoke('get_primary_keys', { id, tableName }),
+  getPrimaryKeys: (id: string, tableName: string) => invoke('get_primary_keys', { id, tableName }),
   updateRows: (id: string, updates: RowUpdate[]) => invoke('update_rows', { id, updates }),
-  setActiveDatabase: (id: string, dbName: string) =>
-    invoke('set_active_database', { id, dbName }),
+  setActiveDatabase: (id: string, dbName: string) => invoke('set_active_database', { id, dbName }),
   getDashboardMetrics: (id: string) => invoke('get_dashboard_metrics', { id })
 }

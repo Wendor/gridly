@@ -97,3 +97,49 @@ async fn test_ssh_tunnel_postgres() {
     let tables = manager.get_tables("test_ssh_pg".to_string(), None).await;
     assert!(tables.is_ok());
 }
+
+#[tokio::test]
+async fn test_real_clickhouse_connection() {
+    let manager = DatabaseManager::new();
+    let config = ConnectionConfig {
+        id: "test_ch".to_string(),
+        name: "Test ClickHouse".to_string(),
+        driver: DatabaseDriver::Clickhouse,
+        host: "127.0.0.1".to_string(),
+        port: 18123,
+        user: "test_user".to_string(),
+        password: Some("test_password".to_string()),
+        database: "test_db".to_string(),
+        exclude_list: None,
+        use_ssh: None,
+        ssh_host: None,
+        ssh_port: None,
+        ssh_user: None,
+        ssh_password: None,
+        ssh_key_path: None,
+    };
+
+    let mut result = manager.connect("test_ch".to_string(), config.clone()).await;
+    
+    // Retry logic similar to full_cycle_tests
+    let mut attempts = 0;
+    while result.is_err() && attempts < 30 {
+        println!("ClickHouse connection attempt {} failed, retrying in 1s...", attempts + 1);
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+        result = manager.connect("test_ch".to_string(), config.clone()).await;
+        attempts += 1;
+    }
+
+    assert!(result.is_ok(), "Failed to connect to ClickHouse: {:?}", result.err());
+
+    let tables = manager.get_tables("test_ch".to_string(), Some("test_db".to_string())).await;
+    assert!(tables.is_ok());
+    let tables = tables.unwrap();
+    assert!(tables.contains(&"users".to_string()));
+
+    let query_res = manager.execute("test_ch".to_string(), "SELECT * FROM users".to_string()).await;
+    assert!(query_res.is_ok());
+    let rows = query_res.unwrap().rows;
+    // We expect at least the initial rows seeded by init.sql
+    assert!(rows.len() >= 2);
+}

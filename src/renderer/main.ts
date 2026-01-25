@@ -12,6 +12,6 @@ const app = createApp(App)
 window.dbApi = tauriApi
 
 app.use(createPinia())
- // <-- Подключение
+// <-- Подключение
 app.use(i18n)
 app.mount('#app')

@@ -223,3 +223,100 @@ async fn test_mysql_full_cycle() {
     let disc_res = manager.disconnect(conn_id.clone()).await;
     assert!(disc_res.is_ok());
 }
+
+#[tokio::test]
+async fn test_clickhouse_full_cycle() {
+    let manager = DatabaseManager::new();
+    let conn_id = "cycle_ch".to_string();
+    
+    // 1. Connect
+    let config = ConnectionConfig {
+        id: conn_id.clone(),
+        name: "Cycle ClickHouse".to_string(),
+        driver: DatabaseDriver::Clickhouse,
+        host: "127.0.0.1".to_string(),
+        port: 18123,
+        user: "test_user".to_string(),
+        password: Some("test_password".to_string()),
+        database: "test_db".to_string(),
+        exclude_list: None,
+        use_ssh: None,
+        ssh_host: None,
+        ssh_port: None,
+        ssh_user: None,
+        ssh_password: None,
+        ssh_key_path: None,
+    };
+
+    let mut result = manager.connect(conn_id.clone(), config.clone()).await;
+    let mut attempts = 0;
+    while result.is_err() && attempts < 30 {
+        println!("Connection attempt {} failed, retrying in 1s...", attempts + 1);
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+        result = manager.connect(conn_id.clone(), config.clone()).await;
+        attempts += 1;
+    }
+    assert!(result.is_ok(), "Connect failed after retries: {:?}", result.err());
+
+    // 2. Metadata (Tables)
+    let tables = manager.get_tables(conn_id.clone(), Some("test_db".to_string())).await;
+    assert!(tables.is_ok());
+    let tables = tables.unwrap();
+    assert!(tables.contains(&"users".to_string()));
+
+    // 3. Metadata (Schema)
+    let schema = manager.get_schema(conn_id.clone(), Some("test_db".to_string())).await;
+    assert!(schema.is_ok());
+    let schema = schema.unwrap();
+    assert!(schema.contains_key("users"));
+    
+    let columns = schema.get("users").unwrap();
+    assert!(columns.contains(&"id".to_string()));
+    assert!(columns.contains(&"name".to_string()));
+    assert!(columns.contains(&"email".to_string()));
+
+    // 4. Read Data
+    let req = DataRequest {
+        table_name: "users".to_string(),
+        offset: 0,
+        limit: 10,
+        sort: None,
+    };
+    let data = manager.get_table_data(conn_id.clone(), req).await;
+    assert!(data.is_ok());
+    
+    // 5. Write Data (INSERT)
+    let insert_sql = "INSERT INTO users (id, name, email) VALUES (100, 'TestUserCH', 'test@ch.com')";
+    let insert_res = manager.execute(conn_id.clone(), insert_sql.to_string()).await;
+    assert!(insert_res.is_ok(), "Insert failed: {:?}", insert_res.err());
+
+    // 6. Verify Insert
+    let req_verify = DataRequest {
+        table_name: "users".to_string(),
+        offset: 0,
+        limit: 100,
+        sort: None,
+    };
+    let data_verify = manager.get_table_data(conn_id.clone(), req_verify).await.unwrap();
+    let new_user = data_verify.rows.iter().find(|r| 
+        r.get("email").and_then(|v| v.as_str()) == Some("test@ch.com")
+    );
+    assert!(new_user.is_some(), "New user not found");
+
+    // 7. Update Row - Should fail
+    let update = RowUpdate {
+        table_name: "users".to_string(),
+        primary_keys: HashMap::new(),
+        changes: HashMap::new(),
+    };
+    let update_res = manager.update_rows(conn_id.clone(), vec![update]).await;
+    assert!(update_res.is_err());
+
+    // 8. Metrics
+    let metrics = manager.get_dashboard_metrics(conn_id.clone()).await;
+    assert!(metrics.is_ok());
+
+    // 9. Disconnect
+    let disc_res = manager.disconnect(conn_id.clone()).await;
+    assert!(disc_res.is_ok());
+}

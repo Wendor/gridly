@@ -26,6 +26,8 @@ tauri-plugin-log = "2"
 tauri-plugin-shell = "2"
 tokio = { version = "1", features = ["full"] }
 sqlx = { version = "0.8", features = ["runtime-tokio", "tls-native-tls", "mysql", "postgres", "macros", "uuid", "chrono"] }
+
+reqwest = { version = "0.11", features = ["json"] }
 ssh2 = "0.9"
 dirs = "5.0"
 async-trait = "0.1"

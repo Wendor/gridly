@@ -46,3 +46,25 @@ services:
       - "2222:2222"
     restart: unless-stopped
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    environment:
+      CLICKHOUSE_DB: test_db
+      CLICKHOUSE_USER: test_user
+      CLICKHOUSE_PASSWORD: test_password
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ports:
+      - "18123:8123"
+      - "19000:9000"
+    volumes:
+      - ./init/clickhouse:/docker-entrypoint-initdb.d
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+

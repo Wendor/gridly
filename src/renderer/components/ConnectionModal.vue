@@ -10,7 +10,8 @@
         :label="$t('connections.type')"
         :options="[
           { label: 'MySQL / MariaDB', value: 'mysql' },
-          { label: 'PostgreSQL', value: 'postgres' }
+          { label: 'PostgreSQL', value: 'postgres' },
+          { label: 'ClickHouse', value: 'clickhouse' }
         ]"
         @change="onTypeChange"
       />
@@ -220,8 +221,12 @@ watch(
 )
 
 function onTypeChange(): void {
-  if (form.type === 'mysql' && (form.port === '5432' || !form.port)) form.port = '3306'
-  if (form.type === 'postgres' && (form.port === '3306' || !form.port)) form.port = '5432'
+  if (form.type === 'mysql' && (form.port === '5432' || form.port === '8123' || !form.port))
+    form.port = '3306'
+  if (form.type === 'postgres' && (form.port === '3306' || form.port === '8123' || !form.port))
+    form.port = '5432'
+  if (form.type === 'clickhouse' && (form.port === '3306' || form.port === '5432' || !form.port))
+    form.port = '8123'
 }
 
 function close(): void {

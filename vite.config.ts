@@ -23,7 +23,11 @@ export default defineConfig({
             if (id.includes('vue') || id.includes('pinia') || id.includes('vue-i18n')) {
               return 'vendor-vue'
             }
-            if (id.includes('@codemirror') || id.includes('vue-codemirror') || id.includes('sql-formatter')) {
+            if (
+              id.includes('@codemirror') ||
+              id.includes('vue-codemirror') ||
+              id.includes('sql-formatter')
+            ) {
               return 'vendor-editor'
             }
             if (id.includes('@tauri-apps')) {
@@ -39,6 +43,6 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    strictPort: true,
+    strictPort: true
   }
 })

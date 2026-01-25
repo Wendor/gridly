@@ -6,6 +6,7 @@ pub enum DatabaseDriver {
     Mysql,
     #[default]
     Postgres,
+    Clickhouse,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

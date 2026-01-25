@@ -45,10 +45,7 @@ const connectedTab = computed(() => {
 })
 
 const isTabConnected = computed(() => {
-  return (
-    connectedTab.value?.connectionId !== null &&
-    connectedTab.value?.connectionId !== undefined
-  )
+  return connectedTab.value?.connectionId !== null && connectedTab.value?.connectionId !== undefined
 })
 
 const currentConnectionName = computed(() => {

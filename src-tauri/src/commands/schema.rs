@@ -18,10 +18,28 @@ pub async fn get_tables(
 #[tauri::command]
 pub async fn get_databases(
     id: String,
-    _exclude_list: Option<String>,
+    exclude_list: Option<String>,
     state: State<'_, TauriState>,
 ) -> Result<Vec<String>, String> {
-    state.db.get_databases(id).await.map_err(|e| e.to_string())
+    let dbs = state.db.get_databases(id).await.map_err(|e| e.to_string())?;
+
+    if let Some(excludes) = exclude_list {
+         if excludes.trim().is_empty() {
+             return Ok(dbs);
+         }
+         let exclude_set: Vec<String> = excludes
+             .split(',')
+             .map(|s| s.trim().to_lowercase())
+             .collect();
+             
+         let filtered: Vec<String> = dbs.into_iter()
+             .filter(|db| !exclude_set.contains(&db.to_lowercase()))
+             .collect();
+             
+         Ok(filtered)
+    } else {
+         Ok(dbs)
+    }
 }
 
 #[tauri::command]

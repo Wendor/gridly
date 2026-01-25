@@ -1,7 +1,7 @@
 <template>
   <div class="editor-area">
     <div class="tabs-header-wrapper">
-      <div class="tabs-scroll-area" ref="scrollContainer">
+      <div ref="scrollContainer" class="tabs-scroll-area">
         <div
           v-for="(tab, index) in tabStore.tabs"
           :key="tab.id"
@@ -51,10 +51,10 @@
               stroke-linecap="round"
               stroke-linejoin="round"
             >
-               <rect x="3" y="3" width="7" height="9"></rect>
-               <rect x="14" y="3" width="7" height="5"></rect>
-               <rect x="14" y="12" width="7" height="9"></rect>
-               <rect x="3" y="16" width="7" height="5"></rect>
+              <rect x="3" y="3" width="7" height="9"></rect>
+              <rect x="14" y="3" width="7" height="5"></rect>
+              <rect x="14" y="12" width="7" height="9"></rect>
+              <rect x="3" y="16" width="7" height="5"></rect>
             </svg>
             <svg
               v-else
@@ -83,24 +83,36 @@
 
       <div class="tabs-actions">
         <div class="action-btn" :title="$t('common.tabList')" @click="toggleTabList">
-           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
         </div>
         <div class="action-btn" :title="$t('common.newTab')" @click="tabStore.addTab(null)">+</div>
 
-         <div v-if="isTabListOpen" class="tab-list-dropdown" ref="tabListDropdown">
-            <div
-              v-for="tab in tabStore.tabs"
-              :key="tab.id"
-              class="dropdown-item"
-              :class="{ active: tabStore.activeTabId === tab.id }"
-              @click="selectTabFromList(tab.id)"
-            >
-              {{ tab.name }}
-            </div>
-            <div v-if="tabStore.tabs.length === 0" class="dropdown-empty">
-               {{ $t('common.noTabs') }}
-            </div>
-         </div>
+        <div v-if="isTabListOpen" ref="tabListDropdown" class="tab-list-dropdown">
+          <div
+            v-for="tab in tabStore.tabs"
+            :key="tab.id"
+            class="dropdown-item"
+            :class="{ active: tabStore.activeTabId === tab.id }"
+            @click="selectTabFromList(tab.id)"
+          >
+            {{ tab.name }}
+          </div>
+          <div v-if="tabStore.tabs.length === 0" class="dropdown-empty">
+            {{ $t('common.noTabs') }}
+          </div>
+        </div>
       </div>
     </div>
 
@@ -154,18 +166,23 @@ const tabListDropdown = ref<HTMLElement | null>(null)
 const isTabListOpen = ref(false)
 const draggedTabId = ref<number | null>(null)
 
-function toggleTabList() {
+function toggleTabList(): void {
   isTabListOpen.value = !isTabListOpen.value
 }
 
-function selectTabFromList(id: number) {
+function selectTabFromList(id: number): void {
   switchToTab(id)
   isTabListOpen.value = false
 }
 
 // Close dropdown when clicking outside
-function handleClickOutside(event: MouseEvent) {
-  if (isTabListOpen.value && tabListDropdown.value && !tabListDropdown.value.contains(event.target as Node) && !(event.target as HTMLElement).closest('.action-btn')) {
+function handleClickOutside(event: MouseEvent): void {
+  if (
+    isTabListOpen.value &&
+    tabListDropdown.value &&
+    !tabListDropdown.value.contains(event.target as Node) &&
+    !(event.target as HTMLElement).closest('.action-btn')
+  ) {
     isTabListOpen.value = false
   }
 }
@@ -182,11 +199,11 @@ async function switchToTab(id: number): Promise<void> {
   }
   // Scroll to tab
   setTimeout(() => {
-     if(!scrollContainer.value) return;
-     const activeEl = scrollContainer.value.querySelector('.tab.active') as HTMLElement;
-     if(activeEl) {
-         activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
-     }
+    if (!scrollContainer.value) return
+    const activeEl = scrollContainer.value.querySelector('.tab.active') as HTMLElement
+    if (activeEl) {
+      activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+    }
   }, 50)
 }
 
@@ -194,7 +211,7 @@ const draggedIndex = ref<number | null>(null)
 const dragOverIndex = ref<number | null>(null)
 
 // --- Drag & Drop ---
-function onDragStart(e: DragEvent, index: number, tabId: number) {
+function onDragStart(e: DragEvent, index: number, tabId: number): void {
   console.log('Drag Start:', index, tabId)
   draggedIndex.value = index
   draggedTabId.value = tabId
@@ -205,28 +222,28 @@ function onDragStart(e: DragEvent, index: number, tabId: number) {
   }
 }
 
-function onDragOver(e: DragEvent) {
+function onDragOver(e: DragEvent): void {
   e.preventDefault() // Explicitly prevent default
   if (e.dataTransfer) {
     e.dataTransfer.dropEffect = 'move'
   }
 }
 
-function onDragEnter(e: DragEvent, index: number) {
+function onDragEnter(e: DragEvent, index: number): void {
   e.preventDefault()
   if (index !== draggedIndex.value) {
     dragOverIndex.value = index
   }
 }
 
-function onDrop(e: DragEvent, dropIndex: number) {
+function onDrop(e: DragEvent, dropIndex: number): void {
   // Prevent default logic if necessary, though we don't rely on dataTransfer
   e.preventDefault()
   console.log('Drop:', dropIndex, 'Dragged:', draggedIndex.value)
 
   if (draggedIndex.value === null) {
-      console.error('Dragged index is null on drop!')
-      return
+    console.error('Dragged index is null on drop!')
+    return
   }
 
   if (draggedIndex.value !== dropIndex) {
@@ -237,11 +254,11 @@ function onDrop(e: DragEvent, dropIndex: number) {
   resetDrag()
 }
 
-function onDragEnd() {
+function onDragEnd(): void {
   resetDrag()
 }
 
-function resetDrag() {
+function resetDrag(): void {
   draggedTabId.value = null
   draggedIndex.value = null
   dragOverIndex.value = null
@@ -256,7 +273,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-    document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 
@@ -277,7 +294,7 @@ onUnmounted(() => {
   flex-shrink: 0;
   box-sizing: border-box;
   position: relative;
-  z-index: 1;
+  z-index: 2000; /* Extremely high to ensure dropdown beats dashboard */
   -webkit-app-region: no-drag; /* Ensure it's not captured by window drag */
 }
 
@@ -301,8 +318,8 @@ onUnmounted(() => {
   padding: 0 12px;
   border-right: 1px solid var(--border-color);
   color: var(--text-secondary);
+  color: var(--text-secondary);
   background: var(--bg-panel-header); /* Solid background for hit testing */
-  cursor: grab;
   min-width: 120px;
   max-width: 220px;
   font-size: 13px;
@@ -311,14 +328,15 @@ onUnmounted(() => {
   -webkit-user-drag: element;
   position: relative;
 }
-.tab:active {
-  cursor: grabbing;
-}
+/* .tab:active removed as requested */
 .tab:hover {
   background: var(--bg-app);
 }
 .tab * {
   pointer-events: none;
+}
+.tab-close {
+  pointer-events: auto;
 }
 .tab.active {
   background: var(--tab-active-bg);
@@ -326,8 +344,8 @@ onUnmounted(() => {
   border-top: 2px solid var(--accent-primary);
 }
 .tab.dragging {
-    opacity: 1;
-    background: var(--bg-app);
+  opacity: 1;
+  background: var(--bg-app);
 }
 .tab.drop-left::before {
   content: '';
@@ -383,12 +401,12 @@ onUnmounted(() => {
 }
 
 .tabs-actions {
-    display: flex;
-    align-items: center;
-    background: var(--bg-panel-header);
-    box-shadow: -5px 0 5px -5px rgba(0,0,0,0.1);
-    z-index: 2;
-    position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--bg-panel-header);
+  box-shadow: -5px 0 5px -5px rgba(0, 0, 0, 0.1);
+  z-index: 2;
+  position: relative;
 }
 
 .action-btn {
@@ -407,48 +425,48 @@ onUnmounted(() => {
 }
 
 .tab-list-dropdown {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    min-width: 200px;
-    max-width: 300px;
-    background: var(--bg-app);
-    border: 1px solid var(--border-color);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    border-radius: 0 0 4px 4px;
-    z-index: 100;
-    max-height: 400px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  min-width: 250px;
+  max-width: 300px;
+  background: var(--bg-input); /* Match BaseSelect */
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  z-index: 9999;
+  max-height: 60vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 4px; /* Match BaseSelect */
 }
 .dropdown-item {
-    padding: 8px 12px;
-    font-size: 13px;
-    cursor: pointer;
-    border-bottom: 1px solid var(--border-color);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: var(--text-secondary);
+  padding: 8px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 3px; /* Match BaseSelect */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+  border-bottom: none; /* Remove old border */
 }
-.dropdown-item:last-child {
-    border-bottom: none;
-}
+
 .dropdown-item:hover {
-    background: var(--bg-panel-header);
-    color: var(--text-white);
+  background: var(--list-hover-bg);
+  color: var(--list-hover-fg);
 }
 .dropdown-item.active {
-    color: var(--accent-primary);
-    background: var(--bg-active-selection);
+  background: var(--list-active-bg);
+  color: var(--list-active-fg);
 }
 .dropdown-empty {
-    padding: 12px;
-    text-align: center;
-    color: var(--text-secondary);
-    font-style: italic;
-    font-size: 12px;
+  padding: 12px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-style: italic;
+  font-size: 12px;
 }
 
 .main-view-container {

@@ -1,10 +1,12 @@
 pub mod common;
 mod mysql;
+mod clickhouse;
 mod postgres;
 pub mod ssh;
 mod traits;
 
 pub use mysql::MysqlService;
+pub use clickhouse::ClickhouseService;
 pub use postgres::PostgresService;
 pub use traits::DatabaseService;
 
@@ -32,7 +34,9 @@ impl DatabaseServiceFactory for DefaultDatabaseServiceFactory {
     fn create(&self, driver: &DatabaseDriver) -> Box<dyn DatabaseService> {
         match driver {
             DatabaseDriver::Mysql => Box::new(MysqlService::new()),
+
             DatabaseDriver::Postgres => Box::new(PostgresService::new()),
+            DatabaseDriver::Clickhouse => Box::new(ClickhouseService::new()),
         }
     }
 }
