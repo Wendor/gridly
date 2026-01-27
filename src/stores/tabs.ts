@@ -29,6 +29,7 @@ export interface QueryTab extends BaseTab {
   pendingChanges: Map<string, Record<string, unknown>>
   originalRows: Map<string, Record<string, unknown>>
   loading?: boolean
+  error?: string | null
 }
 
 export interface SettingsTab extends BaseTab {
@@ -89,6 +90,7 @@ export const useTabStore = defineStore('tabs', () => {
       pendingChanges: new Map(),
       originalRows: new Map(),
       loading: false,
+      error: null,
     });
     activeTabId.value = id;
   }
@@ -126,6 +128,7 @@ export const useTabStore = defineStore('tabs', () => {
       pendingChanges: new Map(),
       originalRows: new Map(),
       loading: false,
+      error: null,
     });
 
     activeTabId.value = id;
@@ -264,7 +267,7 @@ export const useTabStore = defineStore('tabs', () => {
 
     try {
       tab.loading = true;
-      connectionStore.error = null;
+      tab.error = null;
       // Generate ID
       tab.currentQueryId = crypto.randomUUID();
 
@@ -292,7 +295,7 @@ export const useTabStore = defineStore('tabs', () => {
       const { res, tableName, isSimpleSelect } = result;
 
       if (res.error) {
-        connectionStore.error = res.error;
+        tab.error = res.error;
         historyStore.addEntry(tab.sql, 'error', 0, connId);
       } else {
         // Columns
@@ -334,7 +337,7 @@ export const useTabStore = defineStore('tabs', () => {
       await loadPrimaryKeys();
     } catch (e) {
       if (e instanceof Error) {
-        connectionStore.error = e.message;
+        tab.error = e.message;
         if (tab.type === 'query') {
           historyStore.addEntry(tab.sql, 'error', 0, connId);
         }
@@ -425,6 +428,7 @@ export const useTabStore = defineStore('tabs', () => {
                 total: null,
               },
               loading: false,
+              error: null,
             } as QueryTab;
           } else {
             return t as Tab;

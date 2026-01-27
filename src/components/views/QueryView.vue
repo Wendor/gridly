@@ -43,13 +43,6 @@
     <div class="resizer-horizontal" @mousedown="startResize"></div>
 
     <div class="grid-wrapper">
-      <div v-if="connStore.error" class="error-msg">
-        <div class="error-content">
-          <h3>{{ $t('common.error') }}</h3>
-          <p>{{ connStore.error }}</p>
-          <button @click="connStore.error = null">{{ $t('common.close') }}</button>
-        </div>
-      </div>
 
       <div v-if="currentQueryTab" class="view-panel-header">
          <ControlPanel>

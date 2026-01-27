@@ -11,6 +11,7 @@
     "delete": "Delete",
     "edit": "Edit",
     "close": "Close",
+    "details": "Details",
     "error": "Error",
     "ready": "Ready",
     "settings": "Settings",
@@ -87,7 +88,6 @@
       "title": "Cell Value",
       "format": "Format",
       "save": "Save",
-      "cancel": "Cancel",
       "cancel": "Cancel",
       "noSelection": "No cell selected"
     },
