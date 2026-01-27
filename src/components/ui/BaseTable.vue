@@ -70,7 +70,10 @@
                   onCellContextMenu($event, row, row[col.prop], startRowIndex + rowIndex, col.prop)
                 "
               >
-                <span :style="{ opacity: isEditing(startRowIndex + rowIndex, col.prop) ? 0 : 1 }">
+                <span
+                  :class="{ 'special-value': isSpecialValue(row[col.prop]) }"
+                  :style="{ opacity: isEditing(startRowIndex + rowIndex, col.prop) ? 0 : 1 }"
+                >
                   {{ formatTableValue(row[col.prop]) }}
                 </span>
               </div>
@@ -96,6 +99,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { formatTableValue } from '@/utils/tableFormatter'
+import { isWrappedValue } from '@/types'
 
 export interface TableColumn {
   prop: string
@@ -468,6 +472,9 @@ function onCellContextMenu(
 
 // function formatValue removed, replaced by import
 
+function isSpecialValue(val: unknown): boolean {
+  return val === null || val === undefined || isWrappedValue(val)
+}
 
 function isCellChanged(rowIndex: number, colKey: string): boolean {
   return props.changedCells.has(getCellKey(rowIndex, colKey))
@@ -691,8 +698,8 @@ async function onPaste(): Promise<void> {
   background: var(--bg-app);
   border: none;
   font-family:
-    'Fira Code', 'Cascadia Code', 'Source Code Pro', ui-monospace, SFMono-Regular,
-    Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    'Fira Code', 'Cascadia Code', 'Source Code Pro', ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, 'Liberation Mono', 'Courier New', monospace;
   font-size: 13px;
   outline: none;
   overflow: hidden;
@@ -824,7 +831,6 @@ async function onPaste(): Promise<void> {
 .table-cell.selected {
   background: color-mix(in srgb, var(--accent-primary), transparent 80%);
   border: 1px solid var(--accent-primary);
-  box-shadow: none;
 }
 
 .table-cell.focused {
@@ -833,6 +839,11 @@ async function onPaste(): Promise<void> {
 
 .table-cell.changed {
   background: color-mix(in srgb, var(--warning), transparent 85%);
+}
+
+.special-value {
+  color: var(--text-secondary);
+  font-style: italic;
 }
 
 .cell-input.singleton-input {
@@ -848,8 +859,6 @@ async function onPaste(): Promise<void> {
   color: var(--text-primary);
   outline: none;
 }
-
-
 
 .cell-input {
   position: absolute;
