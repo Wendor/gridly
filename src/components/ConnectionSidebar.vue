@@ -12,7 +12,7 @@
       </BaseButton>
     </div>
 
-    <div class="saved-list">
+    <div class="saved-list" ref="listContainer" @scroll="onScroll">
       <div v-for="conn in connections" :key="conn.id">
         <div
           class="saved-item"
@@ -169,7 +169,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue';
+import { ref, reactive, watch, onMounted, nextTick } from 'vue';
 import type { DbConnection } from '../types';
 import BaseIcon from './ui/BaseIcon.vue';
 import BaseButton from './ui/BaseButton.vue';
@@ -196,6 +196,8 @@ const tabStore = useTabStore();
 
 const expandedIds = ref<Set<string>>(new Set());
 const expandedDbs = ref<Set<string>>(new Set());
+const listContainer = ref<HTMLElement | null>(null);
+const scrollPosition = ref(0);
 
 const ctxMenu = reactive({
   visible: false,
@@ -245,11 +247,8 @@ async function handleDisconnect(): Promise<void> {
 
 async function handleConnect(): Promise<void> {
   if (ctxMenu.id) {
-    // Явно устанавливаем соединение
     await connStore.ensureConnection(ctxMenu.id);
-    // Используем loadDatabases
     connStore.loadDatabases(ctxMenu.id);
-    // Разворачиваем
     if (!expandedIds.value.has(ctxMenu.id)) {
       expandedIds.value.add(ctxMenu.id);
     }
@@ -298,25 +297,91 @@ function onSelect(id: string): void {
   }
 }
 
-async function saveExpandedState(): Promise<void> {
-  const ids = Array.from(expandedIds.value);
-  const state = await window.dbApi.getState();
-  await window.dbApi.updateState({
-    ui: {
-      ...state.ui,
-      expandedConnections: ids,
-    },
-  });
+// Debounce helper
+function debounce<T extends (...args: any[]) => any>(fn: T, delay: number) {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  return (...args: Parameters<T>) => {
+    if (timeoutId) clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  };
+}
+
+const saveStateDebounced = debounce(async () => {
+  const connIds = Array.from(expandedIds.value);
+  const dbKeys = Array.from(expandedDbs.value);
+  
+  try {
+    const state = await window.dbApi.getState();
+    await window.dbApi.updateState({
+      ui: {
+        ...state.ui,
+        expandedConnections: connIds,
+        expandedDatabases: dbKeys,
+        sidebarScrollPosition: Math.round(scrollPosition.value),
+      },
+    });
+  } catch (e) {
+    console.error('Failed to save sidebar state', e);
+  }
+}, 500);
+
+function onScroll(e: Event) {
+  const target = e.target as HTMLElement;
+  scrollPosition.value = target.scrollTop;
+  saveStateDebounced();
 }
 
 async function restoreExpandedState(): Promise<void> {
   try {
     const state = await window.dbApi.getState();
-    if (state.ui.expandedConnections && state.ui.expandedConnections.length > 0) {
+    
+    // Restore Connections
+    if (state.ui.expandedConnections?.length) {
       expandedIds.value = new Set(state.ui.expandedConnections);
-      // Trigger load for restored IDs
+      // Trigger load
       state.ui.expandedConnections.forEach((id) => {
         connStore.loadDatabases(id);
+      });
+    }
+
+    // Restore Databases
+    if (state.ui.expandedDatabases?.length) {
+      expandedDbs.value = new Set(state.ui.expandedDatabases);
+      // Trigger load tables for expanded DBs
+      state.ui.expandedDatabases.forEach((key) => {
+        // key is `connId-dbName`
+        const parts = key.split('-');
+        if (parts.length >= 2) {
+            // Reconstruct connId (which might contain dashes) and dbName
+            // Assumption: key format `connId-dbName` is simple. 
+            // If connID is uuid, it has dashes. 
+            // Better strategy: split by FIRST dash? No, UUID has dashes.
+            // Split by LAST dash? DB name might have dashes. 
+            // Wait, logic in toggleDbExpand: `${id}-${dbName}`
+            // This is ambiguous if ID has dashes and DB name has dashes.
+            // UUIDs are standard. DB names are user defined.
+            // We should iterate over connection IDs to match prefix?
+            // Or change separator to something less common?
+            // For now, let's try to find matching connection ID.
+            
+            for (const conn of props.connections) {
+                if (key.startsWith(conn.id + '-')) {
+                    const dbName = key.slice(conn.id.length + 1);
+                    connStore.loadTables(conn.id, dbName);
+                    break;
+                }
+            }
+        }
+      });
+    }
+
+    // Restore Scroll
+    if (typeof state.ui.sidebarScrollPosition === 'number') {
+      scrollPosition.value = state.ui.sidebarScrollPosition;
+      nextTick(() => {
+        if (listContainer.value) {
+          listContainer.value.scrollTop = scrollPosition.value;
+        }
       });
     }
   } catch (e) {
@@ -325,30 +390,58 @@ async function restoreExpandedState(): Promise<void> {
 }
 
 watch(
-  () => expandedIds.value,
-  () => saveExpandedState(),
+  () => [expandedIds.value, expandedDbs.value],
+  () => saveStateDebounced(),
   { deep: true },
 );
 
 watch(
   () => props.connections,
   (newConns) => {
-    if (newConns.length > 0) restoreExpandedState();
+    if (newConns.length > 0) {
+        // We restore state only once on init, really, but connections load async?
+        // restoreExpandedState checks props.connections inside it? No.
+        // But the loop inside restoreExpandedState needs props.connections to parse keys.
+        // So we should call it when connections are available.
+        restoreExpandedState();
+    }
   },
-  { immediate: true },
+  { immediate: true, deep: true },
 );
 
+// We also need to reload tables if connections change/reconnect?
+// Already handled by existing watcher at bottom of file?
+// No, that watcher only handled `expandedIds`.
+// Let's add expandedDbs handling to it.
 watch(
   () => props.connections,
   (newConns) => {
     newConns.forEach((conn) => {
+      // Load databases if connection expanded
       if (conn.id && isExpanded(conn.id) && !connStore.databasesCache[conn.id]) {
         connStore.loadDatabases(conn.id);
       }
+      // Load tables if any DB in this connection is expanded
+      // We need to iterate all expandedDbs and check if they belong to this conn
+      expandedDbs.value.forEach(key => {
+          if (key.startsWith(conn.id + '-')) {
+              const dbName = key.slice(conn.id.length + 1);
+              if (!connStore.tablesCache[key]) {
+                  connStore.loadTables(conn.id, dbName);
+              }
+          }
+      });
     });
   },
   { deep: true },
 );
+
+onMounted(() => {
+    // Initial restore if connections already exist
+    if (props.connections.length > 0) {
+        restoreExpandedState();
+    }
+});
 </script>
 
 <style scoped>

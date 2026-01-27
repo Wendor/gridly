@@ -93,6 +93,8 @@ export interface AppState {
     sidebarWidth: number
     editorHeight: number
     expandedConnections: string[]
+    expandedDatabases: string[]
+    sidebarScrollPosition: number
   }
 }
 
@@ -148,7 +150,8 @@ export interface ITauriAPI {
   saveHistory: (history: HistoryItem[]) => Promise<void>
 
   // Queries
-  query: (id: string, sql: string) => Promise<IDbResult>
+  execute: (id: string, sql: string, queryId?: string) => Promise<IDbResult>
+  cancelQuery: (id: string, queryId: string) => Promise<void>
   getTables: (id: string, dbName?: string) => Promise<string[]>
   getDatabases: (id: string, excludeList?: string) => Promise<string[]>
   getTableData: (connectionId: string, req: IDataRequest) => Promise<IDbResult>
@@ -157,6 +160,16 @@ export interface ITauriAPI {
   updateRows: (id: string, updates: RowUpdate[]) => Promise<UpdateResult>
   setActiveDatabase: (id: string, dbName: string) => Promise<void>
   getDashboardMetrics: (id: string) => Promise<DashboardMetrics | null>
+
+  // Schema Cache
+  getSchemaCache: () => Promise<AppSchemaCache>
+  saveSchemaCache: (cache: AppSchemaCache) => Promise<void>
+}
+
+export interface AppSchemaCache {
+  databases: Record<string, string[]>
+  tables: Record<string, string[]>
+  schemas: Record<string, DbSchema>
 }
 
 export interface WrappedDbValue {

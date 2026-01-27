@@ -7,6 +7,7 @@ import type {
   HistoryItem,
   IDataRequest,
   RowUpdate,
+  AppSchemaCache,
 } from '../types';
 
 export const tauriApi: ITauriAPI = {
@@ -32,7 +33,8 @@ export const tauriApi: ITauriAPI = {
   saveHistory: (history: HistoryItem[]) => invoke('save_history', { history }),
 
   // Queries
-  query: (id: string, sql: string) => invoke('query', { id, sql }),
+  execute: (id: string, sql: string, queryId?: string) => invoke('query', { id, sql, queryId }),
+  cancelQuery: (id: string, queryId: string) => invoke('cancel_query', { id, queryId }),
   getTables: (id: string, dbName?: string) => invoke('get_tables', { id, dbName }),
   getDatabases: (id: string, excludeList?: string) => invoke('get_databases', { id, excludeList }),
   getTableData: (connectionId: string, req: IDataRequest) =>
@@ -42,4 +44,6 @@ export const tauriApi: ITauriAPI = {
   updateRows: (id: string, updates: RowUpdate[]) => invoke('update_rows', { id, updates }),
   setActiveDatabase: (id: string, dbName: string) => invoke('set_active_database', { id, dbName }),
   getDashboardMetrics: (id: string) => invoke('get_dashboard_metrics', { id }),
+  getSchemaCache: () => invoke('get_schema_cache'),
+  saveSchemaCache: (cache: AppSchemaCache) => invoke('save_schema_cache', { cache }),
 };

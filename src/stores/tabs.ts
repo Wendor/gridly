@@ -15,6 +15,7 @@ export interface QueryTab extends BaseTab {
   connectionId: string | null
   database: string | null
   sql: string
+  currentQueryId?: string
   rows: Record<string, unknown>[]
   colDefs: { field: string; headerName?: string }[]
   meta: { duration: number } | null
@@ -214,8 +215,11 @@ export const useTabStore = defineStore('tabs', () => {
     runQuery();
   }
 
-  async function runQuery(): Promise<void> {
-    const tab = currentTab.value;
+  async function runQuery(tabId?: number): Promise<void> {
+    // If tabId provided, use it, otherwise use current
+    const targetTab = tabId ? tabs.value.find(t => t.id === tabId) : currentTab.value;
+    const tab = targetTab; // alias
+
     if (!tab || tab.type !== 'query' || tab.connectionId === null) return;
 
     const connId = tab.connectionId;
@@ -254,13 +258,15 @@ export const useTabStore = defineStore('tabs', () => {
         finalSql += ` LIMIT ${tab.pagination.limit} OFFSET ${tab.pagination.offset}`;
       }
 
-      const res = await window.dbApi.query(connId, finalSql);
+      const res = await window.dbApi.execute(connId, finalSql, tab.currentQueryId);
       return { res, tableName, isSimpleSelect }; // Return needed data
     };
 
     try {
       tab.loading = true;
       connectionStore.error = null;
+      // Generate ID
+      tab.currentQueryId = crypto.randomUUID();
 
       let result;
       try {
@@ -305,7 +311,8 @@ export const useTabStore = defineStore('tabs', () => {
           if (tab.pagination.total === null || tab.pagination.offset === 0) {
             try {
               const countSql = `SELECT COUNT(*) as total FROM ${tableName}`;
-              const countRes = await window.dbApi.query(connId, countSql);
+              // Count query usually fast, no need for cancellation ID?
+              const countRes = await window.dbApi.execute(connId, countSql);
               if (countRes.rows.length > 0) {
                 const row = countRes.rows[0] as Record<string, unknown>;
                 const val = Object.values(row)[0];
@@ -334,7 +341,22 @@ export const useTabStore = defineStore('tabs', () => {
       }
     } finally {
       tab.loading = false;
+      tab.currentQueryId = undefined;
     }
+  }
+
+  async function cancelQuery(tabId?: number): Promise<void> {
+      const targetTab = tabId ? tabs.value.find(t => t.id === tabId) : currentTab.value;
+      const tab = targetTab as QueryTab | undefined;
+      
+      if (!tab || tab.type !== 'query' || !tab.loading || !tab.currentQueryId || !tab.connectionId) return;
+
+      try {
+          await window.dbApi.cancelQuery(tab.connectionId, tab.currentQueryId);
+          // UI update handled by optimistic or error catching in runQuery
+      } catch (e) {
+          console.error("Failed to cancel query", e);
+      }
   }
 
   // --- PERSISTENCE LOGIC ---
@@ -630,6 +652,7 @@ export const useTabStore = defineStore('tabs', () => {
     openDocumentTab,
     closeTab,
     runQuery,
+    cancelQuery,
     nextPage,
     prevPage,
     loadPrimaryKeys,

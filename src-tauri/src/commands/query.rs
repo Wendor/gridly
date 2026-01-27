@@ -6,9 +6,19 @@ use tauri::State;
 pub async fn query(
     id: String,
     sql: String,
+    query_id: Option<String>,
     state: State<'_, TauriState>,
 ) -> Result<QueryResult, String> {
-    state.db.execute(id, sql).await.map_err(|e| e.to_string())
+    state.db.execute(id, sql, query_id).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn cancel_query(
+    id: String,
+    query_id: String,
+    state: State<'_, TauriState>,
+) -> Result<(), String> {
+    state.db.cancel_query(id, query_id).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]

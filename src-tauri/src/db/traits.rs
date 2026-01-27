@@ -10,7 +10,8 @@ use async_trait::async_trait;
 pub trait DatabaseService: Send + Sync {
     async fn connect(&mut self, config: &ConnectionConfig) -> Result<String>;
     async fn disconnect(&mut self) -> Result<()>;
-    async fn execute(&self, sql: &str) -> Result<QueryResult>;
+    async fn execute(&self, sql: &str, query_id: Option<String>) -> Result<QueryResult>;
+    async fn cancel_query(&self, query_id: String) -> Result<()>;
     async fn get_tables(&mut self, db_name: Option<String>) -> Result<Vec<String>>;
     async fn get_databases(&self) -> Result<Vec<String>>;
     async fn get_schema(&mut self, db_name: Option<String>) -> Result<DbSchema>;

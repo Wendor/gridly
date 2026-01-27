@@ -12,6 +12,7 @@ const CONNECTIONS_FILE: &str = "connections.json";
 const SETTINGS_FILE: &str = "settings.json";
 const STATE_FILE: &str = "state.json";
 const HISTORY_FILE: &str = "history.json";
+const SCHEMA_CACHE_FILE: &str = "schema_cache.json";
 
 pub struct StorageService {
     config_dir: PathBuf,
@@ -251,6 +252,21 @@ impl StorageService {
 
     pub fn save_history(&self, history: Vec<HistoryItem>) -> Result<()> {
         self.save_json(HISTORY_FILE, &history)
+    }
+
+    pub fn get_schema_cache(&self) -> crate::models::AppSchemaCache {
+        let path = self.get_file_path(SCHEMA_CACHE_FILE);
+        if !path.exists() {
+            return crate::models::AppSchemaCache::default();
+        }
+        match fs::read_to_string(path) {
+            Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
+            Err(_) => crate::models::AppSchemaCache::default(),
+        }
+    }
+
+    pub fn save_schema_cache(&self, cache: crate::models::AppSchemaCache) -> Result<()> {
+        self.save_json(SCHEMA_CACHE_FILE, &cache)
     }
 
     fn save_json<T: serde::Serialize>(&self, filename: &str, data: &T) -> Result<()> {

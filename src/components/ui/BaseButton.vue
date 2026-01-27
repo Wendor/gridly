@@ -43,6 +43,7 @@ defineEmits<{ (e: 'click', event: MouseEvent): void }>();
   box-sizing: border-box;
   white-space: nowrap;
   flex-shrink: 0;
+  font-weight: 500; /* Better readability */
 }
 
 .base-btn:not(.icon-only) {
@@ -74,15 +75,16 @@ defineEmits<{ (e: 'click', event: MouseEvent): void }>();
   color: var(--text-white);
 }
 
-/* Danger */
+/* Danger (Outline Style) */
 .variant-danger {
   background: transparent;
   border-color: #ff4d4f;
-  color: #ff4d4f;
+  color: #ff4d4f !important;
 }
 .variant-danger:hover:not(:disabled) {
-  background: #ff4d4f;
-  color: white;
+  background: rgba(255, 77, 79, 0.1); /* Subtle red tint on hover */
+  border-color: #ff4d4f;
+  color: #ff4d4f !important;
 }
 
 /* Ghost (No border/bg usually, or minimal) */

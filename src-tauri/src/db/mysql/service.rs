@@ -179,11 +179,17 @@ impl DatabaseService for MysqlService {
         Ok(())
     }
 
-    async fn execute(&self, sql: &str) -> Result<QueryResult> {
+    async fn execute(&self, sql: &str, query_id: Option<String>) -> Result<QueryResult> {
         let pool = self.pool()?;
         let start = Instant::now();
 
-        let result = sqlx::query(sql).fetch_all(pool).await;
+        let final_sql = if let Some(qid) = query_id {
+            format!("/* query_id: {} */ {}", qid, sql)
+        } else {
+            sql.to_string()
+        };
+
+        let result = sqlx::query(&final_sql).fetch_all(pool).await;
         let duration = start.elapsed().as_secs_f64() * 1000.0;
 
         match result {
@@ -207,6 +213,26 @@ impl DatabaseService for MysqlService {
             }
             Err(e) => Ok(QueryResult::with_error(e.to_string(), duration)),
         }
+    }
+
+    async fn cancel_query(&self, query_id: String) -> Result<()> {
+        let pool = self.pool()?;
+        let search_str = format!("/* query_id: {} */", query_id);
+        
+        let rows = sqlx::query("SELECT ID FROM information_schema.PROCESSLIST WHERE INFO LIKE ?")
+            .bind(format!("%{}%", search_str))
+            .fetch_all(pool)
+            .await?;
+
+        for row in rows {
+            let id: u64 = row.get("ID");
+            // KILL QUERY id
+            let _ = sqlx::query(&format!("KILL QUERY {}", id))
+                .execute(pool)
+                .await;
+        }
+
+        Ok(())
     }
 
     async fn get_tables(&mut self, db_name: Option<String>) -> Result<Vec<String>> {
@@ -288,7 +314,7 @@ impl DatabaseService for MysqlService {
 
     async fn get_table_data(&self, req: DataRequest) -> Result<QueryResult> {
         let sql = build_select_sql(&req.table_name, req.limit, req.offset, QuoteStyle::Backtick)?;
-        self.execute(&sql).await
+        self.execute(&sql, None).await
     }
 
     async fn set_active_database(&mut self, db_name: String) -> Result<()> {

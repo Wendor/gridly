@@ -303,11 +303,17 @@ impl DatabaseService for PostgresService {
         Ok(())
     }
 
-    async fn execute(&self, sql: &str) -> Result<QueryResult> {
+    async fn execute(&self, sql: &str, query_id: Option<String>) -> Result<QueryResult> {
         let pool = self.pool()?;
         let start = Instant::now();
 
-        let result = sqlx::query(sql).fetch_all(pool).await;
+        let final_sql = if let Some(qid) = query_id {
+            format!("/* query_id: {} */ {}", qid, sql)
+        } else {
+            sql.to_string()
+        };
+
+        let result = sqlx::query(&final_sql).fetch_all(pool).await;
         let duration = start.elapsed().as_secs_f64() * 1000.0;
 
         match result {
@@ -318,7 +324,7 @@ impl DatabaseService for PostgresService {
                     for col in rows[0].columns() {
                         columns.push(col.name().to_string());
                     }
-                } else if let Ok(desc) = pool.describe(sql).await {
+                } else if let Ok(desc) = pool.describe(&final_sql).await {
                     for col in desc.columns() {
                         columns.push(col.name().to_string());
                     }
@@ -335,6 +341,35 @@ impl DatabaseService for PostgresService {
             }
             Err(e) => Ok(QueryResult::with_error(e.to_string(), duration)),
         }
+    }
+
+    async fn cancel_query(&self, query_id: String) -> Result<()> {
+        let pool = self.pool()?;
+        // Find PID
+        let search_str = format!("/* query_id: {} */", query_id);
+        let find_pid_sql = "
+            SELECT pid 
+            FROM pg_stat_activity 
+            WHERE query LIKE $1 
+            AND state != 'idle' 
+            AND pid != pg_backend_pid()
+        ";
+        let pattern = format!("%{}%", search_str);
+        
+        let rows = sqlx::query(find_pid_sql)
+            .bind(pattern)
+            .fetch_all(pool)
+            .await?;
+
+        for row in rows {
+            let pid: i32 = row.get("pid");
+            let _ = sqlx::query("SELECT pg_cancel_backend($1)")
+                .bind(pid)
+                .execute(pool)
+                .await;
+        }
+
+        Ok(())
     }
 
     async fn get_tables(&mut self, db_name: Option<String>) -> Result<Vec<String>> {
@@ -402,7 +437,7 @@ impl DatabaseService for PostgresService {
 
     async fn get_table_data(&self, req: DataRequest) -> Result<QueryResult> {
         let sql = build_select_sql(&req.table_name, req.limit, req.offset, QuoteStyle::DoubleQuote)?;
-        self.execute(&sql).await
+        self.execute(&sql, None).await
     }
 
     async fn set_active_database(&mut self, db_name: String) -> Result<()> {

@@ -79,11 +79,16 @@ impl ClickhouseService {
         Ok(url)
     }
 
-    async fn send_query(&self, sql: &str) -> Result<ClickHouseResponse> {
+    async fn send_query(&self, sql: &str, query_id: Option<&str>) -> Result<ClickHouseResponse> {
         let client = self.client.as_ref().ok_or(DbError::NotConnected)?;
         let config = self.config.as_ref().ok_or(DbError::NotConnected)?;
         
-        let url = self.get_url(&[])?;
+        let mut params = Vec::new();
+        if let Some(qid) = query_id {
+            params.push(("query_id", qid));
+        }
+
+        let url = self.get_url(&params)?;
         
         let mut req = client.post(url).body(sql.to_string());
 
@@ -134,7 +139,7 @@ impl DatabaseService for ClickhouseService {
         self.client = Some(Client::new());
         
         // Test connection
-        self.send_query("SELECT 1").await?;
+        self.send_query("SELECT 1", None).await?;
         
         Ok("Connected to ClickHouse".to_string())
     }
@@ -145,9 +150,9 @@ impl DatabaseService for ClickhouseService {
         Ok(())
     }
 
-    async fn execute(&self, sql: &str) -> Result<QueryResult> {
+    async fn execute(&self, sql: &str, query_id: Option<String>) -> Result<QueryResult> {
         let start = Instant::now();
-        match self.send_query(sql).await {
+        match self.send_query(sql, query_id.as_deref()).await {
             Ok(response) => {
                 let duration = start.elapsed().as_secs_f64() * 1000.0;
                 let columns = response.meta.unwrap_or_default()
@@ -170,6 +175,12 @@ impl DatabaseService for ClickhouseService {
         }
     }
 
+    async fn cancel_query(&self, query_id: String) -> Result<()> {
+        // KILL QUERY WHERE query_id = '...'
+        let kill_sql = format!("KILL QUERY WHERE query_id = '{}'", query_id);
+        self.send_query(&kill_sql, None).await.map(|_| ())
+    }
+
     async fn get_tables(&mut self, db_name: Option<String>) -> Result<Vec<String>> {
          // If db_name provided, verify it?
          // ClickHouse: SHOW TABLES FROM db
@@ -179,7 +190,7 @@ impl DatabaseService for ClickhouseService {
              "SHOW TABLES".to_string()
          };
          
-         let result = self.execute(&sql).await?;
+         let result = self.execute(&sql, None).await?;
          if let Some(_) = result.error {
              return Err(DbError::Query("Failed to get tables".to_string()));
          }
@@ -193,7 +204,7 @@ impl DatabaseService for ClickhouseService {
     }
 
     async fn get_databases(&self) -> Result<Vec<String>> {
-        let result = self.execute("SHOW DATABASES").await?;
+        let result = self.execute("SHOW DATABASES", None).await?;
          if let Some(_) = result.error {
              return Err(DbError::Query("Failed to get databases".to_string()));
          }
@@ -214,7 +225,7 @@ impl DatabaseService for ClickhouseService {
             db
         );
         
-        let result = self.execute(&sql).await?;
+        let result = self.execute(&sql, None).await?;
          if let Some(_) = result.error {
              return Err(DbError::Query("Failed to get schema".to_string()));
          }
@@ -253,7 +264,7 @@ impl DatabaseService for ClickhouseService {
             req.offset
         );
         
-        self.execute(&sql).await
+        self.execute(&sql, None).await
     }
 
     async fn set_active_database(&mut self, db_name: String) -> Result<()> {
@@ -273,7 +284,7 @@ impl DatabaseService for ClickhouseService {
             db, table_name
         );
         
-        let result = self.execute(&sql).await?;
+        let result = self.execute(&sql, None).await?;
         let keys = result.rows.iter()
              .filter_map(|r| r.get("name"))
              .filter_map(|v| v.as_str().map(|s| s.to_string()))
@@ -292,14 +303,14 @@ impl DatabaseService for ClickhouseService {
 
     async fn get_dashboard_metrics(&self) -> Result<DashboardMetrics> {
         // Run parallel queries or seq
-        let version_res = self.execute("SELECT version() as v").await?;
+        let version_res = self.execute("SELECT version() as v", None).await?;
         let version = version_res.rows.first()
             .and_then(|r| r.get("v"))
             .and_then(|v| v.as_str())
             .unwrap_or("unknown")
             .to_string();
             
-        let uptime_res = self.execute("SELECT uptime() as u").await?;
+        let uptime_res = self.execute("SELECT uptime() as u", None).await?;
         let uptime: i64 = uptime_res.rows.first()
             .and_then(|r| r.get("u"))
             .and_then(|v| v.as_u64())
@@ -307,14 +318,14 @@ impl DatabaseService for ClickhouseService {
             
         // DB Size
         // SELECT sum(bytes) FROM system.parts
-        let size_res = self.execute("SELECT formatReadableSize(sum(bytes)) as s FROM system.parts").await?;
+        let size_res = self.execute("SELECT formatReadableSize(sum(bytes)) as s FROM system.parts", None).await?;
         let db_size = size_res.rows.first()
             .and_then(|r| r.get("s"))
             .and_then(|v| v.as_str())
             .unwrap_or("0 B")
             .to_string();
             
-        let table_count_res = self.execute("SELECT count() as c FROM system.tables WHERE database != 'system'").await?;
+        let table_count_res = self.execute("SELECT count() as c FROM system.tables WHERE database != 'system'", None).await?;
         let table_count = table_count_res.rows.first()
             .and_then(|r| r.get("c"))
             .and_then(|v| v.as_u64())

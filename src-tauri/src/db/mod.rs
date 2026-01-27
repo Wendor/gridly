@@ -18,7 +18,7 @@ use crate::models::{
 use ssh::SshTunnelService;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+
 
 
 
@@ -116,11 +116,17 @@ impl DatabaseManager {
     // Note: This returns the Arc to the lock, same as read, but we intend to write lock it.
     // Separating just for consistent naming if needed, but actually we just need the arc.
     
-    pub async fn execute(&self, id: String, sql: String) -> Result<QueryResult> {
+    pub async fn execute(&self, id: String, sql: String, query_id: Option<String>) -> Result<QueryResult> {
         let service_lock = self.get_service_read(&id).await?;
         // execute takes &self, so we only need read lock on the service
         let service = service_lock.read().await;
-        service.execute(&sql).await
+        service.execute(&sql, query_id).await
+    }
+
+    pub async fn cancel_query(&self, id: String, query_id: String) -> Result<()> {
+        let service_lock = self.get_service_read(&id).await?;
+        let service = service_lock.read().await;
+        service.cancel_query(query_id).await
     }
 
     pub async fn get_tables(&self, id: String, db_name: Option<String>) -> Result<Vec<String>> {
@@ -272,9 +278,9 @@ mod tests {
             .returning(|_| Ok("Connected".to_string()));
         
         mock_service.expect_execute()
-            .with(mockall::predicate::eq("SELECT 1"))
+            .with(mockall::predicate::eq("SELECT 1"), mockall::predicate::eq(None::<String>))
             .times(1)
-            .returning(|_| Ok(QueryResult {
+            .returning(|_, _| Ok(QueryResult {
                 rows: vec![],
                 columns: vec![],
                 error: None,
@@ -304,7 +310,7 @@ mod tests {
         };
 
         let _ = manager.connect("conn1".to_string(), config).await;
-        let result = manager.execute("conn1".to_string(), "SELECT 1".to_string()).await;
+        let result = manager.execute("conn1".to_string(), "SELECT 1".to_string(), None).await;
         assert!(result.is_ok());
     }
 }

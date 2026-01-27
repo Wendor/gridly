@@ -74,6 +74,8 @@ pub struct UiState {
     pub sidebar_width: i32,
     pub editor_height: i32,
     pub expanded_connections: Vec<String>,
+    pub expanded_databases: Vec<String>,
+    pub sidebar_scroll_position: i32,
 }
 
 impl Default for UiState {
@@ -82,6 +84,8 @@ impl Default for UiState {
             sidebar_width: 250,
             editor_height: 300,
             expanded_connections: Vec::new(),
+            expanded_databases: Vec::new(),
+            sidebar_scroll_position: 0,
         }
     }
 }

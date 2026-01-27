@@ -33,6 +33,7 @@ pub fn run() {
             get_history,
             save_history,
             query,
+            cancel_query,
             get_tables,
             get_databases,
             get_table_data,
@@ -40,7 +41,9 @@ pub fn run() {
             get_primary_keys,
             update_rows,
             set_active_database,
-            get_dashboard_metrics
+            get_dashboard_metrics,
+            get_schema_cache,
+            save_schema_cache
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

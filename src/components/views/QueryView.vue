@@ -18,11 +18,19 @@
       <template #right>
         <div class="toolbar-right">
           <BaseButton
+            v-if="!currentQueryTab?.loading"
             variant="primary"
-            :disabled="!!currentQueryTab?.loading || currentQueryTab?.connectionId === null"
-            @click="tabStore.runQuery"
+            :disabled="currentQueryTab?.connectionId === null"
+            @click="tabStore.runQuery()"
           >
             <BaseIcon name="play" /> {{ $t('query.run') }}
+          </BaseButton>
+          <BaseButton
+            v-else
+            variant="danger"
+            @click="tabStore.cancelQuery()"
+          >
+            <BaseIcon name="square" /> {{ $t('common.cancel') }}
           </BaseButton>
         </div>
       </template>
@@ -87,7 +95,7 @@
                       :title="$t('query.refresh')"
                       variant="ghost"
                       icon-only
-                      @click="tabStore.runQuery"
+                      @click="tabStore.runQuery()"
                     >
                       <BaseIcon name="refresh" />
                     </BaseButton>

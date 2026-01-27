@@ -1,5 +1,5 @@
 use crate::commands::TauriState;
-use crate::models::{DashboardMetrics, DbSchema};
+use crate::models::{AppSchemaCache, DashboardMetrics, DbSchema};
 use tauri::State;
 
 #[tauri::command]
@@ -90,5 +90,22 @@ pub async fn get_dashboard_metrics(
         .db
         .get_dashboard_metrics(id)
         .await
+        .map_err(|e| e.to_string())
+}
+#[tauri::command]
+pub async fn get_schema_cache(
+    state: State<'_, TauriState>,
+) -> Result<AppSchemaCache, String> {
+    Ok(state.storage.get_schema_cache())
+}
+
+#[tauri::command]
+pub async fn save_schema_cache(
+    cache: AppSchemaCache,
+    state: State<'_, TauriState>,
+) -> Result<(), String> {
+    state
+        .storage
+        .save_schema_cache(cache)
         .map_err(|e| e.to_string())
 }
