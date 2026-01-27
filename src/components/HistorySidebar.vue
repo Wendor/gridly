@@ -42,51 +42,51 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { useHistoryStore } from '../stores/history'
-import { useTabStore } from '../stores/tabs'
-import type { HistoryItem } from '../types'
-import BaseIcon from './ui/BaseIcon.vue'
-import BaseButton from './ui/BaseButton.vue'
+import { onMounted } from 'vue';
+import { useHistoryStore } from '../stores/history';
+import { useTabStore } from '../stores/tabs';
+import type { HistoryItem } from '../types';
+import BaseIcon from './ui/BaseIcon.vue';
+import BaseButton from './ui/BaseButton.vue';
 
-const historyStore = useHistoryStore()
-const tabStore = useTabStore()
+const historyStore = useHistoryStore();
+const tabStore = useTabStore();
 
 onMounted(() => {
-  historyStore.loadFromStorage()
-})
+  historyStore.loadFromStorage();
+});
 
 function formatTime(ts: number): string {
   // Показываем время чуть короче, без секунд, если места мало, или полностью
   return new Date(ts).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit'
-  })
+    second: '2-digit',
+  });
 }
 
 function restoreQuery(item: HistoryItem): void {
-  const current = tabStore.currentTab
+  const current = tabStore.currentTab;
 
   if (current && current.type === 'query' && current.connectionId === item.connectionId) {
-    if (current.sql === item.sql) return
+    if (current.sql === item.sql) return;
 
     const isCurrentEmpty =
-      !current.sql || current.sql.trim() === '' || current.sql.trim() === 'SELECT 1;'
+      !current.sql || current.sql.trim() === '' || current.sql.trim() === 'SELECT 1;';
 
     if (isCurrentEmpty) {
-      current.sql = item.sql
-      return
+      current.sql = item.sql;
+      return;
     }
   }
 
-  tabStore.addTab(item.connectionId)
+  tabStore.addTab(item.connectionId);
 
   setTimeout(() => {
     if (tabStore.currentTab && tabStore.currentTab.type === 'query') {
-      tabStore.currentTab.sql = item.sql
+      tabStore.currentTab.sql = item.sql;
     }
-  }, 0)
+  }, 0);
 }
 </script>
 

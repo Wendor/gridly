@@ -20,11 +20,11 @@ withDefaults(
     iconOnly?: boolean
   }>(),
   {
-    variant: 'secondary'
-  }
-)
+    variant: 'secondary',
+  },
+);
 
-defineEmits<{ (e: 'click', event: MouseEvent): void }>()
+defineEmits<{ (e: 'click', event: MouseEvent): void }>();
 </script>
 
 <style scoped>

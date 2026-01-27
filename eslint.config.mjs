@@ -1,29 +1,32 @@
-import { defineConfig } from 'eslint/config'
-import tseslint from '@electron-toolkit/eslint-config-ts'
-import eslintConfigPrettier from '@electron-toolkit/eslint-config-prettier'
-import eslintPluginVue from 'eslint-plugin-vue'
-import vueParser from 'vue-eslint-parser'
+import pluginVue from 'eslint-plugin-vue';
+import vueTsEslintConfig from '@vue/eslint-config-typescript';
+import skipFormatting from '@vue/eslint-config-prettier/skip-formatting';
 
-export default defineConfig(
-  { ignores: ['**/node_modules', '**/dist', '**/out'] },
-  tseslint.configs.recommended,
-  eslintPluginVue.configs['flat/recommended'],
+export default [
   {
-    files: ['**/*.vue'],
-    languageOptions: {
-      parser: vueParser,
-      parserOptions: {
-        ecmaFeatures: {
-          jsx: true
-        },
-        extraFileExtensions: ['.vue'],
-        parser: tseslint.parser
-      }
-    }
-  },
-  {
+    name: 'app/files-to-lint',
     files: ['**/*.{ts,mts,tsx,vue}'],
+  },
+
+  {
+    name: 'app/files-to-ignore',
+    ignores: ['**/dist/**', '**/dist-ssr/**', '**/coverage/**', 'src-tauri/**'],
+  },
+
+  ...pluginVue.configs['flat/recommended'],
+  ...vueTsEslintConfig(),
+  skipFormatting,
+
+  {
     rules: {
+      // Требовать ; в конце команд
+      semi: ['error', 'always'],
+      // Требовать запятую у последних елементов массива (если многострочное написание)
+      'comma-dangle': ['error', 'always-multiline'],
+      // Предпочитать константы
+      'prefer-const': 'error',
+
+      // Custom rules from previous config
       'vue/require-default-prop': 'off',
       'vue/multi-word-component-names': 'off',
       'vue/no-v-html': 'off',
@@ -33,26 +36,25 @@ export default defineConfig(
         'error',
         {
           argsIgnorePattern: '^_',
-          varsIgnorePattern: '^_'
-        }
+          varsIgnorePattern: '^_',
+        },
       ],
       'no-restricted-syntax': [
         'error',
         {
           selector:
             'Program > :matches(ExpressionStatement, BlockStatement) > ExpressionStatement > Literal[value=/eslint-disable/]',
-          message: 'Do not use eslint-disable comments. Fix the issue instead.'
-        }
+          message: 'Do not use eslint-disable comments. Fix the issue instead.',
+        },
       ],
       'vue/block-lang': [
         'error',
         {
           script: {
-            lang: 'ts'
-          }
-        }
-      ]
-    }
+            lang: 'ts',
+          },
+        },
+      ],
+    },
   },
-  eslintConfigPrettier
-)
+];

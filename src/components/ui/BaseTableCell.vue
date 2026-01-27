@@ -18,8 +18,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { formatTableValue } from '@/utils/tableFormatter'
+import { computed } from 'vue';
+import { formatTableValue } from '@/utils/tableFormatter';
 
 const props = defineProps<{
   value: unknown
@@ -28,15 +28,15 @@ const props = defineProps<{
   focused: boolean
   changed: boolean
   isEditing: boolean
-}>()
+}>();
 
 defineEmits<{
   (e: 'mousedown', event: MouseEvent): void
   (e: 'dblclick', event: MouseEvent): void
   (e: 'contextmenu', event: MouseEvent): void
-}>()
+}>();
 
-const formattedValue = computed(() => formatTableValue(props.value))
+const formattedValue = computed(() => formatTableValue(props.value));
 </script>
 
 <style scoped>

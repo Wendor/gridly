@@ -29,27 +29,27 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue';
 
 const props = defineProps<{
   isOpen: boolean
   title?: string
   width?: string
-}>()
+}>();
 
-const emit = defineEmits<{ (e: 'close'): void }>()
+const emit = defineEmits<{ (e: 'close'): void }>();
 
 function close(): void {
-  emit('close')
+  emit('close');
 }
 
 // Close on Escape
 function handleKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape' && props.isOpen) close()
+  if (e.key === 'Escape' && props.isOpen) close();
 }
 
-onMounted(() => window.addEventListener('keydown', handleKeydown))
-onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
+onMounted(() => window.addEventListener('keydown', handleKeydown));
+onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 </script>
 
 <style scoped>

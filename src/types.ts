@@ -166,7 +166,7 @@ export interface WrappedDbValue {
 }
 
 export function isWrappedValue(val: unknown): val is WrappedDbValue {
-  return typeof val === 'object' && val !== null && (val as WrappedDbValue).__isWrapped === true
+  return typeof val === 'object' && val !== null && (val as WrappedDbValue).__isWrapped === true;
 }
 
 export interface DashboardMetrics {

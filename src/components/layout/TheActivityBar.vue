@@ -90,30 +90,30 @@
 </template>
 
 <script setup lang="ts">
-import { useUIStore } from '../../stores/ui'
-import { useTabStore } from '../../stores/tabs' // <-- Импортируем tabStore
-import i18n from '../../i18n'
+import { useUIStore } from '../../stores/ui';
+import { useTabStore } from '../../stores/tabs'; // <-- Импортируем tabStore
+import i18n from '../../i18n';
 
-const uiStore = useUIStore()
-const tabStore = useTabStore()
+const uiStore = useUIStore();
+const tabStore = useTabStore();
 
 const emit = defineEmits<{
   (e: 'open-settings'): void
-}>()
+}>();
 
 function openHelp(): void {
   tabStore.openDocumentTab(
     i18n.global.t('common.instructions'),
-    i18n.global.t('common.instructionsText')
-  )
+    i18n.global.t('common.instructionsText'),
+  );
 }
 
 function openSettings(): void {
   // Вызываем метод открытия таба настроек
-  tabStore.openSettingsTab()
+  tabStore.openSettingsTab();
 
   // Опционально: можно эмитить событие наверх, если нужно
-  emit('open-settings')
+  emit('open-settings');
 }
 </script>
 

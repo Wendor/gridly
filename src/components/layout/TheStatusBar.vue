@@ -28,36 +28,36 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useTabStore } from '../../stores/tabs'
-import { useConnectionStore } from '../../stores/connections'
+import { computed } from 'vue';
+import { useTabStore } from '../../stores/tabs';
+import { useConnectionStore } from '../../stores/connections';
 
-const tabStore = useTabStore()
-const connStore = useConnectionStore()
+const tabStore = useTabStore();
+const connStore = useConnectionStore();
 
 const connectedTab = computed(() => {
-  const t = tabStore.currentTab
+  const t = tabStore.currentTab;
   // Both 'query' and 'dashboard' tabs have a connectionId
   if (t && (t.type === 'query' || t.type === 'dashboard')) {
-    return t
+    return t;
   }
-  return null
-})
+  return null;
+});
 
 const isTabConnected = computed(() => {
-  return connectedTab.value?.connectionId !== null && connectedTab.value?.connectionId !== undefined
-})
+  return connectedTab.value?.connectionId !== null && connectedTab.value?.connectionId !== undefined;
+});
 
 const currentConnectionName = computed(() => {
-  if (!isTabConnected.value || !connectedTab.value) return ''
-  const connId = connectedTab.value.connectionId
+  if (!isTabConnected.value || !connectedTab.value) return '';
+  const connId = connectedTab.value.connectionId;
   // Dashboard tab might have connectionId as string directly, check type definition if needed.
   // In types.ts: DashboardTab { connectionId: string }, QueryTab { connectionId: string | null }
-  if (!connId) return ''
+  if (!connId) return '';
 
-  const conn = connStore.savedConnections.find((c) => c.id === connId)
-  return conn ? conn.name : 'Unknown'
-})
+  const conn = connStore.savedConnections.find((c) => c.id === connId);
+  return conn ? conn.name : 'Unknown';
+});
 </script>
 
 <style scoped>

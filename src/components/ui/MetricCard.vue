@@ -32,7 +32,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed } from 'vue';
 
 const props = defineProps<{
   title: string
@@ -42,45 +42,45 @@ const props = defineProps<{
   loading?: boolean
   error?: string | null
   history?: number[]
-}>()
+}>();
 
-const id = Math.random().toString(36).substr(2, 9)
-const width = 100
-const height = 40
+const id = Math.random().toString(36).substr(2, 9);
+const width = 100;
+const height = 40;
 
 const normalizedData = computed(() => {
-  if (!props.history || props.history.length < 2) return []
-  const min = Math.min(...props.history)
-  const max = Math.max(...props.history)
-  const range = max - min
+  if (!props.history || props.history.length < 2) return [];
+  const min = Math.min(...props.history);
+  const max = Math.max(...props.history);
+  const range = max - min;
 
   // Prevent division by zero if flat line
-  const effectiveRange = range === 0 ? 1 : range
+  const effectiveRange = range === 0 ? 1 : range;
 
   return props.history.map((val, i) => {
-    const x = (i / (props.history!.length - 1)) * width
+    const x = (i / (props.history!.length - 1)) * width;
     // Normalize y: higher value = smaller y (SVG coords)
     // Add 2px padding to avoid clipping stroke
-    const padding = 2
-    const availableHeight = height - padding * 2
-    const normalizedY = 1 - (val - min) / effectiveRange
-    const y = padding + normalizedY * availableHeight
-    return { x, y }
-  })
-})
+    const padding = 2;
+    const availableHeight = height - padding * 2;
+    const normalizedY = 1 - (val - min) / effectiveRange;
+    const y = padding + normalizedY * availableHeight;
+    return { x, y };
+  });
+});
 
 const linePath = computed(() => {
-  const data = normalizedData.value
-  if (data.length === 0) return ''
-  return `M ${data.map((p) => `${p.x},${p.y}`).join(' L ')}`
-})
+  const data = normalizedData.value;
+  if (data.length === 0) return '';
+  return `M ${data.map((p) => `${p.x},${p.y}`).join(' L ')}`;
+});
 
 const areaPath = computed(() => {
-  const data = normalizedData.value
-  if (data.length === 0) return ''
-  const line = `M ${data.map((p) => `${p.x},${p.y}`).join(' L ')}`
-  return `${line} L ${width},${height} L 0,${height} Z`
-})
+  const data = normalizedData.value;
+  if (data.length === 0) return '';
+  const line = `M ${data.map((p) => `${p.x},${p.y}`).join(' L ')}`;
+  return `${line} L ${width},${height} L 0,${height} Z`;
+});
 </script>
 
 <style scoped>

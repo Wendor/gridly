@@ -36,13 +36,13 @@ defineProps<{
   modelValue: boolean
   label?: string
   disabled?: boolean
-}>()
+}>();
 
-const emit = defineEmits<{ (e: 'update:modelValue', val: boolean): void }>()
+const emit = defineEmits<{ (e: 'update:modelValue', val: boolean): void }>();
 
 function updateValue(event: Event): void {
-  const target = event.target as HTMLInputElement
-  emit('update:modelValue', target.checked)
+  const target = event.target as HTMLInputElement;
+  emit('update:modelValue', target.checked);
 }
 </script>
 

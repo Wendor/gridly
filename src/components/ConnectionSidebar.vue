@@ -169,19 +169,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
-import type { DbConnection } from '../types'
-import BaseIcon from './ui/BaseIcon.vue'
-import BaseButton from './ui/BaseButton.vue'
-import BaseContextMenu from './ui/BaseContextMenu.vue'
-import { useConnectionStore } from '../stores/connections'
-import { useTabStore } from '../stores/tabs'
-import i18n from '../i18n'
+import { ref, reactive, watch } from 'vue';
+import type { DbConnection } from '../types';
+import BaseIcon from './ui/BaseIcon.vue';
+import BaseButton from './ui/BaseButton.vue';
+import BaseContextMenu from './ui/BaseContextMenu.vue';
+import { useConnectionStore } from '../stores/connections';
+import { useTabStore } from '../stores/tabs';
+import i18n from '../i18n';
 
 const props = defineProps<{
   connections: DbConnection[]
   activeSidebarId: string | null
-}>()
+}>();
 
 const emit = defineEmits<{
   (e: 'select', id: string): void
@@ -189,166 +189,166 @@ const emit = defineEmits<{
   (e: 'edit', id: string): void
   (e: 'open-create-modal'): void
   (e: 'table-click', table: string, id: string, dbName: string): void
-}>()
+}>();
 
-const connStore = useConnectionStore()
-const tabStore = useTabStore()
+const connStore = useConnectionStore();
+const tabStore = useTabStore();
 
-const expandedIds = ref<Set<string>>(new Set())
-const expandedDbs = ref<Set<string>>(new Set())
+const expandedIds = ref<Set<string>>(new Set());
+const expandedDbs = ref<Set<string>>(new Set());
 
 const ctxMenu = reactive({
   visible: false,
   x: 0,
   y: 0,
-  id: null as string | null
-})
+  id: null as string | null,
+});
 
 function onContextMenu(event: MouseEvent, id: string): void {
-  ctxMenu.visible = true
-  ctxMenu.x = event.clientX
-  ctxMenu.y = event.clientY
-  ctxMenu.id = id
+  ctxMenu.visible = true;
+  ctxMenu.x = event.clientX;
+  ctxMenu.y = event.clientY;
+  ctxMenu.id = id;
 }
 
 function closeCtxMenu(): void {
-  ctxMenu.visible = false
+  ctxMenu.visible = false;
 }
 
 function handleEdit(): void {
-  if (ctxMenu.id) emit('edit', ctxMenu.id)
-  closeCtxMenu()
+  if (ctxMenu.id) emit('edit', ctxMenu.id);
+  closeCtxMenu();
 }
 
 function handleOpenDashboard(): void {
   if (ctxMenu.id) {
-    tabStore.openDashboardTab(ctxMenu.id)
+    tabStore.openDashboardTab(ctxMenu.id);
   }
-  closeCtxMenu()
+  closeCtxMenu();
 }
 
 function handleDelete(): void {
   if (ctxMenu.id) {
     if (confirm(i18n.global.t('sidebar.confirmDelete'))) {
-      emit('delete', ctxMenu.id)
+      emit('delete', ctxMenu.id);
     }
   }
-  closeCtxMenu()
+  closeCtxMenu();
 }
 
 async function handleDisconnect(): Promise<void> {
   if (ctxMenu.id) {
-    await connStore.disconnect(ctxMenu.id)
+    await connStore.disconnect(ctxMenu.id);
   }
-  closeCtxMenu()
+  closeCtxMenu();
 }
 
 async function handleConnect(): Promise<void> {
   if (ctxMenu.id) {
     // Явно устанавливаем соединение
-    await connStore.ensureConnection(ctxMenu.id)
+    await connStore.ensureConnection(ctxMenu.id);
     // Используем loadDatabases
-    connStore.loadDatabases(ctxMenu.id)
+    connStore.loadDatabases(ctxMenu.id);
     // Разворачиваем
     if (!expandedIds.value.has(ctxMenu.id)) {
-      expandedIds.value.add(ctxMenu.id)
+      expandedIds.value.add(ctxMenu.id);
     }
   }
-  closeCtxMenu()
+  closeCtxMenu();
 }
 
 async function handleRefresh(): Promise<void> {
   if (ctxMenu.id) {
-    await connStore.loadDatabases(ctxMenu.id, true)
+    await connStore.loadDatabases(ctxMenu.id, true);
   }
-  closeCtxMenu()
+  closeCtxMenu();
 }
 
 function isExpanded(id: string): boolean {
-  return expandedIds.value.has(id)
+  return expandedIds.value.has(id);
 }
 
 function toggleExpand(id: string): void {
   if (expandedIds.value.has(id)) {
-    expandedIds.value.delete(id)
+    expandedIds.value.delete(id);
   } else {
-    expandedIds.value.add(id)
-    connStore.loadDatabases(id)
+    expandedIds.value.add(id);
+    connStore.loadDatabases(id);
   }
 }
 
 function isDbExpanded(id: string, dbName: string): boolean {
-  return expandedDbs.value.has(`${id}-${dbName}`)
+  return expandedDbs.value.has(`${id}-${dbName}`);
 }
 
 function toggleDbExpand(id: string, dbName: string): void {
-  const key = `${id}-${dbName}`
+  const key = `${id}-${dbName}`;
   if (expandedDbs.value.has(key)) {
-    expandedDbs.value.delete(key)
+    expandedDbs.value.delete(key);
   } else {
-    expandedDbs.value.add(key)
-    connStore.loadTables(id, dbName)
+    expandedDbs.value.add(key);
+    connStore.loadTables(id, dbName);
   }
 }
 
 function onSelect(id: string): void {
-  emit('select', id)
+  emit('select', id);
   if (!expandedIds.value.has(id)) {
-    toggleExpand(id)
+    toggleExpand(id);
   }
 }
 
 async function saveExpandedState(): Promise<void> {
-  const ids = Array.from(expandedIds.value)
-  const state = await window.dbApi.getState()
+  const ids = Array.from(expandedIds.value);
+  const state = await window.dbApi.getState();
   await window.dbApi.updateState({
     ui: {
       ...state.ui,
-      expandedConnections: ids
-    }
-  })
+      expandedConnections: ids,
+    },
+  });
 }
 
 async function restoreExpandedState(): Promise<void> {
   try {
-    const state = await window.dbApi.getState()
+    const state = await window.dbApi.getState();
     if (state.ui.expandedConnections && state.ui.expandedConnections.length > 0) {
-      expandedIds.value = new Set(state.ui.expandedConnections)
+      expandedIds.value = new Set(state.ui.expandedConnections);
       // Trigger load for restored IDs
       state.ui.expandedConnections.forEach((id) => {
-        connStore.loadDatabases(id)
-      })
+        connStore.loadDatabases(id);
+      });
     }
   } catch (e) {
-    console.error('Failed to restore expanded state', e)
+    console.error('Failed to restore expanded state', e);
   }
 }
 
 watch(
   () => expandedIds.value,
   () => saveExpandedState(),
-  { deep: true }
-)
+  { deep: true },
+);
 
 watch(
   () => props.connections,
   (newConns) => {
-    if (newConns.length > 0) restoreExpandedState()
+    if (newConns.length > 0) restoreExpandedState();
   },
-  { immediate: true }
-)
+  { immediate: true },
+);
 
 watch(
   () => props.connections,
   (newConns) => {
     newConns.forEach((conn) => {
       if (conn.id && isExpanded(conn.id) && !connStore.databasesCache[conn.id]) {
-        connStore.loadDatabases(conn.id)
+        connStore.loadDatabases(conn.id);
       }
-    })
+    });
   },
-  { deep: true }
-)
+  { deep: true },
+);
 </script>
 
 <style scoped>

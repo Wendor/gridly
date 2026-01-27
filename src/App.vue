@@ -33,124 +33,124 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { useConnectionStore } from './stores/connections'
-import { useTabStore } from './stores/tabs'
-import { useSettingsStore } from './stores/settings'
-import type { DbConnection, DbConnectionMeta } from './types'
+import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { useConnectionStore } from './stores/connections';
+import { useTabStore } from './stores/tabs';
+import { useSettingsStore } from './stores/settings';
+import type { DbConnection, DbConnectionMeta } from './types';
 
-import TheTitleBar from './components/layout/TheTitleBar.vue'
-import TheActivityBar from './components/layout/TheActivityBar.vue'
-import TheSidebar from './components/layout/TheSidebar.vue'
-import TheEditorArea from './components/layout/TheEditorArea.vue'
-import TheStatusBar from './components/layout/TheStatusBar.vue'
-import ConnectionModal from './components/ConnectionModal.vue'
+import TheTitleBar from './components/layout/TheTitleBar.vue';
+import TheActivityBar from './components/layout/TheActivityBar.vue';
+import TheSidebar from './components/layout/TheSidebar.vue';
+import TheEditorArea from './components/layout/TheEditorArea.vue';
+import TheStatusBar from './components/layout/TheStatusBar.vue';
+import ConnectionModal from './components/ConnectionModal.vue';
 
-const connStore = useConnectionStore()
-const tabStore = useTabStore()
-const settingsStore = useSettingsStore()
+const connStore = useConnectionStore();
+const tabStore = useTabStore();
+const settingsStore = useSettingsStore();
 
-const isModalOpen = ref(false)
-const sidebarWidth = ref(250)
-const isResizingSidebar = ref(false)
+const isModalOpen = ref(false);
+const sidebarWidth = ref(250);
+const isResizingSidebar = ref(false);
 
-const editingConnection = ref<DbConnectionMeta | null>(null)
-const editingId = ref<string | null>(null)
-const modalAvailableDatabases = ref<string[]>([])
+const editingConnection = ref<DbConnectionMeta | null>(null);
+const editingId = ref<string | null>(null);
+const modalAvailableDatabases = ref<string[]>([]);
 
 const handleGlobalKeydown = (e: KeyboardEvent): void => {
   if (e.key === 'Tab') {
-    const activeEl = document.activeElement
-    if (!activeEl) return
+    const activeEl = document.activeElement;
+    if (!activeEl) return;
 
-    const isTable = activeEl.closest('.base-table-container')
-    const isModal = activeEl.closest('.base-modal-overlay')
-    const isEditor = activeEl.closest('.sql-editor') || activeEl.closest('.cm-content')
+    const isTable = activeEl.closest('.base-table-container');
+    const isModal = activeEl.closest('.base-modal-overlay');
+    const isEditor = activeEl.closest('.sql-editor') || activeEl.closest('.cm-content');
 
     if (!isTable && !isModal && !isEditor) {
-      e.preventDefault()
-      e.stopPropagation()
+      e.preventDefault();
+      e.stopPropagation();
     }
   }
-}
+};
 
 onMounted(async () => {
-  window.addEventListener('keydown', handleGlobalKeydown, true)
+  window.addEventListener('keydown', handleGlobalKeydown, true);
 
-  await settingsStore.initSettings()
-  await connStore.loadFromStorage()
-  await tabStore.loadFromStorage()
+  await settingsStore.initSettings();
+  await connStore.loadFromStorage();
+  await tabStore.loadFromStorage();
 
-  const state = await window.dbApi.getState()
-  sidebarWidth.value = state.ui.sidebarWidth
-})
+  const state = await window.dbApi.getState();
+  sidebarWidth.value = state.ui.sidebarWidth;
+});
 
 onBeforeUnmount(() => {
-  window.removeEventListener('keydown', handleGlobalKeydown, true)
-})
+  window.removeEventListener('keydown', handleGlobalKeydown, true);
+});
 
 function openCreateModal(): void {
-  editingId.value = null
-  editingConnection.value = null
-  modalAvailableDatabases.value = []
-  isModalOpen.value = true
+  editingId.value = null;
+  editingConnection.value = null;
+  modalAvailableDatabases.value = [];
+  isModalOpen.value = true;
 }
 
 async function openEditModal(id: string): Promise<void> {
-  const conn = connStore.savedConnections.find((c) => c.id === id)
+  const conn = connStore.savedConnections.find((c) => c.id === id);
   if (conn) {
-    editingId.value = id
-    modalAvailableDatabases.value = []
+    editingId.value = id;
+    modalAvailableDatabases.value = [];
 
-    editingConnection.value = JSON.parse(JSON.stringify(conn))
+    editingConnection.value = JSON.parse(JSON.stringify(conn));
 
     if (connStore.isConnected(id)) {
       try {
-        const dbs = await window.dbApi.getDatabases(id, '')
-        modalAvailableDatabases.value = dbs.sort()
+        const dbs = await window.dbApi.getDatabases(id, '');
+        modalAvailableDatabases.value = dbs.sort();
       } catch (e) {
-        console.error('Failed to load databases for modal:', e)
+        console.error('Failed to load databases for modal:', e);
       }
     }
 
-    isModalOpen.value = true
+    isModalOpen.value = true;
   }
 }
 
 function handleModalSave(conn: DbConnection): void {
   if (editingId.value !== null) {
-    connStore.updateConnection(conn)
+    connStore.updateConnection(conn);
   } else {
-    connStore.addConnection(conn)
+    connStore.addConnection(conn);
   }
-  isModalOpen.value = false
+  isModalOpen.value = false;
 }
 
 // --- Sidebar Resizing ---
 function startSidebarResize(): void {
-  isResizingSidebar.value = true
+  isResizingSidebar.value = true;
 }
 
 function stopSidebarResize(): void {
   if (isResizingSidebar.value) {
-    const state = window.dbApi.getState()
+    const state = window.dbApi.getState();
     state.then((s) => {
       window.dbApi.updateState({
         ui: {
           ...s.ui,
-          sidebarWidth: sidebarWidth.value
-        }
-      })
-    })
+          sidebarWidth: sidebarWidth.value,
+        },
+      });
+    });
   }
-  isResizingSidebar.value = false
+  isResizingSidebar.value = false;
 }
 
 function doSidebarResize(e: MouseEvent): void {
-  if (!isResizingSidebar.value) return
-  const w = e.clientX - 48
+  if (!isResizingSidebar.value) return;
+  const w = e.clientX - 48;
   if (w > 150 && w < 800) {
-    sidebarWidth.value = w
+    sidebarWidth.value = w;
   }
 }
 </script>

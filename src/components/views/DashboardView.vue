@@ -120,52 +120,52 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, onUnmounted } from 'vue'
-import { useTabStore } from '../../stores/tabs'
-import { useConnectionStore } from '../../stores/connections'
-import type { DashboardMetrics } from '@/types'
-import MetricCard from '../ui/MetricCard.vue'
+import { ref, onMounted, computed, onUnmounted } from 'vue';
+import { useTabStore } from '../../stores/tabs';
+import { useConnectionStore } from '../../stores/connections';
+import type { DashboardMetrics } from '@/types';
+import MetricCard from '../ui/MetricCard.vue';
 
-import { useI18n } from 'vue-i18n'
+import { useI18n } from 'vue-i18n';
 
-const tabStore = useTabStore()
-const connStore = useConnectionStore()
-const { t } = useI18n()
-const metrics = ref<DashboardMetrics | null>(null)
-const isLoading = ref(false) // For initial skeleton load
-const isRefreshing = ref(false) // For spinner
-const error = ref<string | null>(null)
-let timer: ReturnType<typeof setInterval> | null = null
+const tabStore = useTabStore();
+const connStore = useConnectionStore();
+const { t } = useI18n();
+const metrics = ref<DashboardMetrics | null>(null);
+const isLoading = ref(false); // For initial skeleton load
+const isRefreshing = ref(false); // For spinner
+const error = ref<string | null>(null);
+let timer: ReturnType<typeof setInterval> | null = null;
 
 const currentTab = computed(() => {
-  return tabStore.currentTab?.type === 'dashboard' ? tabStore.currentTab : null
-})
+  return tabStore.currentTab?.type === 'dashboard' ? tabStore.currentTab : null;
+});
 
 function formatUptime(seconds?: number): string {
-  if (seconds === undefined) return '-'
-  const days = Math.floor(seconds / 86400)
-  const hours = Math.floor((seconds % 86400) / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
+  if (seconds === undefined) return '-';
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
 
   // Use optional chaining carefully or fallback
-  const d = t('common.time.d') || 'd'
-  const h = t('common.time.h') || 'h'
-  const m = t('common.time.m') || 'm'
+  const d = t('common.time.d') || 'd';
+  const h = t('common.time.h') || 'h';
+  const m = t('common.time.m') || 'm';
 
   if (days > 0) {
-    return `${days}${d} ${hours}${h} ${minutes}${m}`
+    return `${days}${d} ${hours}${h} ${minutes}${m}`;
   }
-  return `${hours}${h} ${minutes}${m}`
+  return `${hours}${h} ${minutes}${m}`;
 }
 
 function formatVersion(v: string): string {
   // Try to keep it short if it's very long (Postgres versions are verbose)
-  if (v.length > 40) return v.substring(0, 40) + '...'
-  return v
+  if (v.length > 40) return v.substring(0, 40) + '...';
+  return v;
 }
 
 function truncate(str: string, n: number): string {
-  return str.length > n ? str.substring(0, n) + '...' : str
+  return str.length > n ? str.substring(0, n) + '...' : str;
 }
 
 // History state for charts
@@ -178,100 +178,100 @@ const metricsHistory = ref<{
   activeConnections: [],
   cacheHit: [],
   dbSize: [],
-  indexesSize: []
-})
+  indexesSize: [],
+});
 
 function parseSizeToMb(sizeStr?: string): number {
-  if (!sizeStr) return 0
-  const val = parseFloat(sizeStr)
-  if (isNaN(val)) return 0
-  if (sizeStr.includes('GB')) return val * 1024
-  if (sizeStr.includes('kB')) return val / 1024
-  if (sizeStr.includes('bytes') || sizeStr.includes('B')) return val / 1024 / 1024
-  return val
+  if (!sizeStr) return 0;
+  const val = parseFloat(sizeStr);
+  if (isNaN(val)) return 0;
+  if (sizeStr.includes('GB')) return val * 1024;
+  if (sizeStr.includes('kB')) return val / 1024;
+  if (sizeStr.includes('bytes') || sizeStr.includes('B')) return val / 1024 / 1024;
+  return val;
 }
 
 function updateHistory(m: DashboardMetrics): void {
-  const maxPoints = 30
+  const maxPoints = 30;
 
   const updateArr = (arr: number[], newVal: number): void => {
-    arr.push(newVal)
-    if (arr.length > maxPoints) arr.shift()
-  }
+    arr.push(newVal);
+    if (arr.length > maxPoints) arr.shift();
+  };
 
-  updateArr(metricsHistory.value.activeConnections, m.activeConnections)
-  updateArr(metricsHistory.value.cacheHit, m.cacheHitRatio * 100)
-  updateArr(metricsHistory.value.dbSize, parseSizeToMb(m.dbSize))
-  updateArr(metricsHistory.value.indexesSize, parseSizeToMb(m.indexesSize))
+  updateArr(metricsHistory.value.activeConnections, m.activeConnections);
+  updateArr(metricsHistory.value.cacheHit, m.cacheHitRatio * 100);
+  updateArr(metricsHistory.value.dbSize, parseSizeToMb(m.dbSize));
+  updateArr(metricsHistory.value.indexesSize, parseSizeToMb(m.indexesSize));
 }
 
 async function loadMetrics(): Promise<void> {
-  if (!currentTab.value) return
+  if (!currentTab.value) return;
 
   // Connect if needed
   try {
-    await connStore.ensureConnection(currentTab.value.connectionId)
+    await connStore.ensureConnection(currentTab.value.connectionId);
   } catch (e: unknown) {
-    error.value = (e as Error).message || String(e)
-    return
+    error.value = (e as Error).message || String(e);
+    return;
   }
 
   // Set loading state
   if (!metrics.value) {
-    isLoading.value = true
+    isLoading.value = true;
   }
-  isRefreshing.value = true
-  error.value = null
+  isRefreshing.value = true;
+  error.value = null;
 
   try {
-    const res = await window.dbApi.getDashboardMetrics(currentTab.value.connectionId)
+    const res = await window.dbApi.getDashboardMetrics(currentTab.value.connectionId);
     if (res) {
-      metrics.value = res
-      updateHistory(res)
+      metrics.value = res;
+      updateHistory(res);
     } else {
-      error.value = 'Failed to load metrics'
+      error.value = 'Failed to load metrics';
     }
   } catch (e: unknown) {
-    error.value = (e as Error).message || 'Unknown error'
+    error.value = (e as Error).message || 'Unknown error';
   } finally {
-    isLoading.value = false
-    isRefreshing.value = false
+    isLoading.value = false;
+    isRefreshing.value = false;
   }
 }
 
 onMounted(() => {
-  loadMetrics()
+  loadMetrics();
   // Refresh every 10 seconds
-  timer = setInterval(loadMetrics, 10000)
-})
+  timer = setInterval(loadMetrics, 10000);
+});
 
 // Watch for tab changes to reload metrics when switching between dashboards
-import { watch } from 'vue'
+import { watch } from 'vue';
 watch(
   () => currentTab.value?.connectionId,
   (newId) => {
     if (newId != null) {
       // Reset state to show skeletons immediately
-      metrics.value = null
-      isLoading.value = true
-      error.value = null
+      metrics.value = null;
+      isLoading.value = true;
+      error.value = null;
 
       // Reset history
       metricsHistory.value = {
         activeConnections: [],
         cacheHit: [],
         dbSize: [],
-        indexesSize: []
-      }
+        indexesSize: [],
+      };
 
-      loadMetrics()
+      loadMetrics();
     }
-  }
-)
+  },
+);
 
 onUnmounted(() => {
-  if (timer) clearInterval(timer)
-})
+  if (timer) clearInterval(timer);
+});
 </script>
 
 <style scoped>
