@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
 
 interface Window {
-  dbApi: import('./api/tauri').IElectronAPI
+  dbApi: import('./api/tauri').ITauriAPI
 }

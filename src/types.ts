@@ -126,7 +126,7 @@ export interface UpdateResult {
   error?: string
 }
 
-export interface IElectronAPI {
+export interface ITauriAPI {
   // Connections
   connect: (id: string) => Promise<string>
   disconnect: (id: string) => Promise<void>

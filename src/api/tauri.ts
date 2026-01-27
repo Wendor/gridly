@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type {
-  IElectronAPI,
+  ITauriAPI,
   DbConnection,
   AppSettings,
   AppState,
@@ -9,7 +9,7 @@ import type {
   RowUpdate,
 } from '../types';
 
-export const tauriApi: IElectronAPI = {
+export const tauriApi: ITauriAPI = {
   // Connections
   connect: (id: string) => invoke('connect', { id }),
   disconnect: (id: string) => invoke('disconnect', { id }),
