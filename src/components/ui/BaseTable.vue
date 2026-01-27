@@ -153,6 +153,10 @@ const emit = defineEmits<{
   ): void
   (e: 'column-resize', payload: Record<string, number>): void
   (e: 'cell-change', payload: { rowIndex: number; column: string; value: unknown }): void
+  (
+    e: 'cell-focus',
+    payload: { rowIndex: number; colKey: string; value: unknown; row: Record<string, unknown> } | null
+  ): void
 }>()
 
 const scrollerRef = ref<HTMLElement | null>(null)
@@ -167,6 +171,21 @@ const sortState = ref<SortState>({ colId: null, sort: null })
 const focusedCell = ref<CellPosition | null>(null)
 const selectedCells = ref<Set<string>>(new Set())
 const lastSelectedCell = ref<CellPosition | null>(null)
+
+watch(focusedCell, (newVal) => {
+  if (newVal) {
+    const row = props.data[newVal.rowIndex]
+    const value = row ? row[newVal.colKey] : undefined
+    emit('cell-focus', {
+      rowIndex: newVal.rowIndex,
+      colKey: newVal.colKey,
+      value,
+      row: row || {}
+    })
+  } else {
+    emit('cell-focus', null)
+  }
+})
 
 const editingCell = ref<{ rowIndex: number; colKey: string } | null>(null)
 const editValue = ref<string>('')
@@ -816,6 +835,7 @@ async function onPaste(): Promise<void> {
   justify-content: flex-end;
   padding-right: 8px;
   border-right: 1px solid var(--border-color);
+  background: var(--bg-app);
   box-sizing: border-box;
   flex-shrink: 0;
 }

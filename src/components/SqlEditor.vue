@@ -21,7 +21,7 @@ import {
 } from '@codemirror/autocomplete'
 import { sql, MySQL, PostgreSQL } from '@codemirror/lang-sql'
 import { oneDark } from '@codemirror/theme-one-dark'
-import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language'
+import { syntaxHighlighting, defaultHighlightStyle, foldGutter } from '@codemirror/language'
 
 import { useTabStore } from '../stores/tabs'
 import { useConnectionStore } from '../stores/connections'
@@ -196,6 +196,7 @@ onMounted(() => {
     extensions: [
       lineNumbers(),
       highlightActiveLineGutter(),
+      foldGutter(),
       history(),
       autocompletion({
         override: [customCompletionSource]

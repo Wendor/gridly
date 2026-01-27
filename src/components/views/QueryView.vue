@@ -100,36 +100,37 @@
         <div class="toolbar-divider"></div>
 
         <BaseButton
-          v-if="hasChanges"
           variant="ghost"
           icon-only
           :title="$t('query.revertChanges')"
           class="revert-btn"
+          :disabled="!hasChanges"
           @click="tabStore.revertChanges"
         >
           <BaseIcon name="undo" />
         </BaseButton>
 
         <BaseButton
-          v-if="hasChanges"
           variant="ghost"
           icon-only
           :title="$t('query.commitChanges')"
-          class="commit-btn"
+          class="action-btn"
+          :class="{ 'primary-icon': hasChanges }"
+          :disabled="!hasChanges"
           @click="tabStore.commitChanges"
         >
           <BaseIcon name="save" />
         </BaseButton>
 
-        <div v-if="hasChanges" class="toolbar-divider"></div>
+        <div class="toolbar-divider"></div>
 
-        <div v-if="hasChanges" class="changes-info">
-          <span class="changes-count">{{ changesCountText }}</span>
+        <div class="changes-info">
+          <span v-if="hasChanges" class="changes-count">{{ changesCountText }}</span>
         </div>
 
         <div class="spacer"></div>
 
-        <BaseButton
+      <BaseButton
           variant="ghost"
           :title="$t('query.exportCsv')"
           :disabled="!currentQueryTab?.rows?.length"
@@ -137,7 +138,19 @@
         >
           <BaseIcon name="download" /> {{ $t('query.exportCsv') }}
         </BaseButton>
+        <div class="toolbar-divider"></div>
+        <BaseButton
+          variant="ghost"
+          icon-only
+          :title="detailPaneOpen ? 'Close Detail' : 'Open Detail'"
+          :class="{ active: detailPaneOpen }"
+          @click="toggleDetailPane"
+        >
+          <BaseIcon name="panelBottom" />
+        </BaseButton>
       </div>
+
+      <div class="table-area">
 
       <BaseTable
         v-if="currentQueryTab"
@@ -153,11 +166,75 @@
         @sort-change="onSortChange"
         @cell-context-menu="onCellContextMenu"
         @cell-change="onCellChange"
+        @cell-focus="onCellFocus"
       >
         <template #empty>
           <div class="no-data">{{ $t('query.noData') }}</div>
         </template>
       </BaseTable>
+
+      </div> <!-- End table-area -->
+
+      <div v-if="detailPaneOpen" class="resizer-horizontal-bottom" @mousedown="startDetailResize"></div>
+
+      <div
+        v-if="detailPaneOpen"
+        class="detail-pane"
+        :style="{ height: detailPaneHeight + 'px', minHeight: '50px' }"
+      >
+        <div class="detail-toolbar">
+          <span class="detail-title">{{ $t('query.detail.title') }}</span>
+          <div class="spacer"></div>
+
+          <BaseButton
+             v-if="activeCell"
+             variant="ghost"
+             size="sm"
+             icon-only
+             class="action-btn"
+             @click="formatDetailContent"
+             :title="$t('query.detail.format')"
+          >
+             <BaseIcon name="sparkles" />
+          </BaseButton>
+
+          <div class="toolbar-divider"></div>
+
+          <BaseButton
+            variant="ghost"
+            size="sm"
+            icon-only
+            class="action-btn"
+            :title="$t('query.detail.cancel')"
+            :disabled="!isDetailDirty"
+            @click="cancelDetailChanges"
+          >
+            <BaseIcon name="undo" />
+          </BaseButton>
+
+          <BaseButton
+            variant="ghost"
+            size="sm"
+            icon-only
+            class="action-btn"
+            :class="{ 'primary-icon': isDetailDirty && canEdit }"
+            :title="$t('query.detail.save')"
+            :disabled="!isDetailDirty || !canEdit"
+            @click="applyDetailChanges"
+          >
+            <BaseIcon name="save" />
+          </BaseButton>
+        </div>
+        <div class="detail-editor">
+          <ValueEditor
+            v-if="activeCell"
+            v-model="editorContent"
+            :language="editorContent.trim().startsWith('{') ? 'json' : 'text'"
+            :read-only="!canEdit"
+          />
+          <div v-else class="no-selection">{{ $t('query.detail.noSelection') }}</div>
+        </div>
+      </div>
 
       <BaseContextMenu
         :visible="contextMenu.visible"
@@ -180,6 +257,7 @@ import { isWrappedValue } from '@/types'
 import { useTabStore, QueryTab } from '../../stores/tabs'
 import { useConnectionStore } from '../../stores/connections'
 import SqlEditor from '../SqlEditor.vue'
+import ValueEditor from '../ui/ValueEditor.vue'
 import BaseIcon from '../ui/BaseIcon.vue'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseSelect from '../ui/BaseSelect.vue'
@@ -195,8 +273,149 @@ const currentQueryTab = computed<QueryTab | null>(() => {
   return tabStore.currentTab?.type === 'query' ? tabStore.currentTab : null
 })
 
+
 const editorHeight = ref(300)
 const isResizing = ref(false)
+const isDetailResizing = ref(false)
+const detailPaneOpen = ref(false)
+const detailPaneHeight = ref(200)
+const activeCell = ref<{
+  rowIndex: number
+  colKey: string
+  value: unknown
+  row: Record<string, unknown>
+} | null>(null)
+const editorContent = ref('')
+const originalEditorContent = ref('')
+
+const isDetailDirty = computed(() => {
+  return editorContent.value !== originalEditorContent.value
+})
+
+// Sync detail editor content when active cell changes
+watch(
+  () => activeCell.value,
+  (newVal) => {
+    if (!newVal) {
+      editorContent.value = ''
+      return
+    }
+    const val = newVal.value
+    if (isWrappedValue(val)) {
+      editorContent.value = typeof val.raw === 'string' ? val.raw : JSON.stringify(val.raw, null, 2)
+    } else if (typeof val === 'object' && val !== null) {
+      editorContent.value = JSON.stringify(val, null, 2)
+    } else {
+      editorContent.value = String(val ?? '')
+    }
+    originalEditorContent.value = editorContent.value
+  }
+)
+
+// Fix for Stale Data: Watch for changes in the underlying value of the active cell
+// (e.g. when Revert happens, activeCell object identity might stay same but value changes)
+watch(
+  () => activeCell.value?.value,
+  (newVal) => {
+    if (!activeCell.value) return
+    const val = newVal
+    let newContent = ''
+    if (isWrappedValue(val)) {
+      newContent = typeof val.raw === 'string' ? val.raw : JSON.stringify(val.raw, null, 2)
+    } else if (typeof val === 'object' && val !== null) {
+      newContent = JSON.stringify(val, null, 2)
+    } else {
+      newContent = String(val ?? '')
+    }
+
+    // Only update if different to avoid cursor jumps / loops
+    if (newContent !== editorContent.value) {
+       editorContent.value = newContent
+       originalEditorContent.value = newContent
+    }
+  }
+)
+
+function onCellFocus(payload: any) {
+  activeCell.value = payload
+}
+
+function toggleDetailPane() {
+  detailPaneOpen.value = !detailPaneOpen.value
+}
+
+async function applyDetailChanges() {
+  if (!activeCell.value) return
+  // We assume the user edits the string representation.
+  // Ideally we should try to parse JSON if the original was JSON/Object.
+  let newValue: unknown = editorContent.value
+
+  const originalVal = activeCell.value.value
+  const isOriginalJson =
+    (typeof originalVal === 'object' && originalVal !== null) ||
+    (isWrappedValue(originalVal) && typeof originalVal.raw !== 'string')
+
+  if (isOriginalJson) {
+    try {
+      newValue = JSON.parse(editorContent.value)
+    } catch {
+      // If invalid JSON, maybe we warn or just save as string?
+      // For now let's save as string but user might be disappointed if they broke JSON structure.
+      // But maybe they intended to make it a string.
+    }
+  }
+
+  tabStore.updateCellValue(activeCell.value.rowIndex, activeCell.value.colKey, newValue)
+  // Update original content to matches what we just saved (approx)
+  // But strictly, we should wait for re-sync.
+  // For now, let's assume success and update original to avoid dirty state flickering if sync is delayed
+  originalEditorContent.value = editorContent.value
+}
+
+function cancelDetailChanges() {
+  editorContent.value = originalEditorContent.value
+}
+
+function formatDetailContent() {
+  try {
+    const json = JSON.parse(editorContent.value)
+    editorContent.value = JSON.stringify(json, null, 2)
+  } catch (e) {
+    // Not valid JSON, ignore
+  }
+}
+
+// Layout Resizing specific to Detail Pane (Vertical Resizer moving Up/Down)
+// Note: We use "resizer-horizontal-bottom" which is a horizontal line that changes height
+const startDetailY = ref(0)
+const startDetailHeight = ref(0)
+
+function startDetailResize(e: MouseEvent): void {
+  isDetailResizing.value = true
+  startDetailY.value = e.clientY
+  startDetailHeight.value = detailPaneHeight.value
+  document.addEventListener('mousemove', doDetailResize)
+  document.addEventListener('mouseup', stopDetailResize)
+  e.preventDefault()
+}
+
+function stopDetailResize(): void {
+  isDetailResizing.value = false
+  document.removeEventListener('mousemove', doDetailResize)
+  document.removeEventListener('mouseup', stopDetailResize)
+}
+
+function doDetailResize(e: MouseEvent): void {
+  if (!isDetailResizing.value) return
+  // Dragging UP increases height
+  // Delta = StartY - CurrentY
+  const delta = startDetailY.value - e.clientY
+  const newHeight = startDetailHeight.value + delta
+
+  // Constrain
+  const maxH = window.innerHeight - 300 // Keep some space for table
+  if (newHeight > 50 && newHeight < maxH) detailPaneHeight.value = newHeight
+}
 
 const contextMenu = reactive({
   visible: false,
@@ -605,9 +824,17 @@ function handleKeydown(e: KeyboardEvent): void {
 .grid-wrapper {
   flex: 1; /* Занимает все оставшееся пространство */
   display: flex;
+  flex-direction: column; /* Vertical stack for table and detail pane */
+  overflow: hidden;
+  position: relative;
+}
+.table-area {
+  flex: 1;
+  display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
+  min-width: 0;
 }
 
 .query-view {
@@ -784,7 +1011,96 @@ function handleKeydown(e: KeyboardEvent): void {
   flex: 1;
 }
 
-.commit-btn :deep(svg) {
-  color: var(--accent-primary);
+
+.resizer-vertical {
+  width: 4px;
+  background: transparent;
+  cursor: col-resize;
+  border-left: 1px solid var(--border-color);
+  flex-shrink: 0;
+  z-index: 20;
+  position: relative;
+}
+.resizer-vertical:hover {
+  background: var(--accent-primary);
+  opacity: 0.5;
+}
+
+.resizer-horizontal-bottom {
+  height: 0;
+  background: transparent;
+  cursor: row-resize;
+  z-index: 20;
+  flex-shrink: 0;
+  position: relative;
+  border-top: 1px solid var(--border-color);
+}
+.resizer-horizontal-bottom::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  left: 0;
+  right: 0;
+  z-index: 20;
+}
+.resizer-horizontal-bottom::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent-primary);
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+.resizer-horizontal-bottom:hover::after,
+.resizer-horizontal-bottom:active::after {
+  opacity: 1;
+  height: 4px;
+  top: -2px;
+}
+
+.detail-pane {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-app);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.action-btn {
+  color: var(--text-primary) !important;
+}
+.action-btn.primary-icon {
+  color: var(--accent-primary) !important;
+}
+.action-btn:hover {
+  background-color: var(--list-hover-bg);
+}
+.detail-toolbar {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 13px;
+  font-weight: 600;
+  gap: 8px;
+  flex-shrink: 0;
+  color: var(--text-primary);
+}
+.detail-editor {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+.no-selection {
+  padding: 20px;
+  color: var(--text-secondary);
+  text-align: center;
+  font-size: 13px;
 }
 </style>

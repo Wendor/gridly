@@ -82,7 +82,14 @@
     "revertChanges": "Отменить изменения",
     "commitChanges": "Сохранить изменения",
     "noPrimaryKey": "Редактирование недоступно: не найден primary key",
-    "refresh": "Обновить"
+    "refresh": "Обновить",
+    "detail": {
+      "title": "Значение ячейки",
+      "format": "Форматировать",
+      "save": "Сохранить",
+      "cancel": "Отмена",
+      "noSelection": "Нет выбранной ячейки"
+    }
   },
   "sidebar": {
     "connections": "ПОДКЛЮЧЕНИЯ",
