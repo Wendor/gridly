@@ -93,6 +93,11 @@
         </div>
       </div>
     </div>
+
+    <!-- Loading Overlay -->
+    <div v-if="loading" class="loading-overlay">
+      <BaseIcon name="loader" spin style="font-size: 24px" />
+    </div>
   </div>
 </template>
 
@@ -100,6 +105,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { formatTableValue } from '@/utils/tableFormatter'
 import { isWrappedValue } from '@/types'
+import BaseIcon from './BaseIcon.vue'
 
 export interface TableColumn {
   prop: string
@@ -127,13 +133,15 @@ const props = withDefaults(
     editable?: boolean
     changedCells?: Set<string>
     primaryKeys?: string[]
+    loading?: boolean
   }>(),
   {
     rowHeight: 28,
     rowOffset: 0,
     editable: false,
     changedCells: () => new Set(),
-    primaryKeys: () => []
+    primaryKeys: () => [],
+    loading: false
   }
 )
 
@@ -817,7 +825,8 @@ async function onPaste(): Promise<void> {
   padding: 0 8px;
   display: flex;
   align-items: center;
-  border-right: 1px solid var(--border-color);
+  border: 1px solid transparent;
+  border-right-color: var(--border-color);
   color: var(--text-primary);
   overflow: hidden;
   white-space: nowrap;
@@ -830,7 +839,7 @@ async function onPaste(): Promise<void> {
 
 .table-cell.selected {
   background: color-mix(in srgb, var(--accent-primary), transparent 80%);
-  border: 1px solid var(--accent-primary);
+  border-color: var(--accent-primary);
 }
 
 .table-cell.focused {
@@ -887,5 +896,16 @@ async function onPaste(): Promise<void> {
   color: var(--text-secondary);
   font-size: 20px;
   font-weight: 500;
+}
+
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  pointer-events: auto; /* Blocks interaction */
 }
 </style>

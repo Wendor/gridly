@@ -1,5 +1,5 @@
 <template>
-  <span class="base-icon" :class="[sizeClass, customClass]" v-html="svgContent"></span>
+  <span class="base-icon" :class="[sizeClass, customClass, { spin: props.spin }]" v-html="svgContent"></span>
 </template>
 
 <script setup lang="ts">
@@ -9,6 +9,7 @@ const props = defineProps<{
   name: string
   size?: 'sm' | 'md' | 'lg'
   customClass?: string
+  spin?: boolean
 }>()
 
 const icons: Record<string, string> = {

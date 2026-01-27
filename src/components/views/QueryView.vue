@@ -141,12 +141,14 @@
 
       <BaseTable
         v-if="currentQueryTab"
+        :key="currentQueryTab.id"
         :columns="tableColumns"
         :data="currentQueryTab.rows"
         :row-offset="currentQueryTab.pagination.offset"
         :editable="canEdit"
         :changed-cells="changedCellsSet"
         :primary-keys="currentQueryTab?.primaryKeys || []"
+        :loading="connStore.loading"
         style="width: 100%; height: 100%"
         @sort-change="onSortChange"
         @cell-context-menu="onCellContextMenu"
