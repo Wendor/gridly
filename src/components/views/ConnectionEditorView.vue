@@ -168,7 +168,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { useTabStore } from '../../stores/tabs';
 import { useConnectionStore } from '../../stores/connections';
 import { DbConnection } from '../../types';

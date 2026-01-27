@@ -3,7 +3,7 @@ import { ref, reactive } from 'vue';
 import { DbConnection, DbConnectionMeta, DbSchema, AppSchemaCache } from '../types';
 
 // Simple debounce implementation
-function debounce<T extends (...args: any[]) => any>(fn: T, delay: number): (...args: Parameters<T>) => void {
+function debounce<T extends (...args: unknown[]) => unknown>(fn: T, delay: number): (...args: Parameters<T>) => void {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   return (...args: Parameters<T>) => {
     if (timeoutId) clearTimeout(timeoutId);
@@ -60,7 +60,7 @@ export const useConnectionStore = defineStore('connections', () => {
       console.log('Schema cache loaded', {
         dbs: Object.keys(cache.databases).length,
         tables: Object.keys(cache.tables).length,
-        schemas: Object.keys(cache.schemas).length
+        schemas: Object.keys(cache.schemas).length,
       });
     } catch (e) {
       console.error('Failed to load schema cache', e);
@@ -74,7 +74,7 @@ export const useConnectionStore = defineStore('connections', () => {
       loading.value = true;
       const [conns] = await Promise.all([
         window.dbApi.getConnections(),
-        syncCache() // Load cache in parallel
+        syncCache(), // Load cache in parallel
       ]);
       savedConnections.value = conns;
     } catch (e) {

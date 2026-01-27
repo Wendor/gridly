@@ -12,7 +12,7 @@
       </BaseButton>
     </div>
 
-    <div class="saved-list" ref="listContainer" @scroll="onScroll">
+    <div ref="listContainer" class="saved-list" @scroll="onScroll">
       <div v-for="conn in connections" :key="conn.id">
         <div
           class="saved-item"
@@ -298,7 +298,7 @@ function onSelect(id: string): void {
 }
 
 // Debounce helper
-function debounce<T extends (...args: any[]) => any>(fn: T, delay: number) {
+function debounce<T extends (...args: unknown[]) => unknown>(fn: T, delay: number) {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   return (...args: Parameters<T>) => {
     if (timeoutId) clearTimeout(timeoutId);

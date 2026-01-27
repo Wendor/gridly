@@ -29,7 +29,6 @@ import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { useConnectionStore } from './stores/connections';
 import { useTabStore } from './stores/tabs';
 import { useSettingsStore } from './stores/settings';
-import type { DbConnection, DbConnectionMeta } from './types';
 
 import TheTitleBar from './components/layout/TheTitleBar.vue';
 import TheActivityBar from './components/layout/TheActivityBar.vue';
