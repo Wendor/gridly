@@ -222,7 +222,7 @@
             :disabled="!isDetailDirty || !canEdit"
             @click="applyDetailChanges"
           >
-            <BaseIcon name="save" />
+            <BaseIcon name="check" />
           </BaseButton>
         </div>
         <div class="detail-editor">
