@@ -267,17 +267,17 @@ import { ref, onMounted, onUnmounted, reactive, computed, watch } from 'vue';
 import { format } from 'sql-formatter';
 import { isWrappedValue } from '@/types';
 
-import { useTabStore, QueryTab } from '../../stores/tabs';
-import { useConnectionStore } from '../../stores/connections';
-import SqlEditor from '../SqlEditor.vue';
-import ValueEditor from '../ui/ValueEditor.vue';
-import BaseIcon from '../ui/BaseIcon.vue';
-import BaseButton from '../ui/BaseButton.vue';
-import BaseSelect from '../ui/BaseSelect.vue';
-import BaseContextMenu from '../ui/BaseContextMenu.vue';
-import BaseTable from '../ui/BaseTable.vue';
-import ControlPanel from '../ui/ControlPanel.vue';
-import i18n from '../../i18n';
+import { useTabStore, QueryTab } from '../stores/tabs';
+import { useConnectionStore } from '../stores/connections';
+import SqlEditor from '../components/editor/SqlEditor.vue';
+import ValueEditor from '../components/editor/ValueEditor.vue';
+import BaseIcon from '../components/ui/BaseIcon.vue';
+import BaseButton from '../components/ui/BaseButton.vue';
+import BaseSelect from '../components/ui/BaseSelect.vue';
+import BaseContextMenu from '../components/ui/BaseContextMenu.vue';
+import BaseTable from '../components/table/BaseTable.vue';
+import ControlPanel from '../components/ui/ControlPanel.vue';
+import i18n from '../i18n';
 
 const tabStore = useTabStore();
 const connStore = useConnectionStore();

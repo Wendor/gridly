@@ -29,8 +29,8 @@ import { useConnectionStore } from '../../stores/connections';
 import { useTabStore } from '../../stores/tabs';
 import { useUIStore } from '../../stores/ui';
 
-import ConnectionSidebar from '../ConnectionSidebar.vue';
-import HistorySidebar from '../HistorySidebar.vue';
+import ConnectionSidebar from '../sidebar/ConnectionSidebar.vue';
+import HistorySidebar from '../sidebar/HistorySidebar.vue';
 
 // REMOVED emits
 // defineEmits<{

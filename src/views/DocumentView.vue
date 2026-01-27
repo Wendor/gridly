@@ -7,7 +7,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import MarkdownIt from 'markdown-it';
-import { useTabStore } from '../../stores/tabs';
+import { useTabStore } from '../stores/tabs';
 
 const tabStore = useTabStore();
 const md = new MarkdownIt();

@@ -154,11 +154,11 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useTabStore } from '../../stores/tabs';
 import { useConnectionStore } from '../../stores/connections';
-import SettingsView from '../views/SettingsView.vue';
-import QueryView from '../views/QueryView.vue';
-import DocumentView from '../views/DocumentView.vue';
-import DashboardView from '../views/DashboardView.vue';
-import ConnectionEditorView from '../views/ConnectionEditorView.vue';
+import SettingsView from '../../views/SettingsView.vue';
+import QueryView from '../../views/QueryView.vue';
+import DocumentView from '../../views/DocumentView.vue';
+import DashboardView from '../../views/DashboardView.vue';
+import ConnectionEditorView from '../../views/ConnectionEditorView.vue';
 
 const tabStore = useTabStore();
 const connStore = useConnectionStore();

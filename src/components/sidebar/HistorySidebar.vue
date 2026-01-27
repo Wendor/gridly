@@ -43,11 +43,11 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue';
-import { useHistoryStore } from '../stores/history';
-import { useTabStore } from '../stores/tabs';
-import type { HistoryItem } from '../types';
-import BaseIcon from './ui/BaseIcon.vue';
-import BaseButton from './ui/BaseButton.vue';
+import { useHistoryStore } from '../../stores/history';
+import { useTabStore } from '../../stores/tabs';
+import type { HistoryItem } from '../../types';
+import BaseIcon from '../ui/BaseIcon.vue';
+import BaseButton from '../ui/BaseButton.vue';
 
 const historyStore = useHistoryStore();
 const tabStore = useTabStore();

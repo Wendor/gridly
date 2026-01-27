@@ -75,10 +75,7 @@
         <div v-if="activeSection === 'ssh'" class="form-section">
           <h3>{{ $t('connections.section.ssh') }}</h3>
           <div class="ssh-toggle-section">
-            <label class="checkbox-label">
-              <input v-model="form.useSsh" type="checkbox" />
-              {{ $t('connections.ssh') }}
-            </label>
+            <BaseCheckbox v-model="form.useSsh" :label="$t('connections.ssh')" />
           </div>
 
           <div v-if="form.useSsh" class="ssh-fields">
@@ -125,10 +122,14 @@
           </div>
 
           <div v-if="availableDatabases.length > 0" class="db-list">
-            <label v-for="db in availableDatabases" :key="db" class="db-check-item">
-              <input type="checkbox" :checked="isExcluded(db)" @change="toggleDbExclusion(db)" />
-              {{ db }}
-            </label>
+            <div v-for="db in availableDatabases" :key="db" class="db-check-item">
+              <BaseCheckbox
+                :model-value="isExcluded(db)"
+                @update:model-value="toggleDbExclusion(db)"
+              >
+                {{ db }}
+              </BaseCheckbox>
+            </div>
           </div>
         </div>
       </div>
@@ -169,14 +170,15 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
-import { useTabStore } from '../../stores/tabs';
-import { useConnectionStore } from '../../stores/connections';
-import { DbConnection } from '../../types';
-import BaseInput from '../ui/BaseInput.vue';
-import BaseSelect from '../ui/BaseSelect.vue';
-import BaseButton from '../ui/BaseButton.vue';
-import BaseIcon from '../ui/BaseIcon.vue';
-import i18n from '../../i18n';
+import { useTabStore } from '../stores/tabs';
+import { useConnectionStore } from '../stores/connections';
+import { DbConnection } from '../types';
+import BaseInput from '../components/ui/BaseInput.vue';
+import BaseSelect from '../components/ui/BaseSelect.vue';
+import BaseButton from '../components/ui/BaseButton.vue';
+import BaseIcon from '../components/ui/BaseIcon.vue';
+import BaseCheckbox from '../components/ui/BaseCheckbox.vue';
+import i18n from '../i18n';
 
 const tabStore = useTabStore();
 const connStore = useConnectionStore();

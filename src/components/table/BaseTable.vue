@@ -195,8 +195,8 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick, shallowRef, reactive } from 'vue';
 import { formatTableValue } from '@/utils/tableFormatter';
 import { isWrappedValue } from '@/types';
-import BaseIcon from './BaseIcon.vue';
-import BaseContextMenu from './BaseContextMenu.vue';
+import BaseIcon from '../ui/BaseIcon.vue';
+import BaseContextMenu from '../ui/BaseContextMenu.vue';
 
 export interface TableColumn {
   prop: string

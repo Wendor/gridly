@@ -23,10 +23,10 @@ import { sql, MySQL, PostgreSQL } from '@codemirror/lang-sql';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { syntaxHighlighting, defaultHighlightStyle, foldGutter } from '@codemirror/language';
 
-import { useTabStore } from '../stores/tabs';
-import { useConnectionStore } from '../stores/connections';
-import { useSettingsStore } from '../stores/settings';
-import { DbSchema } from '../types';
+import { useTabStore } from '../../stores/tabs';
+import { useConnectionStore } from '../../stores/connections';
+import { useSettingsStore } from '../../stores/settings';
+import { DbSchema } from '../../types';
 
 const props = defineProps<{ modelValue: string }>();
 const emit = defineEmits<{ (e: 'update:modelValue', val: string): void; (e: 'run'): void }>();

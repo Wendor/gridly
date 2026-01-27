@@ -73,9 +73,9 @@
 </template>
 
 <script setup lang="ts">
-import { useSettingsStore } from '../../stores/settings';
-import BaseButton from '../ui/BaseButton.vue';
-import BaseSelect from '../ui/BaseSelect.vue';
+import { useSettingsStore } from '../stores/settings';
+import BaseButton from '../components/ui/BaseButton.vue';
+import BaseSelect from '../components/ui/BaseSelect.vue';
 
 const settings = useSettingsStore();
 </script>

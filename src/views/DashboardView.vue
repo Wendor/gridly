@@ -121,10 +121,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, onUnmounted } from 'vue';
-import { useTabStore } from '../../stores/tabs';
-import { useConnectionStore } from '../../stores/connections';
+import { useTabStore } from '../stores/tabs';
+import { useConnectionStore } from '../stores/connections';
 import type { DashboardMetrics } from '@/types';
-import MetricCard from '../ui/MetricCard.vue';
+import MetricCard from '../components/ui/MetricCard.vue';
 
 import { useI18n } from 'vue-i18n';
 
