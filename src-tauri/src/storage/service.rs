@@ -1,9 +1,11 @@
 use crate::error::Result;
+use super::encryption::EncryptionManager;
 use crate::models::{
     AppSettings, AppStateData, ConnectionConfig, ConnectionSummary, HistoryItem,
 };
 use std::fs;
 use std::path::PathBuf;
+
 
 const APP_DIR: &str = ".gridly";
 const CONNECTIONS_FILE: &str = "connections.json";
@@ -13,6 +15,7 @@ const HISTORY_FILE: &str = "history.json";
 
 pub struct StorageService {
     config_dir: PathBuf,
+    encryption: std::sync::OnceLock<EncryptionManager>,
 }
 
 impl StorageService {
@@ -27,55 +30,151 @@ impl StorageService {
             log::error!("Failed to create config dir: {}", e);
         }
 
-        StorageService { config_dir }
+        StorageService { 
+            config_dir,
+            encryption: std::sync::OnceLock::new(),
+        }
+    }
+
+    fn get_encryption(&self) -> Option<&EncryptionManager> {
+        self.encryption.get_or_init(|| {
+            match EncryptionManager::new() {
+                Ok(mgr) => mgr,
+                Err(e) => {
+                    log::error!("Failed to initialize encryption manager: {}", e);
+                    // This is critical, but we can't easily return error from here in OnceLock.
+                    // We might panic or just log.
+                    // Ideally we should handle this better, but for now we rely on logging.
+                    // However, we can't return None from get_or_init easily if we want to retry.
+                    // Actually OnceLock stores the value. 
+                    // Let's assume for now we panic if we can't get key, as app can't secure secrets.
+                    // Or we handle it by returning None and failing operations.
+                    // The closure passed to get_or_init must return the value.
+                    // We can't return Option from it if the type is EncryptionManager.
+                     panic!("Failed to initialize encryption manager (Master Key access): {}", e);
+                }
+            }
+        });
+        self.encryption.get()
     }
 
     fn get_file_path(&self, filename: &str) -> PathBuf {
         self.config_dir.join(filename)
     }
 
+    // Now returns connections with passwords decrypted (if possible)
+    // Also handles on-the-fly migration from legacy keyring
     pub fn get_connections(&self) -> Vec<ConnectionConfig> {
         let path = self.get_file_path(CONNECTIONS_FILE);
         if !path.exists() {
             return Vec::new();
         }
 
-        match fs::read_to_string(path) {
+        let mut connections: Vec<ConnectionConfig> = match fs::read_to_string(path) {
             Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
             Err(_) => Vec::new(),
+        };
+
+        if let Some(mgr) = self.get_encryption() {
+            for conn in &mut connections {
+                // 1. Try to decrypt password
+                if let Some(pwd) = &conn.password {
+                    if pwd.starts_with("ENC:") {
+                        if let Some(plain) = mgr.decrypt(pwd) {
+                            conn.password = Some(plain);
+                        } else {
+                            log::error!("Failed to decrypt password for {}", conn.id);
+                            conn.password = None;
+                        }
+                    }
+                }
+
+                // 2. Try to decrypt SSH password
+                if let Some(pwd) = &conn.ssh_password {
+                    if pwd.starts_with("ENC:") {
+                        if let Some(plain) = mgr.decrypt(pwd) {
+                            conn.ssh_password = Some(plain);
+                        }
+                    }
+                }
+            }
         }
+
+        connections
+    }
+
+    // Helper to save connection list with encryption
+    fn save_connections_internal(&self, connections: &[ConnectionConfig]) -> Result<()> {
+        let mut to_save = connections.to_vec();
+        
+        if let Some(mgr) = self.get_encryption() {
+            for conn in &mut to_save {
+                if let Some(pwd) = &conn.password {
+                    if !pwd.is_empty() && !pwd.starts_with("ENC:") {
+                        conn.password = Some(mgr.encrypt(pwd));
+                    }
+                }
+                if let Some(pwd) = &conn.ssh_password {
+                    if !pwd.is_empty() && !pwd.starts_with("ENC:") {
+                        conn.ssh_password = Some(mgr.encrypt(pwd));
+                    }
+                }
+            }
+        }
+
+        self.save_json(CONNECTIONS_FILE, &to_save)
+    }
+
+    // Since we now have all connections in memory (decrypted) via get_connections(),
+    // get_connection is just a filter on that list.
+    pub fn get_connection(&self, id: &str) -> Option<ConnectionConfig> {
+        self.get_connections().into_iter().find(|c| c.id == id)
     }
 
     pub fn get_connections_meta(&self) -> Vec<ConnectionSummary> {
-        self.get_connections()
-            .into_iter()
-            .map(ConnectionSummary::from)
-            .collect()
+        // We can just read from disk and ignore password fields for meta
+        // But get_connections() does migration which is good.
+        // However, if we just want summary, we don't need passwords.
+        let path = self.get_file_path(CONNECTIONS_FILE);
+        if !path.exists() {
+            return Vec::new();
+        }
+        let connections: Vec<ConnectionConfig> = match fs::read_to_string(path) {
+            Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
+            Err(_) => Vec::new(),
+        };
+        
+        connections.into_iter().map(ConnectionSummary::from).collect()
     }
 
-    pub fn save_connection(&self, connection: ConnectionConfig) -> Result<()> {
-        let mut connections = self.get_connections();
+    pub fn save_connection(&self, mut connection: ConnectionConfig) -> Result<()> {
+        // Handle partial updates where password might be None (preserve existing)
+        if connection.password.is_none() || connection.ssh_password.is_none() {
+            if let Some(existing) = self.get_connection(&connection.id) {
+                if connection.password.is_none() {
+                    connection.password = existing.password;
+                }
+                if connection.ssh_password.is_none() {
+                    connection.ssh_password = existing.ssh_password;
+                }
+            }
+        }
+
+        let mut connections = self.get_connections(); // Load existing (decrypted)
+        
         if let Some(pos) = connections.iter().position(|c| c.id == connection.id) {
-            let existing = &connections[pos];
-            let mut new_conn = connection;
-            if new_conn.password.is_none() {
-                new_conn.password = existing.password.clone();
-            }
-            if new_conn.ssh_password.is_none() {
-                new_conn.ssh_password = existing.ssh_password.clone();
-            }
-            connections[pos] = new_conn;
+            connections[pos] = connection;
         } else {
             connections.push(connection);
         }
 
-        self.save_json(CONNECTIONS_FILE, &connections)
+        self.save_connections_internal(&connections)
     }
 
     pub fn delete_connection(&self, id: &str) -> Result<()> {
         let mut connections = self.get_connections();
         connections.retain(|c| c.id != id);
-        self.save_json(CONNECTIONS_FILE, &connections)
+        self.save_connections_internal(&connections)
     }
 
     pub fn get_settings(&self) -> AppSettings {

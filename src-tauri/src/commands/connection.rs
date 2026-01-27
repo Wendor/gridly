@@ -4,10 +4,9 @@ use tauri::State;
 
 #[tauri::command]
 pub async fn connect(id: String, state: State<'_, TauriState>) -> Result<String, String> {
-    let connections = state.storage.get_connections();
-    let config = connections
-        .into_iter()
-        .find(|c| c.id == id)
+    let config = state
+        .storage
+        .get_connection(&id)
         .ok_or_else(|| "Connection not found".to_string())?;
 
     state.db.connect(id, config).await.map_err(|e| e.to_string())
@@ -26,12 +25,7 @@ pub async fn test_connection(
 ) -> Result<String, String> {
     let mut final_config = config.clone();
     if let Some(cid) = connection_id {
-        if let Some(saved) = state
-            .storage
-            .get_connections()
-            .into_iter()
-            .find(|c| c.id == cid)
-        {
+        if let Some(saved) = state.storage.get_connection(&cid) {
             if final_config
                 .password
                 .as_ref()

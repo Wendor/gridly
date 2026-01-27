@@ -34,7 +34,11 @@ async-trait = "0.1"
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 bigdecimal = "0.4"
+keyring = "2"
 thiserror = "1.0"
+aes-gcm = "0.10.3"
+rand = "0.8"
+base64 = "0.22.1"
 
 [dev-dependencies]
 mockall = "0.12.1"
