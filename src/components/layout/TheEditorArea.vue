@@ -150,29 +150,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { useTabStore } from '../../stores/tabs'
-import { useConnectionStore } from '../../stores/connections'
-import SettingsView from '../views/SettingsView.vue'
-import QueryView from '../views/QueryView.vue'
-import DocumentView from '../views/DocumentView.vue'
-import DashboardView from '../views/DashboardView.vue'
+import { ref, onMounted, onUnmounted } from 'vue';
+import { useTabStore } from '../../stores/tabs';
+import { useConnectionStore } from '../../stores/connections';
+import SettingsView from '../views/SettingsView.vue';
+import QueryView from '../views/QueryView.vue';
+import DocumentView from '../views/DocumentView.vue';
+import DashboardView from '../views/DashboardView.vue';
 
-const tabStore = useTabStore()
-const connStore = useConnectionStore()
-const scrollContainer = ref<HTMLElement | null>(null)
-const tabListDropdown = ref<HTMLElement | null>(null)
+const tabStore = useTabStore();
+const connStore = useConnectionStore();
+const scrollContainer = ref<HTMLElement | null>(null);
+const tabListDropdown = ref<HTMLElement | null>(null);
 
-const isTabListOpen = ref(false)
-const draggedTabId = ref<number | null>(null)
+const isTabListOpen = ref(false);
+const draggedTabId = ref<number | null>(null);
 
 function toggleTabList(): void {
-  isTabListOpen.value = !isTabListOpen.value
+  isTabListOpen.value = !isTabListOpen.value;
 }
 
 function selectTabFromList(id: number): void {
-  switchToTab(id)
-  isTabListOpen.value = false
+  switchToTab(id);
+  isTabListOpen.value = false;
 }
 
 // Close dropdown when clicking outside
@@ -183,98 +183,98 @@ function handleClickOutside(event: MouseEvent): void {
     !tabListDropdown.value.contains(event.target as Node) &&
     !(event.target as HTMLElement).closest('.action-btn')
   ) {
-    isTabListOpen.value = false
+    isTabListOpen.value = false;
   }
 }
 
 async function switchToTab(id: number): Promise<void> {
-  tabStore.activeTabId = id
-  const tab = tabStore.currentTab
+  tabStore.activeTabId = id;
+  const tab = tabStore.currentTab;
   if (tab && (tab.type === 'query' || tab.type === 'dashboard') && tab.connectionId !== null) {
     try {
-      await connStore.ensureConnection(tab.connectionId)
+      await connStore.ensureConnection(tab.connectionId);
     } catch (e) {
-      console.error(e)
+      console.error(e);
     }
   }
   // Scroll to tab
   setTimeout(() => {
-    if (!scrollContainer.value) return
-    const activeEl = scrollContainer.value.querySelector('.tab.active') as HTMLElement
+    if (!scrollContainer.value) return;
+    const activeEl = scrollContainer.value.querySelector('.tab.active') as HTMLElement;
     if (activeEl) {
-      activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+      activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
     }
-  }, 50)
+  }, 50);
 }
 
-const draggedIndex = ref<number | null>(null)
-const dragOverIndex = ref<number | null>(null)
+const draggedIndex = ref<number | null>(null);
+const dragOverIndex = ref<number | null>(null);
 
 // --- Drag & Drop ---
 function onDragStart(e: DragEvent, index: number, tabId: number): void {
-  console.log('Drag Start:', index, tabId)
-  draggedIndex.value = index
-  draggedTabId.value = tabId
+  console.log('Drag Start:', index, tabId);
+  draggedIndex.value = index;
+  draggedTabId.value = tabId;
   if (e.dataTransfer) {
-    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.effectAllowed = 'move';
     // Use custom MIME type to prevent dropping as text in editor
-    e.dataTransfer.setData('application/x-gridly-tab', index.toString())
+    e.dataTransfer.setData('application/x-gridly-tab', index.toString());
   }
 }
 
 function onDragOver(e: DragEvent): void {
-  e.preventDefault() // Explicitly prevent default
+  e.preventDefault(); // Explicitly prevent default
   if (e.dataTransfer) {
-    e.dataTransfer.dropEffect = 'move'
+    e.dataTransfer.dropEffect = 'move';
   }
 }
 
 function onDragEnter(e: DragEvent, index: number): void {
-  e.preventDefault()
+  e.preventDefault();
   if (index !== draggedIndex.value) {
-    dragOverIndex.value = index
+    dragOverIndex.value = index;
   }
 }
 
 function onDrop(e: DragEvent, dropIndex: number): void {
   // Prevent default logic if necessary, though we don't rely on dataTransfer
-  e.preventDefault()
-  console.log('Drop:', dropIndex, 'Dragged:', draggedIndex.value)
+  e.preventDefault();
+  console.log('Drop:', dropIndex, 'Dragged:', draggedIndex.value);
 
   if (draggedIndex.value === null) {
-    console.error('Dragged index is null on drop!')
-    return
+    console.error('Dragged index is null on drop!');
+    return;
   }
 
   if (draggedIndex.value !== dropIndex) {
-    console.log('Reordering...')
-    tabStore.reorderTabs(draggedIndex.value, dropIndex)
+    console.log('Reordering...');
+    tabStore.reorderTabs(draggedIndex.value, dropIndex);
   }
 
-  resetDrag()
+  resetDrag();
 }
 
 function onDragEnd(): void {
-  resetDrag()
+  resetDrag();
 }
 
 function resetDrag(): void {
-  draggedTabId.value = null
-  draggedIndex.value = null
-  dragOverIndex.value = null
+  draggedTabId.value = null;
+  draggedIndex.value = null;
+  dragOverIndex.value = null;
 }
 
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-  const tab = tabStore.currentTab
+  document.addEventListener('click', handleClickOutside);
+  const tab = tabStore.currentTab;
   if (tab && (tab.type === 'query' || tab.type === 'dashboard') && tab.connectionId !== null) {
-    connStore.ensureConnection(tab.connectionId).catch(console.error)
+    connStore.ensureConnection(tab.connectionId).catch(console.error);
   }
-})
+});
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-})
+  document.removeEventListener('click', handleClickOutside);
+});
 </script>
 
 <style scoped>
@@ -420,7 +420,7 @@ onUnmounted(() => {
   color: var(--text-secondary);
 }
 .action-btn:hover {
-  color: var(--text-white);
+  color: var(--text-primary);
   background: var(--bg-app);
 }
 

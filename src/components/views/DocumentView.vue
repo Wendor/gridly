@@ -5,19 +5,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import MarkdownIt from 'markdown-it'
-import { useTabStore } from '../../stores/tabs'
+import { computed } from 'vue';
+import MarkdownIt from 'markdown-it';
+import { useTabStore } from '../../stores/tabs';
 
-const tabStore = useTabStore()
-const md = new MarkdownIt()
+const tabStore = useTabStore();
+const md = new MarkdownIt();
 
 const renderedContent = computed(() => {
   if (tabStore.currentTab?.type === 'document' && tabStore.currentTab.content) {
-    return md.render(tabStore.currentTab.content)
+    return md.render(tabStore.currentTab.content);
   }
-  return ''
-})
+  return '';
+});
 </script>
 
 <style scoped>

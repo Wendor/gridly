@@ -1,26 +1,26 @@
-import { defineStore } from 'pinia'
-import { ref } from 'vue'
-import type { HistoryItem } from '../types'
+import { defineStore } from 'pinia';
+import { ref } from 'vue';
+import type { HistoryItem } from '../types';
 
 export const useHistoryStore = defineStore('history', () => {
-  const items = ref<HistoryItem[]>([])
-  let initialized = false
+  const items = ref<HistoryItem[]>([]);
+  let initialized = false;
 
   async function loadFromStorage(): Promise<void> {
-    if (initialized) return
+    if (initialized) return;
     try {
-      items.value = await window.dbApi.getHistory()
-      initialized = true
+      items.value = await window.dbApi.getHistory();
+      initialized = true;
     } catch (e) {
-      console.error('Failed to load history', e)
+      console.error('Failed to load history', e);
     }
   }
 
   async function save(): Promise<void> {
     try {
-      await window.dbApi.saveHistory(items.value)
+      await window.dbApi.saveHistory(items.value);
     } catch (e) {
-      console.error('Failed to save history', e)
+      console.error('Failed to save history', e);
     }
   }
 
@@ -28,15 +28,15 @@ export const useHistoryStore = defineStore('history', () => {
     sql: string,
     status: 'success' | 'error',
     duration: number,
-    connectionId: string | null
+    connectionId: string | null,
   ): void {
-    if (!sql || sql.trim().length < 2) return
+    if (!sql || sql.trim().length < 2) return;
 
     if (items.value.length > 0 && items.value[0].sql === sql) {
-      items.value[0].timestamp = Date.now()
-      items.value[0].connectionId = connectionId
-      save()
-      return
+      items.value[0].timestamp = Date.now();
+      items.value[0].connectionId = connectionId;
+      save();
+      return;
     }
 
     const newItem: HistoryItem = {
@@ -45,27 +45,27 @@ export const useHistoryStore = defineStore('history', () => {
       connectionId,
       timestamp: Date.now(),
       status,
-      duration
-    }
+      duration,
+    };
 
-    items.value.unshift(newItem)
+    items.value.unshift(newItem);
 
     if (items.value.length > 100) {
-      items.value = items.value.slice(0, 100)
+      items.value = items.value.slice(0, 100);
     }
 
-    save()
+    save();
   }
 
   async function clearHistory(): Promise<void> {
-    items.value = []
-    await save()
+    items.value = [];
+    await save();
   }
 
   return {
     items,
     addEntry,
     clearHistory,
-    loadFromStorage
-  }
-})
+    loadFromStorage,
+  };
+});

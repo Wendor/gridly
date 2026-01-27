@@ -129,27 +129,27 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, computed, watch, ref } from 'vue'
-import type { DbConnection, DbConnectionMeta } from '../types'
-import BaseIcon from './ui/BaseIcon.vue'
-import BaseModal from './ui/BaseModal.vue'
-import BaseInput from './ui/BaseInput.vue'
-import BaseButton from './ui/BaseButton.vue'
-import BaseSelect from './ui/BaseSelect.vue'
-import i18n from '../i18n'
+import { reactive, computed, watch, ref } from 'vue';
+import type { DbConnection, DbConnectionMeta } from '../types';
+import BaseIcon from './ui/BaseIcon.vue';
+import BaseModal from './ui/BaseModal.vue';
+import BaseInput from './ui/BaseInput.vue';
+import BaseButton from './ui/BaseButton.vue';
+import BaseSelect from './ui/BaseSelect.vue';
+import i18n from '../i18n';
 
 const props = defineProps<{
   isOpen: boolean
   initialData?: DbConnectionMeta | null
   availableDatabases?: string[]
-}>()
+}>();
 
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'save', conn: DbConnection): void
-}>()
+}>();
 
-const isEditing = computed(() => !!props.initialData)
+const isEditing = computed(() => !!props.initialData);
 
 const defaultForm: DbConnection = {
   id: '', // Initialize empty ID
@@ -166,82 +166,82 @@ const defaultForm: DbConnection = {
   sshPort: '22',
   sshUser: 'root',
   sshPassword: '',
-  sshKeyPath: ''
-}
+  sshKeyPath: '',
+};
 
-const form = reactive<DbConnection>({ ...defaultForm })
-const testStatus = ref<{ type: 'loading' | 'success' | 'error'; message: string } | null>(null)
+const form = reactive<DbConnection>({ ...defaultForm });
+const testStatus = ref<{ type: 'loading' | 'success' | 'error'; message: string } | null>(null);
 
 // Для работы с чекбоксами (computed set/get)
 // Превращаем строку CSV в Set для удобной проверки
 const excludedDbSet = computed({
   get() {
-    if (!form.excludeList) return new Set<string>()
+    if (!form.excludeList) return new Set<string>();
     return new Set(
       form.excludeList
         .split(',')
         .map((s) => s.trim().toLowerCase())
-        .filter(Boolean)
-    )
+        .filter(Boolean),
+    );
   },
   set(newSet: Set<string>) {
     // При изменении сета обновляем строку
-    form.excludeList = Array.from(newSet).join(', ')
-  }
-})
+    form.excludeList = Array.from(newSet).join(', ');
+  },
+});
 
 function toggleDbExclusion(db: string): void {
-  const current = new Set(excludedDbSet.value)
-  const lower = db.toLowerCase()
+  const current = new Set(excludedDbSet.value);
+  const lower = db.toLowerCase();
   if (current.has(lower)) {
-    current.delete(lower)
+    current.delete(lower);
   } else {
-    current.add(lower)
+    current.add(lower);
   }
   // Trigger setter
-  excludedDbSet.value = current
+  excludedDbSet.value = current;
 }
 
 function isExcluded(db: string): boolean {
-  return excludedDbSet.value.has(db.toLowerCase())
+  return excludedDbSet.value.has(db.toLowerCase());
 }
 
 watch(
   () => props.isOpen,
   (isOpen) => {
     if (isOpen) {
-      testStatus.value = null
+      testStatus.value = null;
       if (props.initialData) {
-        Object.assign(form, { ...defaultForm, ...props.initialData })
+        Object.assign(form, { ...defaultForm, ...props.initialData });
       } else {
-        Object.assign(form, defaultForm)
+        Object.assign(form, defaultForm);
       }
     }
-  }
-)
+  },
+);
 
 function onTypeChange(): void {
   if (form.type === 'mysql' && (form.port === '5432' || form.port === '8123' || !form.port))
-    form.port = '3306'
+    form.port = '3306';
   if (form.type === 'postgres' && (form.port === '3306' || form.port === '8123' || !form.port))
-    form.port = '5432'
+    form.port = '5432';
   if (form.type === 'clickhouse' && (form.port === '3306' || form.port === '5432' || !form.port))
-    form.port = '8123'
+    form.port = '8123';
 }
 
 function close(): void {
-  emit('close')
+  emit('close');
 }
 
 async function testConnection(): Promise<void> {
-  testStatus.value = { type: 'loading', message: i18n.global.t('connections.testingConnection') }
+  testStatus.value = { type: 'loading', message: i18n.global.t('connections.testingConnection') };
   try {
-    const connectionId = isEditing.value ? form.id : undefined
-    const successMsg = await window.dbApi.testConnection({ ...form }, connectionId)
-    testStatus.value = { type: 'success', message: successMsg }
+    const connectionId = isEditing.value ? form.id : undefined;
+    const successMsg = await window.dbApi.testConnection({ ...form }, connectionId);
+    testStatus.value = { type: 'success', message: successMsg };
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    testStatus.value = { type: 'error', message: msg }
+    const msg = e instanceof Error ? e.message : String(e);
+    testStatus.value = { type: 'error', message: msg };
   }
 }
 
@@ -249,11 +249,11 @@ function save(): void {
   const newConn: DbConnection = {
     ...form,
     password: form.password || (isEditing.value ? undefined : ''),
-    sshPassword: form.sshPassword || (isEditing.value ? undefined : '')
-  }
-  if (!newConn.name) newConn.name = `${newConn.type} @ ${newConn.host}`
-  emit('save', newConn)
-  close()
+    sshPassword: form.sshPassword || (isEditing.value ? undefined : ''),
+  };
+  if (!newConn.name) newConn.name = `${newConn.type} @ ${newConn.host}`;
+  emit('save', newConn);
+  close();
 }
 </script>
 

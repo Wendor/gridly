@@ -25,25 +25,25 @@
 </template>
 
 <script setup lang="ts">
-import { useConnectionStore } from '../../stores/connections'
-import { useTabStore } from '../../stores/tabs'
-import { useUIStore } from '../../stores/ui'
+import { useConnectionStore } from '../../stores/connections';
+import { useTabStore } from '../../stores/tabs';
+import { useUIStore } from '../../stores/ui';
 
-import ConnectionSidebar from '../ConnectionSidebar.vue'
-import HistorySidebar from '../HistorySidebar.vue'
+import ConnectionSidebar from '../ConnectionSidebar.vue';
+import HistorySidebar from '../HistorySidebar.vue';
 
 // ДОБАВЛЕНО: 'edit' в список событий
 defineEmits<{
   (e: 'open-create-modal'): void
   (e: 'edit', id: string): void
-}>()
+}>();
 
-const connStore = useConnectionStore()
-const tabStore = useTabStore()
-const uiStore = useUIStore()
+const connStore = useConnectionStore();
+const tabStore = useTabStore();
+const uiStore = useUIStore();
 
 function handleTableClick(tableName: string, connId: string, dbName: string): void {
-  tabStore.openTableTab(connId, tableName, dbName)
+  tabStore.openTableTab(connId, tableName, dbName);
 }
 </script>
 

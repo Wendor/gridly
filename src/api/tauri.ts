@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from '@tauri-apps/api/core';
 import type {
   IElectronAPI,
   DbConnection,
@@ -6,8 +6,8 @@ import type {
   AppState,
   HistoryItem,
   IDataRequest,
-  RowUpdate
-} from '../types'
+  RowUpdate,
+} from '../types';
 
 export const tauriApi: IElectronAPI = {
   // Connections
@@ -41,5 +41,5 @@ export const tauriApi: IElectronAPI = {
   getPrimaryKeys: (id: string, tableName: string) => invoke('get_primary_keys', { id, tableName }),
   updateRows: (id: string, updates: RowUpdate[]) => invoke('update_rows', { id, updates }),
   setActiveDatabase: (id: string, dbName: string) => invoke('set_active_database', { id, dbName }),
-  getDashboardMetrics: (id: string) => invoke('get_dashboard_metrics', { id })
-}
+  getDashboardMetrics: (id: string) => invoke('get_dashboard_metrics', { id }),
+};

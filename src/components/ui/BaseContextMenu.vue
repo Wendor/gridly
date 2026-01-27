@@ -19,20 +19,20 @@
 </template>
 
 <script setup lang="ts">
-import { watch } from 'vue'
+import { watch } from 'vue';
 
 const props = defineProps<{
   visible: boolean
   x: number
   y: number
-}>()
+}>();
 
 const emit = defineEmits<{
   (e: 'close'): void
-}>()
+}>();
 
 function close(): void {
-  emit('close')
+  emit('close');
 }
 
 // Optional: Close on Escape key
@@ -40,15 +40,15 @@ watch(
   () => props.visible,
   (val) => {
     if (val) {
-      window.addEventListener('keydown', onKeydown)
+      window.addEventListener('keydown', onKeydown);
     } else {
-      window.removeEventListener('keydown', onKeydown)
+      window.removeEventListener('keydown', onKeydown);
     }
-  }
-)
+  },
+);
 
 function onKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') close()
+  if (e.key === 'Escape') close();
 }
 </script>
 

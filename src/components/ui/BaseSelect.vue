@@ -61,8 +61,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import BaseIcon from './BaseIcon.vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import BaseIcon from './BaseIcon.vue';
 
 export interface SelectOption {
   label: string
@@ -82,42 +82,42 @@ const props = withDefaults(
   {
     variant: 'filled',
     highlightActive: false,
-    inlineLabel: false
-  }
-)
+    inlineLabel: false,
+  },
+);
 
-const emit = defineEmits<{ (e: 'update:modelValue', val: string | number): void }>()
+const emit = defineEmits<{ (e: 'update:modelValue', val: string | number): void }>();
 
-const isOpen = ref(false)
-const wrapperRef = ref<HTMLElement | null>(null)
+const isOpen = ref(false);
+const wrapperRef = ref<HTMLElement | null>(null);
 
 const selectedLabel = computed(() => {
-  const found = props.options.find((o) => o.value === props.modelValue)
-  return found ? found.label : String(props.modelValue || '')
-})
+  const found = props.options.find((o) => o.value === props.modelValue);
+  return found ? found.label : String(props.modelValue || '');
+});
 
 function toggle(): void {
-  isOpen.value = !isOpen.value
+  isOpen.value = !isOpen.value;
 }
 
 function selectOption(option: SelectOption): void {
-  emit('update:modelValue', option.value)
-  isOpen.value = false
+  emit('update:modelValue', option.value);
+  isOpen.value = false;
 }
 
 function handleClickOutside(event: MouseEvent): void {
   if (wrapperRef.value && !wrapperRef.value.contains(event.target as Node)) {
-    isOpen.value = false
+    isOpen.value = false;
   }
 }
 
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-})
+  document.addEventListener('click', handleClickOutside);
+});
 
 onBeforeUnmount(() => {
-  document.removeEventListener('click', handleClickOutside)
-})
+  document.removeEventListener('click', handleClickOutside);
+});
 </script>
 
 <style scoped>

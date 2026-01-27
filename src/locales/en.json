@@ -82,7 +82,16 @@
     "revertChanges": "Revert Changes",
     "commitChanges": "Save Changes",
     "noPrimaryKey": "Editing unavailable: no primary key found",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "detail": {
+      "title": "Cell Value",
+      "format": "Format",
+      "save": "Save",
+      "cancel": "Cancel",
+      "cancel": "Cancel",
+      "noSelection": "No cell selected"
+    },
+    "changesCount": "{count} row changed | {count} rows changed"
   },
   "sidebar": {
     "connections": "CONNECTIONS",

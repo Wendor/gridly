@@ -8,9 +8,9 @@ withDefaults(
     size?: number
   }>(),
   {
-    size: 16
-  }
-)
+    size: 16,
+  },
+);
 </script>
 
 <style scoped>

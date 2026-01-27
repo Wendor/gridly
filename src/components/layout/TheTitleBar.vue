@@ -8,25 +8,25 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useTabStore } from '../../stores/tabs'
-import { useConnectionStore } from '../../stores/connections'
-import i18n from '../../i18n'
+import { computed } from 'vue';
+import { useTabStore } from '../../stores/tabs';
+import { useConnectionStore } from '../../stores/connections';
+import i18n from '../../i18n';
 
-const tabStore = useTabStore()
-const connStore = useConnectionStore()
+const tabStore = useTabStore();
+const connStore = useConnectionStore();
 
 const connectionTitle = computed(() => {
   if (tabStore.currentTab?.type === 'query' && tabStore.currentTab.connectionId !== null) {
-    const connId = tabStore.currentTab.connectionId
-    const conn = connStore.savedConnections.find((c) => c.id === connId)
+    const connId = tabStore.currentTab.connectionId;
+    const conn = connStore.savedConnections.find((c) => c.id === connId);
     if (conn) {
-      const status = connStore.isConnected(connId) ? i18n.global.t('status.connectedInTitle') : ''
-      return `${conn.name} ${status}`
+      const status = connStore.isConnected(connId) ? i18n.global.t('status.connectedInTitle') : '';
+      return `${conn.name} ${status}`;
     }
   }
-  return null
-})
+  return null;
+});
 </script>
 
 <style scoped>

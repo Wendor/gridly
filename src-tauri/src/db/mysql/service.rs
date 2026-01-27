@@ -36,29 +36,96 @@ impl MysqlService {
             let type_info = col.type_info().name();
 
             let value: serde_json::Value = match type_info {
-                "TINYINT" | "SMALLINT" | "INT" | "BIGINT" => row
+                "TINYINT" => {
+                    if let Ok(Some(v)) = row.try_get::<Option<i8>, _>(col.ordinal()) {
+                         serde_json::Value::Number(v.into())
+                    } else if let Ok(Some(v)) = row.try_get::<Option<bool>, _>(col.ordinal()) {
+                         serde_json::Value::Bool(v)
+                    } else if let Ok(Some(v)) = row.try_get::<Option<i16>, _>(col.ordinal()) {
+                         serde_json::Value::Number(v.into())
+                    } else {
+                         // Last resort, try string
+                         row.try_get::<Option<String>, _>(col.ordinal())
+                            .ok()
+                            .flatten()
+                            .map(serde_json::Value::String)
+                            .unwrap_or(serde_json::Value::Null)
+                    }
+                },
+                "BOOLEAN" => {
+                     if let Ok(Some(v)) = row.try_get::<Option<bool>, _>(col.ordinal()) {
+                         serde_json::Value::Bool(v)
+                     } else if let Ok(Some(v)) = row.try_get::<Option<i8>, _>(col.ordinal()) {
+                         serde_json::Value::Number(v.into())
+                     } else {
+                         serde_json::Value::Null
+                     }
+                },
+                "SMALLINT" | "INT" | "BIGINT" | "YEAR" => row
                     .try_get::<Option<i64>, _>(col.ordinal())
                     .ok()
                     .flatten()
                     .map(|v| serde_json::Value::Number(v.into()))
                     .unwrap_or(serde_json::Value::Null),
-                "FLOAT" | "DOUBLE" | "DECIMAL" => row
-                    .try_get::<Option<f64>, _>(col.ordinal())
-                    .ok()
-                    .flatten()
-                    .and_then(serde_json::Number::from_f64)
-                    .map(serde_json::Value::Number)
-                    .unwrap_or(serde_json::Value::Null),
-                "VARCHAR" | "CHAR" | "TEXT" => row
+                "FLOAT" | "DOUBLE" | "DECIMAL" => {
+                    // Start with BigDecimal for precision (DECIMAL usually maps to this)
+                    if let Ok(Some(v)) = row.try_get::<Option<sqlx::types::BigDecimal>, _>(col.ordinal()) {
+                         serde_json::Value::String(v.to_string())
+                    } else if let Ok(Some(v)) = row.try_get::<Option<f64>, _>(col.ordinal()) {
+                         serde_json::Number::from_f64(v)
+                            .map(serde_json::Value::Number)
+                            .unwrap_or(serde_json::Value::Null)
+                    } else {
+                         // Fallback string
+                         row.try_get::<Option<String>, _>(col.ordinal())
+                            .ok()
+                            .flatten()
+                            .map(serde_json::Value::String)
+                            .unwrap_or(serde_json::Value::Null)
+                    }
+                },
+                "VARCHAR" | "CHAR" | "TEXT" | "ENUM" | "SET" => row
                     .try_get::<Option<String>, _>(col.ordinal())
                     .ok()
                     .flatten()
                     .map(serde_json::Value::String)
                     .unwrap_or(serde_json::Value::Null),
-                "DATETIME" | "TIMESTAMP" | "DATE" | "TIME" => row
-                    .try_get::<Option<String>, _>(col.ordinal())
-                    .unwrap_or(None)
-                    .map(serde_json::Value::String)
+                "JSON" => row
+                    .try_get::<Option<serde_json::Value>, _>(col.ordinal())
+                    .ok()
+                    .flatten()
+                    .unwrap_or(serde_json::Value::Null),
+                "DATETIME" | "TIMESTAMP" => row
+                    .try_get::<Option<chrono::NaiveDateTime>, _>(col.ordinal())
+                    .ok()
+                    .flatten()
+                    .map(|t| serde_json::Value::String(t.to_string()))
+                    .unwrap_or(serde_json::Value::Null),
+                "DATE" => row
+                    .try_get::<Option<chrono::NaiveDate>, _>(col.ordinal())
+                    .ok()
+                    .flatten()
+                    .map(|d| serde_json::Value::String(d.to_string()))
+                    .unwrap_or(serde_json::Value::Null),
+                "TIME" => row
+                    .try_get::<Option<chrono::NaiveTime>, _>(col.ordinal())
+                    .ok()
+                    .flatten()
+                    .map(|t| serde_json::Value::String(t.to_string()))
+                    .unwrap_or(serde_json::Value::Null),
+                "BINARY" | "VARBINARY" | "TINYBLOB" | "BLOB" | "MEDIUMBLOB" | "LONGBLOB" => row
+                    .try_get::<Option<Vec<u8>>, _>(col.ordinal())
+                    .ok()
+                    .flatten()
+                    .map(|bytes| {
+                        serde_json::Value::String(format!("(binary {} bytes)", bytes.len()))
+                    })
+                    .unwrap_or(serde_json::Value::Null),
+                "BIT" => row
+                    .try_get::<Option<u64>, _>(col.ordinal())
+                    .ok()
+                    .flatten()
+                    .map(|v| serde_json::Value::Number(v.into()))
                     .unwrap_or(serde_json::Value::Null),
                 _ => row
                     .try_get::<Option<String>, _>(col.ordinal())

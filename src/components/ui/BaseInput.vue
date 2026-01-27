@@ -19,13 +19,13 @@ defineProps<{
   label?: string
   error?: string
   help?: string
-}>()
+}>();
 
-const emit = defineEmits<{ (e: 'update:modelValue', val: string): void }>()
+const emit = defineEmits<{ (e: 'update:modelValue', val: string): void }>();
 
 function updateValue(event: Event): void {
-  const target = event.target as HTMLInputElement
-  emit('update:modelValue', target.value)
+  const target = event.target as HTMLInputElement;
+  emit('update:modelValue', target.value);
 }
 </script>
 
