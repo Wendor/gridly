@@ -300,6 +300,10 @@ watch(
       editorContent.value = ''
       return
     }
+
+    // Performance: Only update if pane is open
+    if (!detailPaneOpen.value) return
+
     const val = newVal.value
     if (isWrappedValue(val)) {
       editorContent.value = typeof val.raw === 'string' ? val.raw : JSON.stringify(val.raw, null, 2)
@@ -312,12 +316,31 @@ watch(
   }
 )
 
+// Synch editor content when pane opens
+watch(detailPaneOpen, (isOpen) => {
+  if (isOpen && activeCell.value) {
+    // Trigger update logic manually
+    const val = activeCell.value.value
+    if (isWrappedValue(val)) {
+      editorContent.value = typeof val.raw === 'string' ? val.raw : JSON.stringify(val.raw, null, 2)
+    } else if (typeof val === 'object' && val !== null) {
+      editorContent.value = JSON.stringify(val, null, 2)
+    } else {
+      editorContent.value = String(val ?? '')
+    }
+    originalEditorContent.value = editorContent.value
+  }
+})
+
 // Fix for Stale Data: Watch for changes in the underlying value of the active cell
 // (e.g. when Revert happens, activeCell object identity might stay same but value changes)
 watch(
   () => activeCell.value?.value,
   (newVal) => {
     if (!activeCell.value) return
+    // Performance: Only update if pane is open
+    if (!detailPaneOpen.value) return
+    
     const val = newVal
     let newContent = ''
     if (isWrappedValue(val)) {

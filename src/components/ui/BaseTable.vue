@@ -66,7 +66,7 @@
                 :style="{ width: col.width + 'px', minWidth: col.width + 'px' }"
                 @mousedown="handleCellClick(startRowIndex + rowIndex, col.prop, $event)"
                 @dblclick="handleCellDblClick(startRowIndex + rowIndex, col.prop)"
-                @contextmenu="
+                @contextmenu.prevent="
                   onCellContextMenu($event, row, row[col.prop], startRowIndex + rowIndex, col.prop)
                 "
               >
@@ -322,7 +322,9 @@ function handleCellClick(rowIndex: number, colProp: string, event: MouseEvent): 
   // Prevent native text selection and focus loss
   if (!isEditing(rowIndex, colProp)) {
     event.preventDefault()
-    tableContainerRef.value?.focus()
+    if (document.activeElement !== tableContainerRef.value) {
+      tableContainerRef.value?.focus({ preventScroll: true })
+    }
   }
   selectCell(rowIndex, colProp, event.metaKey || event.ctrlKey, event.shiftKey)
 }
