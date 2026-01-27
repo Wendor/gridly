@@ -71,7 +71,12 @@
     "sshPassword": "SSH Password/Passphrase",
     "sshKeyPath": "SSH Key Path",
     "testingConnection": "Testing connection...",
-    "passwordHint": "Leave password fields empty to keep existing passwords"
+    "passwordHint": "Leave password fields empty to keep existing passwords",
+    "section": {
+        "general": "General",
+        "ssh": "SSH Tunnel",
+        "schemas": "Schemas"
+    }
   },
   "query": {
     "format": "Format",

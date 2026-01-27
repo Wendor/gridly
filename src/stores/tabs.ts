@@ -46,7 +46,12 @@ export interface DashboardTab extends BaseTab {
   connectionId: string
 }
 
-export type Tab = QueryTab | SettingsTab | DocumentTab | DashboardTab
+export interface ConnectionTab extends BaseTab {
+  type: 'connection'
+  connectionId?: string // undefined = new connection
+}
+
+export type Tab = QueryTab | SettingsTab | DocumentTab | DashboardTab | ConnectionTab
 
 export const useTabStore = defineStore('tabs', () => {
   const connectionStore = useConnectionStore();
@@ -150,6 +155,31 @@ export const useTabStore = defineStore('tabs', () => {
       id,
       type: 'dashboard',
       name: `${i18n.global.t('sidebar.overview')} - ${conn?.name || connectionId}`,
+      connectionId,
+    });
+    activeTabId.value = id;
+  }
+
+  function openConnectionTab(connectionId?: string): void {
+    const existing = tabs.value.find(
+      (t) => t.type === 'connection' && t.connectionId === connectionId,
+    );
+    if (existing) {
+      activeTabId.value = existing.id;
+      return;
+    }
+
+    const id = nextTabId.value++;
+    let name = i18n.global.t('connections.new');
+    if (connectionId) {
+      const conn = connectionStore.savedConnections.find((c) => c.id === connectionId);
+      name = conn ? `${i18n.global.t('connections.edit')}: ${conn.name}` : i18n.global.t('connections.edit');
+    }
+
+    tabs.value.push({
+      id,
+      type: 'connection',
+      name,
       connectionId,
     });
     activeTabId.value = id;
@@ -388,6 +418,13 @@ export const useTabStore = defineStore('tabs', () => {
           type: t.type,
           name: t.name,
           content: t.content,
+        };
+      } else if (t.type === 'connection') {
+        return {
+          id: t.id,
+          type: t.type,
+          name: t.name,
+          connectionId: t.connectionId,
         };
       } else {
         return {
@@ -666,5 +703,6 @@ export const useTabStore = defineStore('tabs', () => {
     resetConnectionState,
     loadFromStorage,
     reorderTabs,
+    openConnectionTab,
   };
 });

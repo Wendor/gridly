@@ -10,7 +10,7 @@
       <TheActivityBar @open-settings="tabStore.openSettingsTab()" />
 
       <div class="sidebar-container" :style="{ width: sidebarWidth + 'px' }">
-        <TheSidebar @open-create-modal="openCreateModal" @edit="openEditModal" />
+        <TheSidebar />
       </div>
 
       <div class="resizer-vertical" @mousedown="startSidebarResize"></div>
@@ -18,14 +18,6 @@
       <div class="main-container">
         <TheEditorArea />
       </div>
-
-      <ConnectionModal
-        :is-open="isModalOpen"
-        :initial-data="editingConnection"
-        :available-databases="modalAvailableDatabases"
-        @close="isModalOpen = false"
-        @save="handleModalSave"
-      />
     </div>
 
     <TheStatusBar />
@@ -44,19 +36,12 @@ import TheActivityBar from './components/layout/TheActivityBar.vue';
 import TheSidebar from './components/layout/TheSidebar.vue';
 import TheEditorArea from './components/layout/TheEditorArea.vue';
 import TheStatusBar from './components/layout/TheStatusBar.vue';
-import ConnectionModal from './components/ConnectionModal.vue';
-
 const connStore = useConnectionStore();
 const tabStore = useTabStore();
 const settingsStore = useSettingsStore();
 
-const isModalOpen = ref(false);
 const sidebarWidth = ref(250);
 const isResizingSidebar = ref(false);
-
-const editingConnection = ref<DbConnectionMeta | null>(null);
-const editingId = ref<string | null>(null);
-const modalAvailableDatabases = ref<string[]>([]);
 
 const handleGlobalKeydown = (e: KeyboardEvent): void => {
   if (e.key === 'Tab') {
@@ -88,43 +73,6 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleGlobalKeydown, true);
 });
-
-function openCreateModal(): void {
-  editingId.value = null;
-  editingConnection.value = null;
-  modalAvailableDatabases.value = [];
-  isModalOpen.value = true;
-}
-
-async function openEditModal(id: string): Promise<void> {
-  const conn = connStore.savedConnections.find((c) => c.id === id);
-  if (conn) {
-    editingId.value = id;
-    modalAvailableDatabases.value = [];
-
-    editingConnection.value = JSON.parse(JSON.stringify(conn));
-
-    if (connStore.isConnected(id)) {
-      try {
-        const dbs = await window.dbApi.getDatabases(id, '');
-        modalAvailableDatabases.value = dbs.sort();
-      } catch (e) {
-        console.error('Failed to load databases for modal:', e);
-      }
-    }
-
-    isModalOpen.value = true;
-  }
-}
-
-function handleModalSave(conn: DbConnection): void {
-  if (editingId.value !== null) {
-    connStore.updateConnection(conn);
-  } else {
-    connStore.addConnection(conn);
-  }
-  isModalOpen.value = false;
-}
 
 // --- Sidebar Resizing ---
 function startSidebarResize(): void {

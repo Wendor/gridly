@@ -77,11 +77,19 @@ export interface SerializableDashboardTab {
   connectionId: string
 }
 
+export interface SerializableConnectionTab {
+  id: number
+  type: 'connection'
+  name: string
+  connectionId?: string
+}
+
 export type SerializableTab =
   | SerializableQueryTab
   | SerializableSettingsTab
   | SerializableDocumentTab
   | SerializableDashboardTab
+  | SerializableConnectionTab
 
 export interface AppState {
   tabs: {

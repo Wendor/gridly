@@ -1,8 +1,8 @@
 <template>
   <div class="title-bar" data-tauri-drag-region>
     <div class="title-content" data-tauri-drag-region>
-      <span class="app-name">Gridly</span>
-      <span v-if="connectionTitle" class="conn-info"> - {{ connectionTitle }}</span>
+      <span class="app-name" data-tauri-drag-region>Gridly</span>
+      <span v-if="connectionTitle" class="conn-info" data-tauri-drag-region> - {{ connectionTitle }}</span>
     </div>
   </div>
 </template>

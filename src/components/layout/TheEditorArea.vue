@@ -121,6 +121,7 @@
       <DocumentView v-else-if="tabStore.currentTab.type === 'document'" />
       <DashboardView v-else-if="tabStore.currentTab.type === 'dashboard'" />
       <QueryView v-else-if="tabStore.currentTab.type === 'query'" />
+      <ConnectionEditorView v-else-if="tabStore.currentTab.type === 'connection'" />
     </div>
 
     <div v-else class="empty-state">
@@ -157,6 +158,7 @@ import SettingsView from '../views/SettingsView.vue';
 import QueryView from '../views/QueryView.vue';
 import DocumentView from '../views/DocumentView.vue';
 import DashboardView from '../views/DashboardView.vue';
+import ConnectionEditorView from '../views/ConnectionEditorView.vue';
 
 const tabStore = useTabStore();
 const connStore = useConnectionStore();

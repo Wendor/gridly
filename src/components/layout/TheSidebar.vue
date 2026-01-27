@@ -8,8 +8,8 @@
       @select="(id) => connStore.ensureConnection(id)"
       @expand="(id) => connStore.loadTables(id)"
       @delete="connStore.deleteConnection"
-      @edit="(id) => $emit('edit', id)"
-      @open-create-modal="$emit('open-create-modal')"
+      @edit="(id) => tabStore.openConnectionTab(id)"
+      @open-create-modal="() => tabStore.openConnectionTab()"
       @table-click="handleTableClick"
     />
 
@@ -32,11 +32,11 @@ import { useUIStore } from '../../stores/ui';
 import ConnectionSidebar from '../ConnectionSidebar.vue';
 import HistorySidebar from '../HistorySidebar.vue';
 
-// ДОБАВЛЕНО: 'edit' в список событий
-defineEmits<{
-  (e: 'open-create-modal'): void
-  (e: 'edit', id: string): void
-}>();
+// REMOVED emits
+// defineEmits<{
+//   (e: 'open-create-modal'): void
+//   (e: 'edit', id: string): void
+// }>();
 
 const connStore = useConnectionStore();
 const tabStore = useTabStore();
