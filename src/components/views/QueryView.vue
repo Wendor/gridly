@@ -19,7 +19,7 @@
         <div class="toolbar-right">
           <BaseButton
             variant="primary"
-            :disabled="connStore.loading || currentQueryTab?.connectionId === null"
+            :disabled="!!currentQueryTab?.loading || currentQueryTab?.connectionId === null"
             @click="tabStore.runQuery"
           >
             <BaseIcon name="play" /> {{ $t('query.run') }}
@@ -89,7 +89,7 @@
                       icon-only
                       @click="tabStore.runQuery"
                     >
-                      <BaseIcon name="refresh" :class="{ spin: connStore.loading }" />
+                      <BaseIcon name="refresh" :class="{ spin: !!currentQueryTab?.loading }" />
                     </BaseButton>
 
                     <BaseSelect
@@ -172,7 +172,7 @@
         :editable="canEdit"
         :changed-cells="changedCellsSet"
         :primary-keys="currentQueryTab?.primaryKeys || []"
-        :loading="connStore.loading"
+        :loading="!!currentQueryTab?.loading"
         style="width: 100%; height: 100%"
         @sort-change="onSortChange"
         @cell-context-menu="onCellContextMenu"
@@ -695,7 +695,7 @@ function onAutoRefreshChange(val: string | number): void {
 
   if (ms > 0) {
     autoRefreshTimer.value = window.setInterval(() => {
-      if (currentQueryTab.value && !connStore.loading) {
+      if (currentQueryTab.value && !connStore.loading && !currentQueryTab.value.loading) {
         tabStore.runQuery();
       }
     }, ms);

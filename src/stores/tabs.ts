@@ -27,6 +27,7 @@ export interface QueryTab extends BaseTab {
   primaryKeys: string[]
   pendingChanges: Map<string, Record<string, unknown>>
   originalRows: Map<string, Record<string, unknown>>
+  loading?: boolean
 }
 
 export interface SettingsTab extends BaseTab {
@@ -86,6 +87,7 @@ export const useTabStore = defineStore('tabs', () => {
       primaryKeys: [],
       pendingChanges: new Map(),
       originalRows: new Map(),
+      loading: false,
     });
     activeTabId.value = id;
   }
@@ -122,6 +124,7 @@ export const useTabStore = defineStore('tabs', () => {
       primaryKeys: [],
       pendingChanges: new Map(),
       originalRows: new Map(),
+      loading: false,
     });
 
     activeTabId.value = id;
@@ -256,7 +259,7 @@ export const useTabStore = defineStore('tabs', () => {
     };
 
     try {
-      connectionStore.loading = true;
+      tab.loading = true;
       connectionStore.error = null;
 
       let result;
@@ -330,7 +333,7 @@ export const useTabStore = defineStore('tabs', () => {
         }
       }
     } finally {
-      connectionStore.loading = false;
+      tab.loading = false;
     }
   }
 
@@ -399,6 +402,7 @@ export const useTabStore = defineStore('tabs', () => {
                 offset: 0,
                 total: null,
               },
+              loading: false,
             } as QueryTab;
           } else {
             return t as Tab;
@@ -580,7 +584,7 @@ export const useTabStore = defineStore('tabs', () => {
     }
 
     try {
-      connectionStore.loading = true;
+      currentTab.value.loading = true;
       const result = (await window.dbApi.updateRows(
         currentTab.value.connectionId,
         updates,
@@ -596,7 +600,7 @@ export const useTabStore = defineStore('tabs', () => {
     } catch (e) {
       connectionStore.error = e instanceof Error ? e.message : String(e);
     } finally {
-      connectionStore.loading = false;
+      currentTab.value.loading = false;
     }
   }
 

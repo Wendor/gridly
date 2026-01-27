@@ -43,12 +43,8 @@ impl DatabaseServiceFactory for DefaultDatabaseServiceFactory {
 
 #[derive(Clone)]
 pub struct DatabaseManager {
-    services: Arc<Mutex<HashMap<String, Box<dyn DatabaseService>>>>,
-    ssh_services: Arc<Mutex<HashMap<String, SshTunnelService>>>,
-    // Arc<Box<...>> needed because DatabaseManager is specific to be Clone + Send + Sync
-    // But Box<dyn IsNotClone>. We need to share the factory.
-    // DatabaseManager is Clone, so fields must be Clone.
-    // Box<dyn Trait> is not Clone. Arc<Box<dyn Trait>> is Clone.
+    services: Arc<tokio::sync::RwLock<HashMap<String, Arc<tokio::sync::RwLock<Box<dyn DatabaseService>>>>>>,
+    ssh_services: Arc<tokio::sync::RwLock<HashMap<String, SshTunnelService>>>,
     factory: Arc<Box<dyn DatabaseServiceFactory>>,
 }
 
@@ -59,111 +55,127 @@ impl DatabaseManager {
 
     pub fn new_with_factory(factory: Box<dyn DatabaseServiceFactory>) -> Self {
         DatabaseManager {
-            services: Arc::new(Mutex::new(HashMap::new())),
-            ssh_services: Arc::new(Mutex::new(HashMap::new())),
+            services: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
+            ssh_services: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
             factory: Arc::new(factory),
         }
     }
 
     pub async fn connect(&self, id: String, mut config: ConnectionConfig) -> Result<String> {
+        // Disconnect first (needs write lock on maps)
         self.disconnect(id.clone()).await?;
 
         if config.use_ssh.unwrap_or(false) && config.ssh_host.is_some() {
             let mut ssh = SshTunnelService::new();
-
-
             let remote_port = config.port;
             let remote_host = config.host.clone();
-
             let local_port = ssh.create_tunnel(&config, &remote_host, remote_port).await?;
 
-            self.ssh_services.lock().await.insert(id.clone(), ssh);
+            self.ssh_services.write().await.insert(id.clone(), ssh);
 
             config.host = "127.0.0.1".to_string();
             config.port = local_port;
         }
 
         let mut service = self.factory.create(&config.driver);
-
         service.connect(&config).await?;
-        self.services.lock().await.insert(id, service);
+
+        // Store the service wrapped in Arc<RwLock>
+        self.services.write().await.insert(id, Arc::new(tokio::sync::RwLock::new(service)));
 
         Ok("Connected".to_string())
     }
 
     pub async fn disconnect(&self, id: String) -> Result<()> {
-        let mut services = self.services.lock().await;
-        if let Some(mut service) = services.remove(&id) {
-            let _ = service.disconnect().await;
+        {
+            let mut services = self.services.write().await;
+            if let Some(service_lock) = services.remove(&id) {
+                // We need to acquire write lock to call disconnect which takes &mut self
+                let mut service = service_lock.write().await;
+                let _ = service.disconnect().await;
+            }
         }
 
-        let mut ssh_services = self.ssh_services.lock().await;
-        if let Some(mut ssh) = ssh_services.remove(&id) {
-            ssh.close();
+        {
+            let mut ssh_services = self.ssh_services.write().await;
+            if let Some(mut ssh) = ssh_services.remove(&id) {
+                ssh.close();
+            }
         }
 
         Ok(())
     }
 
+    // Helper to get read access to a service
+    async fn get_service_read(&self, id: &str) -> Result<Arc<tokio::sync::RwLock<Box<dyn DatabaseService>>>> {
+        let services = self.services.read().await;
+        services.get(id).cloned().ok_or_else(|| DbError::ConnectionNotFound(id.to_string()))
+    }
+
+    // Helper to get write access to a service
+    // Note: This returns the Arc to the lock, same as read, but we intend to write lock it.
+    // Separating just for consistent naming if needed, but actually we just need the arc.
+    
     pub async fn execute(&self, id: String, sql: String) -> Result<QueryResult> {
-        let services = self.services.lock().await;
-        let service = services.get(&id).ok_or(DbError::ConnectionNotFound(id))?;
+        let service_lock = self.get_service_read(&id).await?;
+        // execute takes &self, so we only need read lock on the service
+        let service = service_lock.read().await;
         service.execute(&sql).await
     }
 
     pub async fn get_tables(&self, id: String, db_name: Option<String>) -> Result<Vec<String>> {
-        let mut services = self.services.lock().await;
-        let service = services
-            .get_mut(&id)
-            .ok_or(DbError::ConnectionNotFound(id))?;
+        let service_lock = self.get_service_read(&id).await?;
+        // get_tables takes &mut self (might switch db), so we need write lock
+        let mut service = service_lock.write().await;
         service.get_tables(db_name).await
     }
 
     pub async fn get_databases(&self, id: String) -> Result<Vec<String>> {
-        let services = self.services.lock().await;
-        let service = services.get(&id).ok_or(DbError::ConnectionNotFound(id))?;
+        let service_lock = self.get_service_read(&id).await?;
+        // get_databases takes &self
+        let service = service_lock.read().await;
         service.get_databases().await
     }
 
     pub async fn get_schema(&self, id: String, db_name: Option<String>) -> Result<DbSchema> {
-        let mut services = self.services.lock().await;
-        let service = services
-            .get_mut(&id)
-            .ok_or(DbError::ConnectionNotFound(id))?;
+        let service_lock = self.get_service_read(&id).await?;
+        // get_schema takes &mut self
+        let mut service = service_lock.write().await;
         service.get_schema(db_name).await
     }
 
     pub async fn get_table_data(&self, id: String, req: DataRequest) -> Result<QueryResult> {
-        let services = self.services.lock().await;
-        let service = services.get(&id).ok_or(DbError::ConnectionNotFound(id))?;
+        let service_lock = self.get_service_read(&id).await?;
+        // get_table_data takes &self
+        let service = service_lock.read().await;
         service.get_table_data(req).await
     }
 
     pub async fn set_active_database(&self, id: String, db_name: String) -> Result<()> {
-        let mut services = self.services.lock().await;
-        let service = services
-            .get_mut(&id)
-            .ok_or(DbError::ConnectionNotFound(id))?;
+        let service_lock = self.get_service_read(&id).await?;
+        // set_active_database takes &mut self
+        let mut service = service_lock.write().await;
         service.set_active_database(db_name).await
     }
 
     pub async fn get_primary_keys(&self, id: String, table_name: String) -> Result<Vec<String>> {
-        let mut services = self.services.lock().await;
-        let service = services
-            .get_mut(&id)
-            .ok_or(DbError::ConnectionNotFound(id))?;
+        let service_lock = self.get_service_read(&id).await?;
+        // get_primary_keys takes &self
+        let service = service_lock.read().await;
         service.get_primary_keys(table_name).await
     }
 
     pub async fn update_rows(&self, id: String, updates: Vec<RowUpdate>) -> Result<UpdateResult> {
-        let services = self.services.lock().await;
-        let service = services.get(&id).ok_or(DbError::ConnectionNotFound(id))?;
+        let service_lock = self.get_service_read(&id).await?;
+        // update_rows takes &self
+        let service = service_lock.read().await;
         service.update_rows(updates).await
     }
 
     pub async fn get_dashboard_metrics(&self, id: String) -> Result<DashboardMetrics> {
-        let services = self.services.lock().await;
-        let service = services.get(&id).ok_or(DbError::ConnectionNotFound(id))?;
+        let service_lock = self.get_service_read(&id).await?;
+        // get_dashboard_metrics takes &self
+        let service = service_lock.read().await;
         service.get_dashboard_metrics().await
     }
 }

@@ -266,7 +266,7 @@ impl DatabaseService for ClickhouseService {
         }
     }
 
-    async fn get_primary_keys(&mut self, table_name: String) -> Result<Vec<String>> {
+    async fn get_primary_keys(&self, table_name: String) -> Result<Vec<String>> {
         let db = self.config.as_ref().map(|c| c.database.clone()).unwrap_or("default".to_string());
         let sql = format!(
             "SELECT name FROM system.columns WHERE database = '{}' AND table = '{}' AND is_in_primary_key = 1",

@@ -305,7 +305,7 @@ impl DatabaseService for MysqlService {
         }
     }
 
-    async fn get_primary_keys(&mut self, table_name: String) -> Result<Vec<String>> {
+    async fn get_primary_keys(&self, table_name: String) -> Result<Vec<String>> {
         let pool = self.pool()?;
         let sql = format!(
             "SHOW KEYS FROM `{}` WHERE Key_name = 'PRIMARY'",
