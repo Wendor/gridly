@@ -118,7 +118,13 @@
             {{ $t('status.loading') }}...
           </div>
 
-          <div v-else class="db-list">
+          <div v-else class="list-actions">
+            <span class="action-link" @click="selectAllDb">{{ $t('connections.selectAll') }}</span>
+            <span class="separator">|</span>
+            <span class="action-link" @click="unselectAllDb">{{ $t('connections.unselectAll') }}</span>
+          </div>
+
+          <div v-if="availableDatabases.length > 0" class="db-list">
             <label v-for="db in availableDatabases" :key="db" class="db-check-item">
               <input type="checkbox" :checked="isExcluded(db)" @change="toggleDbExclusion(db)" />
               {{ db }}
@@ -211,9 +217,18 @@ onMounted(async () => {
       if (conn) {
          Object.assign(form, JSON.parse(JSON.stringify(conn)));
          // Load databases for schema exclusion
-          // Try to load databases from cache first, or fetch if connected
-          if (connStore.databasesCache[conn.id]?.length) {
-            availableDatabases.value = [...connStore.databasesCache[conn.id]].sort();
+          // Try to load databases from cache first
+          const cachedDbs = connStore.databasesCache[conn.id] || [];
+          
+          // Also include databases that are currently excluded (they might not be in the cache if the cache is filtered)
+          const excludedDbs = conn.excludeList 
+            ? conn.excludeList.split(',').map(s => s.trim()).filter(Boolean)
+            : [];
+            
+          if (cachedDbs.length || excludedDbs.length) {
+            // Merge and deduplicate
+            const merged = new Set([...cachedDbs, ...excludedDbs]);
+            availableDatabases.value = Array.from(merged).sort();
           }
 
           if (connStore.isConnected(conn.id)) {
@@ -259,6 +274,16 @@ function toggleDbExclusion(db: string): void {
   excludedDbSet.value = current;
 }
 
+function selectAllDb(): void {
+  const all = new Set<string>();
+  availableDatabases.value.forEach(db => all.add(db.toLowerCase()));
+  excludedDbSet.value = all;
+}
+
+function unselectAllDb(): void {
+  excludedDbSet.value = new Set();
+}
+
 function isExcluded(db: string): boolean {
   return excludedDbSet.value.has(db.toLowerCase());
 }
@@ -276,11 +301,11 @@ async function testConnection(): Promise<void> {
   testStatus.value = { type: 'loading', message: i18n.global.t('connections.testingConnection') };
   try {
     const connectionId = isEditing.value ? form.id : undefined;
-    const successMsg = await window.dbApi.testConnection({ ...form }, connectionId);
-    testStatus.value = { type: 'success', message: successMsg };
+    await window.dbApi.testConnection({ ...form }, connectionId);
+    testStatus.value = { type: 'success', message: i18n.global.t('connections.testSuccess') };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    testStatus.value = { type: 'error', message: msg };
+    testStatus.value = { type: 'error', message: i18n.global.t('connections.testFailed') + ': ' + msg };
   }
 }
 
@@ -395,7 +420,9 @@ function save(): void {
 }
 
 .db-list {
-  max-height: 300px;
+  flex: 1; /* Allow list to grow/shrink */
+  min-height: 0;
+  max-height: 400px;
   overflow-y: auto;
   border: 1px solid var(--border-color);
   background: var(--bg-input);
@@ -404,6 +431,27 @@ function save(): void {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.list-actions {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  margin-bottom: 5px;
+  color: var(--text-secondary);
+}
+
+.action-link {
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.action-link:hover {
+  color: var(--accent-primary);
+}
+
+.separator {
+  color: var(--border-color);
 }
 
 .db-check-item {

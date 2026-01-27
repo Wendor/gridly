@@ -54,7 +54,6 @@
     "edit": "Edit Connection",
     "select": "Select Connection",
     "test": "Check Connection",
-    "testSuccess": "Connection successful!",
     "type": "Database Type",
     "name": "Name",
     "host": "Host",
@@ -76,7 +75,11 @@
         "general": "General",
         "ssh": "SSH Tunnel",
         "schemas": "Schemas"
-    }
+    },
+    "selectAll": "Check all",
+    "unselectAll": "Uncheck all",
+    "testSuccess": "Connection established successfully",
+    "testFailed": "Connection failed"
   },
   "query": {
     "format": "Format",
