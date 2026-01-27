@@ -68,6 +68,8 @@ impl ClickhouseService {
                 pairs.append_pair("database", &config.database);
             }
             pairs.append_pair("default_format", "JSON");
+            pairs.append_pair("output_format_json_quote_64bit_integers", "1");
+            pairs.append_pair("output_format_json_quote_denormals", "1");
             
             for (k, v) in extra_params {
                 pairs.append_pair(k, v);

@@ -17,8 +17,6 @@
 
       <template #right>
         <div class="toolbar-right">
-          <!-- REMOVED EXPORT BUTTON FROM TOP -->
-
           <BaseButton
             variant="primary"
             :disabled="connStore.loading || currentQueryTab?.connectionId === null"

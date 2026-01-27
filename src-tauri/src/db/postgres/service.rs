@@ -60,14 +60,55 @@ impl PostgresService {
                     .flatten()
                     .map(|v| serde_json::Value::Number(v.into()))
                     .unwrap_or(serde_json::Value::Null),
-                "float4" | "float8" | "numeric" | "money" => row
+                "float4" | "float8" => row
                     .try_get::<Option<f64>, _>(col.ordinal())
                     .ok()
                     .flatten()
                     .and_then(serde_json::Number::from_f64)
                     .map(serde_json::Value::Number)
                     .unwrap_or(serde_json::Value::Null),
-                "varchar" | "text" | "bpchar" | "name" | "char" => row
+                "numeric" => {
+                    // Try BigDecimal first for precision
+                    if let Ok(Some(v)) = row.try_get::<Option<sqlx::types::BigDecimal>, _>(col.ordinal()) {
+                         serde_json::Value::String(v.to_string())
+                    } else if let Ok(Some(v)) = row.try_get::<Option<String>, _>(col.ordinal()) {
+                         serde_json::Value::String(v)
+                    } else {
+                         row.try_get::<Option<f64>, _>(col.ordinal())
+                            .ok()
+                            .flatten()
+                            .and_then(serde_json::Number::from_f64)
+                            .map(serde_json::Value::Number)
+                            .unwrap_or(serde_json::Value::Null)
+                    }
+                },
+                "money" => {
+                     // Try PgMoney (i64 cents)
+                     if let Ok(Some(v)) = row.try_get::<Option<sqlx::postgres::types::PgMoney>, _>(col.ordinal()) {
+                         // PgMoney(pub i64) - it's cents.
+                         // Format as 123.45
+                         let val = v.0;
+                         let abs_val = val.abs();
+                         let dollars = abs_val / 100;
+                         let cents = abs_val % 100;
+                         let sign = if val < 0 { "-" } else { "" };
+                         serde_json::Value::String(format!("{}{}.{:02}", sign, dollars, cents))
+                     } else if let Ok(Some(v)) = row.try_get::<Option<i64>, _>(col.ordinal()) {
+                         let abs_val = v.abs();
+                         let dollars = abs_val / 100;
+                         let cents = abs_val % 100;
+                         let sign = if v < 0 { "-" } else { "" };
+                         serde_json::Value::String(format!("{}{}.{:02}", sign, dollars, cents))
+                     } else {
+                         // Fallback string/f64
+                         row.try_get::<Option<String>, _>(col.ordinal())
+                            .ok()
+                            .flatten()
+                            .map(serde_json::Value::String)
+                            .unwrap_or(serde_json::Value::Null)
+                     }
+                },
+                "varchar" | "text" | "bpchar" | "name" | "char" | "xml" | "citext" => row
                     .try_get::<Option<String>, _>(col.ordinal())
                     .ok()
                     .flatten()
@@ -115,6 +156,99 @@ impl PostgresService {
                     .map(|bytes| {
                         serde_json::Value::String(format!("(binary {} bytes)", bytes.len()))
                     })
+                    .unwrap_or(serde_json::Value::Null),
+                // Boolean Array
+                "_bool" | "bool[]" => row
+                    .try_get::<Option<Vec<bool>>, _>(col.ordinal())
+                    .ok()
+                    .flatten()
+                    .map(|v| serde_json::Value::Array(v.into_iter().map(serde_json::Value::Bool).collect()))
+                    .unwrap_or(serde_json::Value::Null),
+                // Integer Arrays
+                "_int2" | "int2[]" => row
+                     .try_get::<Option<Vec<i16>>, _>(col.ordinal())
+                     .ok()
+                     .flatten()
+                     .map(|v| serde_json::Value::Array(v.into_iter().map(|n| serde_json::Value::Number((n as i64).into())).collect()))
+                     .unwrap_or(serde_json::Value::Null),
+                "_int4" | "int4[]" => row
+                     .try_get::<Option<Vec<i32>>, _>(col.ordinal())
+                     .ok()
+                     .flatten()
+                     .map(|v| serde_json::Value::Array(v.into_iter().map(|n| serde_json::Value::Number((n as i64).into())).collect()))
+                     .unwrap_or(serde_json::Value::Null),
+                "_int8" | "int8[]" => row
+                     .try_get::<Option<Vec<i64>>, _>(col.ordinal())
+                     .ok()
+                     .flatten()
+                     .map(|v| serde_json::Value::Array(v.into_iter().map(|n| serde_json::Value::Number(n.into())).collect()))
+                     .unwrap_or(serde_json::Value::Null),
+                 // String Arrays
+                "_text" | "_varchar" | "_char" | "_bpchar" | "text[]" | "varchar[]" | "char[]" | "bpchar[]" => row
+                     .try_get::<Option<Vec<String>>, _>(col.ordinal())
+                     .ok()
+                     .flatten()
+                     .map(|v| serde_json::Value::Array(v.into_iter().map(serde_json::Value::String).collect()))
+                     .unwrap_or(serde_json::Value::Null),
+                // Network Types
+                "inet" | "cidr" => {
+                    if let Ok(Some(v)) = row.try_get::<Option<sqlx::types::ipnetwork::IpNetwork>, _>(col.ordinal()) {
+                         serde_json::Value::String(v.to_string())
+                    } else {
+                         row.try_get::<Option<String>, _>(col.ordinal())
+                            .ok()
+                            .flatten()
+                            .map(serde_json::Value::String)
+                            .unwrap_or(serde_json::Value::Null)
+                    }
+                },
+                "macaddr" | "macaddr8" => {
+                    if let Ok(Some(v)) = row.try_get::<Option<sqlx::types::mac_address::MacAddress>, _>(col.ordinal()) {
+                         serde_json::Value::String(v.to_string())
+                    } else {
+                         row.try_get::<Option<String>, _>(col.ordinal())
+                            .ok()
+                            .flatten()
+                            .map(serde_json::Value::String)
+                            .unwrap_or(serde_json::Value::Null)
+                    }
+                },
+                // Bit Strings
+                "bit" | "varbit" => {
+                     // Try sqlx::types::BitVec (requires bit-vec feature)
+                     if let Ok(Some(v)) = row.try_get::<Option<sqlx::types::BitVec>, _>(col.ordinal()) {
+                         let s: String = v.iter().map(|b| if b { '1' } else { '0' }).collect();
+                         serde_json::Value::String(s)
+                     } else {
+                         // Try as String directly
+                        row.try_get::<Option<String>, _>(col.ordinal())
+                            .ok()
+                            .flatten()
+                            .map(serde_json::Value::String)
+                            .unwrap_or(serde_json::Value::Null)
+                     }
+                },
+                // Interval
+                "interval" => row
+                     // sqlx PgInterval
+                    .try_get::<Option<sqlx::postgres::types::PgInterval>, _>(col.ordinal())
+                    .ok()
+                    .flatten()
+                    .map(|i| serde_json::Value::String(format!("{} months, {} days, {} us", i.months, i.days, i.microseconds)))
+                    .unwrap_or(serde_json::Value::Null),
+                // Text Search
+                "tsvector" | "tsquery" => row
+                    .try_get::<Option<String>, _>(col.ordinal())
+                    .ok()
+                    .flatten()
+                    .map(serde_json::Value::String)
+                    .unwrap_or(serde_json::Value::Null),
+                 // Geometry (fallback to string)
+                "point" | "box" | "lseg" | "path" | "polygon" | "circle" | "line" => row
+                    .try_get::<Option<String>, _>(col.ordinal())
+                    .ok()
+                    .flatten()
+                    .map(serde_json::Value::String)
                     .unwrap_or(serde_json::Value::Null),
                 _ => row
                     .try_get::<Option<String>, _>(col.ordinal())

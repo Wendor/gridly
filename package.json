@@ -16,7 +16,7 @@
     "db:up": "cd src-tauri/docker && docker-compose up -d",
     "db:down": "cd src-tauri/docker && docker-compose down",
     "test:backend:unit": "cd src-tauri && cargo test --lib",
-    "test:backend:integration": "npm run db:up && cd src-tauri && cargo test --test integration_tests --test full_cycle_tests",
+    "test:backend:integration": "npm run db:up && cd src-tauri && cargo test --test integration_tests --test full_cycle_tests && cargo test --test data_type_tests",
     "test:backend": "npm run test:backend:unit && npm run test:backend:integration"
   },
   "dependencies": {
