@@ -420,7 +420,7 @@ onUnmounted(() => {
   color: var(--text-secondary);
 }
 .action-btn:hover {
-  color: var(--text-white);
+  color: var(--text-primary);
   background: var(--bg-app);
 }
 

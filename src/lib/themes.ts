@@ -7,6 +7,7 @@ export interface Theme {
     '--bg-sidebar': string
     '--bg-activity-bar': string
     '--bg-panel-header': string
+    '--bg-control-panel': string
     '--bg-input': string
     '--border-color': string
     '--accent-primary': string
@@ -37,7 +38,8 @@ export const themes: Theme[] = [
       '--bg-app': '#1e1e1e',
       '--bg-sidebar': '#252526',
       '--bg-activity-bar': '#333333',
-      '--bg-panel-header': '#2d2d2d',
+      '--bg-panel-header': '#2d2d2d', // Restored
+      '--bg-control-panel': '#333333', // New variable matching activity bar
       '--bg-input': '#3c3c3c',
       '--border-color': '#454545',
       '--accent-primary': '#0e639c',
@@ -66,7 +68,8 @@ export const themes: Theme[] = [
       '--bg-app': '#ffffff',
       '--bg-sidebar': '#f6f8fa',
       '--bg-activity-bar': '#e1e4e8',
-      '--bg-panel-header': '#f6f8fa',
+      '--bg-panel-header': '#f6f8fa', // Restored
+      '--bg-control-panel': '#e1e4e8', // New variable
       '--bg-input': '#ffffff',
       '--border-color': '#d0d7de',
       '--accent-primary': '#0969da',
@@ -95,7 +98,8 @@ export const themes: Theme[] = [
       '--bg-app': '#282a36',
       '--bg-sidebar': '#21222c',
       '--bg-activity-bar': '#191a21',
-      '--bg-panel-header': '#282a36',
+      '--bg-panel-header': '#21222c', // Restored (Sidebar)
+      '--bg-control-panel': '#191a21', // New variable
       '--bg-input': '#44475a',
       '--border-color': '#6272a4',
       '--accent-primary': '#bd93f9',
@@ -124,7 +128,8 @@ export const themes: Theme[] = [
       '--bg-app': '#272822',
       '--bg-sidebar': '#1e1f1c',
       '--bg-activity-bar': '#171814',
-      '--bg-panel-header': '#272822',
+      '--bg-panel-header': '#1e1f1c', // Restored
+      '--bg-control-panel': '#171814', // New variable
       '--bg-input': '#414339',
       '--border-color': '#1e1f1c',
       '--accent-primary': '#a6e22e',
@@ -153,7 +158,8 @@ export const themes: Theme[] = [
       '--bg-app': '#fdf6e3',
       '--bg-sidebar': '#eee8d5',
       '--bg-activity-bar': '#d3c6aa',
-      '--bg-panel-header': '#eee8d5',
+      '--bg-panel-header': '#eee8d5', // Restored
+      '--bg-control-panel': '#d3c6aa', // New variable
       '--bg-input': '#fdf6e3',
       '--border-color': '#d3c6aa',
       '--accent-primary': '#2aa198',
@@ -182,7 +188,8 @@ export const themes: Theme[] = [
       '--bg-app': '#282c34', // Editor BG
       '--bg-sidebar': '#21252b', // Sidebar
       '--bg-activity-bar': '#333842',
-      '--bg-panel-header': '#21252b',
+      '--bg-panel-header': '#21252b', // Restored
+      '--bg-control-panel': '#333842', // New variable
       '--bg-input': '#353b45', // Lighter than BG, good for contrast against #282c34.
       // User said "buttons strongly light". If buttons use bg-input, and it was #1d1f23 (dark),
       // maybe they meant text? Or borders?

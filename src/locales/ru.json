@@ -88,8 +88,10 @@
       "format": "Форматировать",
       "save": "Сохранить",
       "cancel": "Отмена",
+      "cancel": "Отмена",
       "noSelection": "Нет выбранной ячейки"
-    }
+    },
+    "changesCount": "{count} строка изменена | {count} строки изменено | {count} строк изменено"
   },
   "sidebar": {
     "connections": "ПОДКЛЮЧЕНИЯ",

@@ -88,8 +88,10 @@
       "format": "Format",
       "save": "Save",
       "cancel": "Cancel",
+      "cancel": "Cancel",
       "noSelection": "No cell selected"
-    }
+    },
+    "changesCount": "{count} row changed | {count} rows changed"
   },
   "sidebar": {
     "connections": "CONNECTIONS",

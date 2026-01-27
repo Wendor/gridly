@@ -1,6 +1,6 @@
 <template>
   <div class="query-view">
-    <div class="toolbar">
+    <ControlPanel>
       <div class="toolbar-left">
         <BaseSelect
           :model-value="currentQueryTab?.connectionId ?? ''"
@@ -15,18 +15,20 @@
         </BaseButton>
       </div>
 
-      <div class="toolbar-right">
-        <!-- REMOVED EXPORT BUTTON FROM TOP -->
+      <template #right>
+        <div class="toolbar-right">
+          <!-- REMOVED EXPORT BUTTON FROM TOP -->
 
-        <BaseButton
-          variant="primary"
-          :disabled="connStore.loading || currentQueryTab?.connectionId === null"
-          @click="tabStore.runQuery"
-        >
-          <BaseIcon name="play" /> {{ $t('query.run') }}
-        </BaseButton>
-      </div>
-    </div>
+          <BaseButton
+            variant="primary"
+            :disabled="connStore.loading || currentQueryTab?.connectionId === null"
+            @click="tabStore.runQuery"
+          >
+            <BaseIcon name="play" /> {{ $t('query.run') }}
+          </BaseButton>
+        </div>
+      </template>
+    </ControlPanel>
 
     <div class="editor-wrapper" :style="{ height: editorHeight + 'px' }">
       <SqlEditor v-if="currentQueryTab" v-model="currentQueryTab.sql" @run="tabStore.runQuery" />
@@ -43,111 +45,122 @@
         </div>
       </div>
 
-      <div v-if="currentQueryTab" class="results-toolbar">
-        <div class="pagination-controls">
-          <BaseButton :disabled="!canGoPrev" variant="ghost" icon-only @click="goFirst">
-            <BaseIcon name="chevronsLeft" />
-          </BaseButton>
-          <BaseButton :disabled="!canGoPrev" variant="ghost" icon-only @click="tabStore.prevPage">
-            <BaseIcon name="chevronLeft" />
-          </BaseButton>
+      <div v-if="currentQueryTab" class="view-panel-header">
+         <ControlPanel>
+            <div class="pagination-controls">
+              <BaseButton :disabled="!canGoPrev" variant="ghost" icon-only @click="goFirst">
+                <BaseIcon name="chevronsLeft" />
+              </BaseButton>
+              <BaseButton :disabled="!canGoPrev" variant="ghost" icon-only @click="tabStore.prevPage">
+                <BaseIcon name="chevronLeft" />
+              </BaseButton>
 
-          <div class="pagination-info">
-            <span class="pagination-range">{{ paginationRangeText }}</span>
-            <span v-if="currentQueryTab.pagination.total !== null" class="pagination-total">{{
-              paginationTotalText
-            }}</span>
-          </div>
+              <div class="pagination-info">
+                <span class="pagination-range">{{ paginationRangeText }}</span>
+                <span v-if="currentQueryTab.pagination.total !== null" class="pagination-total">{{
+                  paginationTotalText
+                }}</span>
+              </div>
 
-          <BaseButton :disabled="!canGoNext" variant="ghost" icon-only @click="tabStore.nextPage">
-            <BaseIcon name="chevronRight" />
-          </BaseButton>
-          <BaseButton :disabled="!canGoLast" variant="ghost" icon-only @click="goLast">
-            <BaseIcon name="chevronsRight" />
-          </BaseButton>
-        </div>
+              <BaseButton :disabled="!canGoNext" variant="ghost" icon-only @click="tabStore.nextPage">
+                <BaseIcon name="chevronRight" />
+              </BaseButton>
+              <BaseButton :disabled="!canGoLast" variant="ghost" icon-only @click="goLast">
+                <BaseIcon name="chevronsRight" />
+              </BaseButton>
+            </div>
 
-        <div class="toolbar-divider"></div>
-        <BaseSelect
-          v-if="currentQueryTab"
-          :model-value="currentQueryTab.pagination.limit"
-          :options="limitOptions"
-          :label="$t('pagination.limit')"
-          inline-label
-          variant="ghost"
-          class="limit-select-icon"
-          @update:model-value="onLimitChange"
-        />
+            <div class="toolbar-divider"></div>
 
-        <BaseButton
-          :title="$t('query.refresh')"
-          variant="ghost"
-          icon-only
-          @click="tabStore.runQuery"
-        >
-          <BaseIcon name="refresh" :class="{ spin: connStore.loading }" />
-        </BaseButton>
+            <BaseSelect
+                      v-if="currentQueryTab"
+                      :model-value="currentQueryTab.pagination.limit"
+                      :options="limitOptions"
+                      :label="$t('pagination.limit')"
+                      inline-label
+                      variant="ghost"
+                      class="limit-select-icon"
+                      @update:model-value="onLimitChange"
+                    />
 
-        <BaseSelect
-          :model-value="autoRefreshInterval"
-          :options="autoRefreshOptions"
-          icon="clock"
-          class="auto-refresh-select"
-          highlight-active
-          @update:model-value="onAutoRefreshChange"
-        />
+                    <div class="toolbar-divider"></div>
 
-        <div class="toolbar-divider"></div>
+                    <BaseButton
+                      :title="$t('query.refresh')"
+                      variant="ghost"
+                      icon-only
+                      @click="tabStore.runQuery"
+                    >
+                      <BaseIcon name="refresh" :class="{ spin: connStore.loading }" />
+                    </BaseButton>
 
-        <BaseButton
-          variant="ghost"
-          icon-only
-          :title="$t('query.revertChanges')"
-          class="revert-btn"
-          :disabled="!hasChanges"
-          @click="tabStore.revertChanges"
-        >
-          <BaseIcon name="undo" />
-        </BaseButton>
+                    <BaseSelect
+                      :model-value="autoRefreshInterval"
+                      :options="autoRefreshOptions"
+                      icon="clock"
+                      class="auto-refresh-select"
+                      highlight-active
+                      @update:model-value="onAutoRefreshChange"
+                    />
 
-        <BaseButton
-          variant="ghost"
-          icon-only
-          :title="$t('query.commitChanges')"
-          class="action-btn"
-          :class="{ 'primary-icon': hasChanges }"
-          :disabled="!hasChanges"
-          @click="tabStore.commitChanges"
-        >
-          <BaseIcon name="save" />
-        </BaseButton>
+                    <div class="toolbar-divider"></div>
 
-        <div class="toolbar-divider"></div>
+                    <BaseButton
+                        variant="ghost"
+                        icon-only
 
-        <div class="changes-info">
-          <span v-if="hasChanges" class="changes-count">{{ changesCountText }}</span>
-        </div>
+                        :disabled="!currentQueryTab?.rows?.length"
+                        @click="exportCsv"
+                    >
+                      <BaseIcon name="download" />
+                    </BaseButton>
+                    <div class="toolbar-divider"></div>
 
-        <div class="spacer"></div>
+                    <BaseButton
+                      variant="ghost"
+                      icon-only
+                      :title="$t('query.revertChanges')"
+                      class="revert-btn"
+                      :disabled="!hasChanges"
+                      @click="tabStore.revertChanges"
+                    >
+                      <BaseIcon name="undo" />
+                    </BaseButton>
 
-      <BaseButton
-          variant="ghost"
-          :title="$t('query.exportCsv')"
-          :disabled="!currentQueryTab?.rows?.length"
-          @click="exportCsv"
-        >
-          <BaseIcon name="download" /> {{ $t('query.exportCsv') }}
-        </BaseButton>
-        <div class="toolbar-divider"></div>
-        <BaseButton
-          variant="ghost"
-          icon-only
-          :title="detailPaneOpen ? 'Close Detail' : 'Open Detail'"
-          :class="{ active: detailPaneOpen }"
-          @click="toggleDetailPane"
-        >
-          <BaseIcon name="panelBottom" />
-        </BaseButton>
+                    <BaseButton
+                      variant="ghost"
+                      icon-only
+                      :title="$t('query.commitChanges')"
+                      class="action-btn"
+                      :class="{ 'primary-icon': hasChanges }"
+                      :disabled="!hasChanges"
+                      @click="tabStore.commitChanges"
+                    >
+                      <BaseIcon name="save" />
+                    </BaseButton>
+
+                    <div v-if="hasChanges" class="toolbar-divider"></div>
+                    <div v-if="hasChanges" class="changes-info">
+                      <span class="changes-count">{{ changesCountText }}</span>
+                    </div>
+
+            <template #right>
+                <div class="toolbar-right-actions">
+
+
+                    <div class="spacer"></div>
+                      <BaseButton
+                        variant="ghost"
+                        icon-only
+                        :title="detailPaneOpen ? 'Close Detail' : 'Open Detail'"
+                        :class="{ active: detailPaneOpen }"
+                        @click="toggleDetailPane"
+                      >
+                        <BaseIcon name="panelBottom" />
+                      </BaseButton>
+                </div>
+            </template>
+         </ControlPanel>
       </div>
 
       <div class="table-area">
@@ -182,49 +195,50 @@
         class="detail-pane"
         :style="{ height: detailPaneHeight + 'px', minHeight: '50px' }"
       >
-        <div class="detail-toolbar">
-          <span class="detail-title">{{ $t('query.detail.title') }}</span>
-          <div class="spacer"></div>
+        <ControlPanel :title="$t('query.detail.title')">
+          <template #right>
+             <div class="detail-actions">
+                  <BaseButton
+                     v-if="activeCell"
+                     variant="ghost"
+                     size="sm"
+                     icon-only
+                     class="action-btn"
+                     :title="$t('query.detail.format')"
+                     @click="formatDetailContent"
+                  >
+                     <BaseIcon name="sparkles" />
+                  </BaseButton>
 
-          <BaseButton
-             v-if="activeCell"
-             variant="ghost"
-             size="sm"
-             icon-only
-             class="action-btn"
-             :title="$t('query.detail.format')"
-             @click="formatDetailContent"
-          >
-             <BaseIcon name="sparkles" />
-          </BaseButton>
+                  <div class="toolbar-divider"></div>
 
-          <div class="toolbar-divider"></div>
+                  <BaseButton
+                    variant="ghost"
+                    size="sm"
+                    icon-only
+                    class="action-btn"
+                    :title="$t('query.detail.cancel')"
+                    :disabled="!isDetailDirty"
+                    @click="cancelDetailChanges"
+                  >
+                    <BaseIcon name="undo" />
+                  </BaseButton>
 
-          <BaseButton
-            variant="ghost"
-            size="sm"
-            icon-only
-            class="action-btn"
-            :title="$t('query.detail.cancel')"
-            :disabled="!isDetailDirty"
-            @click="cancelDetailChanges"
-          >
-            <BaseIcon name="undo" />
-          </BaseButton>
-
-          <BaseButton
-            variant="ghost"
-            size="sm"
-            icon-only
-            class="action-btn"
-            :class="{ 'primary-icon': isDetailDirty && canEdit }"
-            :title="$t('query.detail.save')"
-            :disabled="!isDetailDirty || !canEdit"
-            @click="applyDetailChanges"
-          >
-            <BaseIcon name="check" />
-          </BaseButton>
-        </div>
+                  <BaseButton
+                    variant="ghost"
+                    size="sm"
+                    icon-only
+                    class="action-btn"
+                    :class="{ 'primary-icon': isDetailDirty && canEdit }"
+                    :title="$t('query.detail.save')"
+                    :disabled="!isDetailDirty || !canEdit"
+                    @click="applyDetailChanges"
+                  >
+                    <BaseIcon name="check" />
+                  </BaseButton>
+             </div>
+          </template>
+        </ControlPanel>
         <div class="detail-editor">
           <ValueEditor
             v-if="activeCell"
@@ -263,6 +277,7 @@ import BaseButton from '../ui/BaseButton.vue';
 import BaseSelect from '../ui/BaseSelect.vue';
 import BaseContextMenu from '../ui/BaseContextMenu.vue';
 import BaseTable from '../ui/BaseTable.vue';
+import ControlPanel from '../ui/ControlPanel.vue';
 import i18n from '../../i18n';
 
 const tabStore = useTabStore();
@@ -632,7 +647,7 @@ const changedCellsSet = computed((): Set<string> => {
 
 const changesCountText = computed(() => {
   const count = changesCount.value;
-  return count === 1 ? '1 row changed' : `${count} rows changed`;
+  return i18n.global.t('query.changesCount', count);
 });
 
 const canEdit = computed(() => {
@@ -705,6 +720,11 @@ watch(
       clearInterval(autoRefreshTimer.value);
       autoRefreshTimer.value = null;
     }
+
+    // Fix for stale data in Value Editor (Detail Pane)
+    activeCell.value = null;
+    editorContent.value = '';
+    originalEditorContent.value = '';
   },
 );
 
@@ -819,67 +839,13 @@ function handleKeydown(e: KeyboardEvent): void {
 </script>
 
 <style scoped>
-.query-view {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
-.toolbar {
-  height: 40px;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 10px;
-  background: var(--bg-app);
-  flex-shrink: 0;
-}
-.editor-wrapper {
-  overflow: hidden;
-  background: var(--bg-app);
-  flex-shrink: 0;
-  min-height: 100px; /* Гарантируем видимость */
-}
-.resizer-horizontal {
-  z-index: 100;
-  height: 4px;
-  background: transparent;
-  cursor: row-resize;
-  border-top: 1px solid var(--border-color);
-  flex-shrink: 0;
-}
-.grid-wrapper {
-  flex: 1; /* Занимает все оставшееся пространство */
-  display: flex;
-  flex-direction: column; /* Vertical stack for table and detail pane */
-  overflow: hidden;
-  position: relative;
-}
-.table-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  position: relative;
-  min-width: 0;
-}
+
 
 .query-view {
   display: flex;
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-}
-.toolbar {
-  height: 40px;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 10px;
-  background: var(--bg-app);
-  flex-shrink: 0;
 }
 .toolbar-left {
   display: flex;
@@ -889,7 +855,9 @@ function handleKeydown(e: KeyboardEvent): void {
 .conn-select-wrapper {
   min-width: 200px;
 }
-.toolbar-right {
+.toolbar-right,
+.toolbar-right-actions,
+.detail-actions {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -947,6 +915,15 @@ function handleKeydown(e: KeyboardEvent): void {
   position: relative;
   min-height: 0;
 }
+.table-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
 .error-msg {
   position: absolute;
   inset: 0;
@@ -981,14 +958,9 @@ function handleKeydown(e: KeyboardEvent): void {
   color: var(--list-hover-fg);
 }
 
-.results-toolbar {
-  display: flex;
-  align-items: center;
-  height: 36px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-app); /* Match grid background */
-  padding: 0 8px;
-  gap: 8px;
+
+
+.view-panel-header {
   flex-shrink: 0;
 }
 
@@ -1108,18 +1080,7 @@ function handleKeydown(e: KeyboardEvent): void {
 .action-btn:hover {
   background-color: var(--list-hover-bg);
 }
-.detail-toolbar {
-  height: 36px;
-  display: flex;
-  align-items: center;
-  padding: 0 8px;
-  border-bottom: 1px solid var(--border-color);
-  font-size: 13px;
-  font-weight: 600;
-  gap: 8px;
-  flex-shrink: 0;
-  color: var(--text-primary);
-}
+
 .detail-editor {
   flex: 1;
   overflow: hidden;
@@ -1130,5 +1091,10 @@ function handleKeydown(e: KeyboardEvent): void {
   color: var(--text-secondary);
   text-align: center;
   font-size: 13px;
+}
+
+:deep(.base-btn.active) {
+  color: var(--accent-primary);
+  background-color: var(--bg-input);
 }
 </style>
