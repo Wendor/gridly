@@ -89,7 +89,7 @@
                       icon-only
                       @click="tabStore.runQuery"
                     >
-                      <BaseIcon name="refresh" :class="{ spin: !!currentQueryTab?.loading }" />
+                      <BaseIcon name="refresh" />
                     </BaseButton>
 
                     <BaseSelect
