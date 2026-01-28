@@ -657,22 +657,7 @@ const canEdit = computed(() => {
   return queryTab.value.primaryKeys.length > 0;
 });
 
-function onCellChange(payload: { rowIndex: number; column: string; value: unknown }): void {
-  if (!queryTab.value) return;
-  // Check if changed
-  const row = queryTab.value.rows[payload.rowIndex];
-  const oldVal = row ? row[payload.column] : undefined;
 
-  // TODO: better type check
-  if (String(oldVal) !== String(payload.value)) {
-     tableDataStore.updateCellValue(
-       queryTab.value.id,
-       payload.rowIndex,
-       payload.column,
-       payload.value
-     );
-  }
-}
 
 // Auto Refresh
 const autoRefreshInterval = ref(0); // 0 = disabled

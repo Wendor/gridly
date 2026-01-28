@@ -116,6 +116,6 @@ export const useTableDataStore = defineStore('tableData', () => {
   return {
     updateCellValue,
     revertChanges,
-    commitChanges
+    commitChanges,
   };
 });

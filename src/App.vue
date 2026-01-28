@@ -58,7 +58,7 @@ watch(
       }
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 const sidebarWidth = ref(250);

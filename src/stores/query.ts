@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { useTabStore, QueryTab } from './tabs';
 import { useConnectionStore } from './connections';
 import { useHistoryStore } from './history';
-import i18n from '../i18n';
+
 
 export const useQueryStore = defineStore('query', () => {
   const tabStore = useTabStore();
@@ -54,6 +54,7 @@ export const useQueryStore = defineStore('query', () => {
     // Helper to execute the core query logic
     const execute = async (
       forceDbSwitch = false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ): Promise<{ res: any; tableName: string | null; isSimpleSelect: boolean }> => {
       await connectionStore.ensureConnection(connId);
 
@@ -192,6 +193,6 @@ export const useQueryStore = defineStore('query', () => {
     runQuery,
     cancelQuery,
     resetConnectionState,
-    activeDatabaseCache // Expose if needed elsewhere
+    activeDatabaseCache, // Expose if needed elsewhere
   };
 });
