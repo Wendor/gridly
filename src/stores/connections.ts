@@ -211,8 +211,11 @@ export const useConnectionStore = defineStore('connections', () => {
       console.error('Disconnect failed', e);
     } finally {
       activeConnectionIds.value.delete(id);
-      const tabStore = (await import('./tabs')).useTabStore();
-      tabStore.resetConnectionState(id);
+      // const tabStore = (await import('./tabs')).useTabStore();
+      // tabStore.resetConnectionState(id);
+      const queryStoreModule = await import('./query');
+      const queryStore = queryStoreModule.useQueryStore();
+      queryStore.resetConnectionState(id);
     }
   }
 

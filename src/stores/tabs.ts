@@ -1,8 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed, watch } from 'vue';
 import { useConnectionStore } from './connections';
-import { useHistoryStore } from './history';
-import { RowUpdate, UpdateResult } from '@/types';
+
 import i18n from '../i18n';
 
 export interface BaseTab {
@@ -55,13 +54,12 @@ export type Tab = QueryTab | SettingsTab | DocumentTab | DashboardTab | Connecti
 
 export const useTabStore = defineStore('tabs', () => {
   const connectionStore = useConnectionStore();
-  const historyStore = useHistoryStore();
 
   const tabs = ref<Tab[]>([]);
   const activeTabId = ref(1);
   const nextTabId = ref(1);
 
-  const activeDatabaseCache = ref<Map<string, string | null>>(new Map());
+
 
   const currentTab = computed(() => tabs.value.find((t) => t.id === activeTabId.value));
 
@@ -137,7 +135,50 @@ export const useTabStore = defineStore('tabs', () => {
     });
 
     activeTabId.value = id;
-    runQuery();
+    activeTabId.value = id;
+    // Query execution is now responsibility of caller
+  }
+
+  function openSettingsTab(): void {
+    const existing = tabs.value.find((t) => t.type === 'settings');
+    if (existing) {
+      activeTabId.value = existing.id;
+      return;
+    }
+
+    const id = nextTabId.value++;
+    tabs.value.push({
+      id,
+      type: 'settings',
+      name: i18n.global.t('common.settings'),
+    });
+    activeTabId.value = id;
+  }
+
+  function openDocumentTab(title: string, content: string): void {
+    const existing = tabs.value.find((t) => t.type === 'document' && t.name === title);
+    if (existing) {
+      activeTabId.value = existing.id;
+      return;
+    }
+
+    const id = nextTabId.value++;
+    tabs.value.push({
+      id,
+      type: 'document',
+      name: title,
+      content,
+    });
+    activeTabId.value = id;
+  }
+
+  function closeTab(id: number): void {
+    if (tabs.value.length === 1) return;
+    const idx = tabs.value.findIndex((t) => t.id === id);
+    tabs.value.splice(idx, 1);
+    if (id === activeTabId.value) {
+      activeTabId.value = tabs.value[Math.max(0, idx - 1)].id;
+    }
   }
 
   function openDashboardTab(connectionId: string): void {
@@ -185,212 +226,9 @@ export const useTabStore = defineStore('tabs', () => {
     activeTabId.value = id;
   }
 
-  function resetConnectionState(connectionId: string): void {
-    activeDatabaseCache.value.delete(connectionId);
-  }
 
-  function openSettingsTab(): void {
-    const existing = tabs.value.find((t) => t.type === 'settings');
-    if (existing) {
-      activeTabId.value = existing.id;
-      return;
-    }
 
-    const id = nextTabId.value++;
-    tabs.value.push({
-      id,
-      type: 'settings',
-      name: i18n.global.t('common.settings'),
-    });
-    activeTabId.value = id;
-  }
 
-  function openDocumentTab(title: string, content: string): void {
-    const existing = tabs.value.find((t) => t.type === 'document' && t.name === title);
-    if (existing) {
-      activeTabId.value = existing.id;
-      return;
-    }
-
-    const id = nextTabId.value++;
-    tabs.value.push({
-      id,
-      type: 'document',
-      name: title,
-      content,
-    });
-    activeTabId.value = id;
-  }
-
-  function closeTab(id: number): void {
-    if (tabs.value.length === 1) return;
-    const idx = tabs.value.findIndex((t) => t.id === id);
-    tabs.value.splice(idx, 1);
-    if (id === activeTabId.value) {
-      activeTabId.value = tabs.value[Math.max(0, idx - 1)].id;
-    }
-  }
-
-  function nextPage(): void {
-    if (!currentTab.value || currentTab.value.type !== 'query') return;
-    currentTab.value.pagination.offset += currentTab.value.pagination.limit;
-    runQuery();
-  }
-
-  function prevPage(): void {
-    if (!currentTab.value || currentTab.value.type !== 'query') return;
-    if (currentTab.value.pagination.offset === 0) return;
-
-    currentTab.value.pagination.offset = Math.max(
-      0,
-      currentTab.value.pagination.offset - currentTab.value.pagination.limit,
-    );
-    runQuery();
-  }
-
-  async function runQuery(tabId?: number): Promise<void> {
-    // If tabId provided, use it, otherwise use current
-    const targetTab = tabId ? tabs.value.find(t => t.id === tabId) : currentTab.value;
-    const tab = targetTab; // alias
-
-    if (!tab || tab.type !== 'query' || tab.connectionId === null) return;
-
-    const connId = tab.connectionId;
-    const dbName = tab.database;
-
-    // Helper to execute the core query logic
-    const execute = async (
-      forceDbSwitch = false,
-    ): Promise<{ res: unknown; tableName: string | null; isSimpleSelect: boolean }> => {
-      await connectionStore.ensureConnection(connId);
-
-      if (dbName) {
-        // If forceDbSwitch is true, we ignore the cache
-        const lastSetDb = activeDatabaseCache.value.get(connId);
-        if (forceDbSwitch || lastSetDb !== dbName) {
-          await window.dbApi.setActiveDatabase(connId, dbName);
-          activeDatabaseCache.value.set(connId, dbName);
-        }
-      }
-
-      let finalSql = tab.sql.trim();
-
-      // Parse table name for count optimization
-      const tableMatch = finalSql.match(/FROM\s+([`'"]?[\w.]+[`'"]?)/i);
-      const tableName = tableMatch ? tableMatch[1] : null;
-
-      const isSimpleSelect =
-        /^SELECT\s+\*\s+FROM/i.test(finalSql) && !/WHERE|JOIN|GROUP/i.test(finalSql);
-
-      // Handle LIMIT / OFFSET
-      const isSelect = /^SELECT\s/i.test(finalSql);
-      const hasLimit = /LIMIT\s+\d+/i.test(finalSql);
-
-      if (isSelect && !hasLimit) {
-        finalSql = finalSql.replace(/;$/, '');
-        finalSql += ` LIMIT ${tab.pagination.limit} OFFSET ${tab.pagination.offset}`;
-      }
-
-      const res = await window.dbApi.execute(connId, finalSql, tab.currentQueryId);
-      return { res, tableName, isSimpleSelect }; // Return needed data
-    };
-
-    try {
-      tab.loading = true;
-      tab.error = null;
-      // Generate ID
-      tab.currentQueryId = crypto.randomUUID();
-
-      let result;
-      try {
-        result = await execute(false);
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        // Check for specific DB errors indicating wrong context
-        const isMissingRelation = msg.includes('relation') && msg.includes('does not exist'); // Postgres
-        const isMissingTable = msg.includes('Table') && msg.includes("doesn't exist"); // MySQL
-
-        if ((isMissingRelation || isMissingTable) && dbName) {
-          console.warn('Handling missing relation error: retrying with forced DB switch');
-          // Force switch and retry
-          activeDatabaseCache.value.delete(connId);
-          result = await execute(true);
-        } else {
-          throw e;
-        }
-      }
-
-      if (!result) return; // Should not happen if no throw
-
-      const { res, tableName, isSimpleSelect } = result;
-
-      if (res.error) {
-        tab.error = res.error;
-        historyStore.addEntry(tab.sql, 'error', 0, connId);
-      } else {
-        // Columns
-        tab.colDefs = res.columns.map((col: string) => ({
-          field: col,
-          headerName: col,
-        }));
-
-        tab.rows = res.rows as Record<string, unknown>[];
-        tab.meta = { duration: res.duration };
-
-        historyStore.addEntry(tab.sql, 'success', res.duration, connId);
-
-        // Count Total
-        if (tableName && isSimpleSelect) {
-          if (tab.pagination.total === null || tab.pagination.offset === 0) {
-            try {
-              const countSql = `SELECT COUNT(*) as total FROM ${tableName}`;
-              // Count query usually fast, no need for cancellation ID?
-              const countRes = await window.dbApi.execute(connId, countSql);
-              if (countRes.rows.length > 0) {
-                const row = countRes.rows[0] as Record<string, unknown>;
-                const val = Object.values(row)[0];
-                tab.pagination.total = Number(val);
-              }
-            } catch (e) {
-              console.error('Count failed', e);
-            }
-          }
-        } else {
-          if (res.rows.length < tab.pagination.limit) {
-            tab.pagination.total = tab.pagination.offset + res.rows.length;
-          } else {
-            tab.pagination.total = null;
-          }
-        }
-      }
-
-      await loadPrimaryKeys();
-    } catch (e) {
-      if (e instanceof Error) {
-        tab.error = e.message;
-        if (tab.type === 'query') {
-          historyStore.addEntry(tab.sql, 'error', 0, connId);
-        }
-      }
-    } finally {
-      tab.loading = false;
-      tab.currentQueryId = undefined;
-    }
-  }
-
-  async function cancelQuery(tabId?: number): Promise<void> {
-      const targetTab = tabId ? tabs.value.find(t => t.id === tabId) : currentTab.value;
-      const tab = targetTab as QueryTab | undefined;
-      
-      if (!tab || tab.type !== 'query' || !tab.loading || !tab.currentQueryId || !tab.connectionId) return;
-
-      try {
-          await window.dbApi.cancelQuery(tab.connectionId, tab.currentQueryId);
-          // UI update handled by optimistic or error catching in runQuery
-      } catch (e) {
-          console.error("Failed to cancel query", e);
-      }
-  }
 
   // --- PERSISTENCE LOGIC ---
   async function saveToStorage(): Promise<void> {
@@ -502,33 +340,7 @@ export const useTabStore = defineStore('tabs', () => {
     saveToStorage();
   });
 
-  watch(
-    currentTab,
-    async (newTab) => {
-      if (!newTab || newTab.type !== 'query' || newTab.connectionId === null) return;
-      if (
-        !newTab.database ||
-        typeof newTab.database !== 'string' ||
-        newTab.database === 'undefined'
-      )
-        return;
 
-      const lastSetDb = activeDatabaseCache.value.get(newTab.connectionId);
-      if (lastSetDb !== newTab.database) {
-        try {
-          await connectionStore.ensureConnection(newTab.connectionId);
-          await window.dbApi.setActiveDatabase(newTab.connectionId, newTab.database);
-          activeDatabaseCache.value.set(newTab.connectionId, newTab.database);
-          // Force reload schema for the new database
-          const dbName = newTab.database || undefined;
-          await connectionStore.loadSchema(newTab.connectionId, dbName, true);
-        } catch (e) {
-          console.error('Failed to set active database on tab switch:', e);
-        }
-      }
-    },
-    { immediate: false },
-  );
 
   loadFromStorage();
   if (tabs.value.length === 0) {
@@ -542,130 +354,7 @@ export const useTabStore = defineStore('tabs', () => {
     }
   }
 
-  function getRowKey(row: Record<string, unknown>, primaryKeys: string[]): string {
-    const pkValues = primaryKeys.map((pk) => String(row[pk] ?? '')).join('|');
-    return pkValues;
-  }
 
-  function extractTableName(sql: string): string | null {
-    const match = sql.match(/FROM\s+([`'"]?[\w.]+[`'"]?)/i);
-    return match ? match[1].replace(/[`'"]/g, '') : null;
-  }
-
-  async function loadPrimaryKeys(): Promise<void> {
-    if (!currentTab.value || currentTab.value.type !== 'query') return;
-    if (currentTab.value.connectionId === null) return;
-
-    const tableName = currentTab.value.tableName || extractTableName(currentTab.value.sql);
-    if (!tableName) return;
-
-    currentTab.value.tableName = tableName;
-
-    try {
-      const pks = await window.dbApi.getPrimaryKeys(currentTab.value.connectionId, tableName);
-      currentTab.value.primaryKeys = pks;
-    } catch (e) {
-      console.error('Failed to load primary keys:', e);
-      currentTab.value.primaryKeys = [];
-    }
-  }
-
-  function updateCellValue(rowIndex: number, column: string, value: unknown): void {
-    if (!currentTab.value || currentTab.value.type !== 'query') return;
-    if (currentTab.value.primaryKeys.length === 0) return;
-
-    const row = currentTab.value.rows[rowIndex];
-    if (!row) return;
-
-    const rowKey = getRowKey(row, currentTab.value.primaryKeys);
-
-    if (!currentTab.value.originalRows.has(rowKey)) {
-      currentTab.value.originalRows.set(rowKey, { ...row });
-    }
-
-    if (!currentTab.value.pendingChanges.has(rowKey)) {
-      currentTab.value.pendingChanges.set(rowKey, {});
-    }
-
-    const changes = currentTab.value.pendingChanges.get(rowKey)!;
-
-    // Check if value equals original
-    const originalValue = currentTab.value.originalRows.get(rowKey)![column];
-    // Simple equality check, can be improved for objects/dates if needed
-    if (String(value) === String(originalValue)) {
-      delete changes[column];
-      if (Object.keys(changes).length === 0) {
-        currentTab.value.pendingChanges.delete(rowKey);
-        currentTab.value.originalRows.delete(rowKey);
-      }
-    } else {
-      changes[column] = value;
-    }
-
-    // Update UI
-    row[column] = value;
-  }
-
-  function revertChanges(): void {
-    if (!currentTab.value || currentTab.value.type !== 'query') return;
-
-    const queryTab = currentTab.value;
-
-    for (const [rowKey, originalRow] of queryTab.originalRows) {
-      const rowIndex = queryTab.rows.findIndex((r) => getRowKey(r, queryTab.primaryKeys) === rowKey);
-      if (rowIndex !== -1) {
-        queryTab.rows[rowIndex] = { ...originalRow };
-      }
-    }
-
-    queryTab.pendingChanges.clear();
-    queryTab.originalRows.clear();
-  }
-
-  async function commitChanges(): Promise<void> {
-    if (!currentTab.value || currentTab.value.type !== 'query') return;
-    if (currentTab.value.connectionId === null) return;
-    if (currentTab.value.pendingChanges.size === 0) return;
-    if (!currentTab.value.tableName) return;
-
-    const updates: RowUpdate[] = [];
-
-    for (const [rowKey, changes] of currentTab.value.pendingChanges) {
-      const original = currentTab.value.originalRows.get(rowKey);
-      if (!original) continue;
-
-      const primaryKeys: Record<string, unknown> = {};
-      for (const pk of currentTab.value.primaryKeys) {
-        primaryKeys[pk] = original[pk];
-      }
-
-      updates.push({
-        tableName: currentTab.value.tableName,
-        primaryKeys,
-        changes: Object.fromEntries(Object.entries(changes)),
-      });
-    }
-
-    try {
-      currentTab.value.loading = true;
-      const result = (await window.dbApi.updateRows(
-        currentTab.value.connectionId,
-        updates,
-      )) as UpdateResult;
-
-      if (result.success) {
-        currentTab.value.pendingChanges.clear();
-        currentTab.value.originalRows.clear();
-        await runQuery();
-      } else {
-        connectionStore.error = result.error || 'Unknown error';
-      }
-    } catch (e) {
-      connectionStore.error = e instanceof Error ? e.message : String(e);
-    } finally {
-      currentTab.value.loading = false;
-    }
-  }
 
   function reorderTabs(fromIndex: number, toIndex: number): void {
     if (
@@ -692,16 +381,9 @@ export const useTabStore = defineStore('tabs', () => {
     openDashboardTab,
     openDocumentTab,
     closeTab,
-    runQuery,
-    cancelQuery,
-    nextPage,
-    prevPage,
-    loadPrimaryKeys,
-    updateCellValue,
-    revertChanges,
-    commitChanges,
-    resetConnectionState,
+
     loadFromStorage,
+    saveToStorage,
     reorderTabs,
     openConnectionTab,
   };

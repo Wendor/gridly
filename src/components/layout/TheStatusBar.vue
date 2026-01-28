@@ -2,7 +2,8 @@
   <div class="status-bar-global" :class="{ 'status-error': displayError }">
     <div class="sb-section left">
       <div v-if="displayError" class="sb-item error-text" :title="displayError">
-        <BaseIcon name="alertCircle" size="sm" class="error-icon"/> {{ displayError }}
+        <BaseIcon name="alertCircle" size="sm" class="error-icon"/> 
+        <span class="error-msg-span">{{ displayError }}</span>
         <button class="status-btn" @click="showErrorDetails = true">{{ $t('common.details') }}</button>
       </div>
       <div v-else class="sb-item status-text">
@@ -144,6 +145,14 @@ const currentConnectionName = computed(() => {
 }
 .status-btn:hover {
   background: rgba(255,255,255,0.25);
+}
+
+.error-msg-span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
 }
 
 .error-pre {

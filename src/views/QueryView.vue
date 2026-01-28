@@ -3,7 +3,7 @@
     <ControlPanel>
       <div class="toolbar-left">
         <BaseSelect
-          :model-value="currentQueryTab?.connectionId ?? ''"
+          :model-value="queryTab?.connectionId ?? ''"
           :options="connectionOptions"
           class="conn-select-wrapper"
           variant="outline"
@@ -18,17 +18,18 @@
       <template #right>
         <div class="toolbar-right">
           <BaseButton
-            v-if="!currentQueryTab?.loading"
+            v-if="!queryTab.loading"
+            title="Run (Ctrl/Cmd + Enter)"
             variant="primary"
-            :disabled="currentQueryTab?.connectionId === null"
-            @click="tabStore.runQuery()"
+            @click="queryStore.runQuery(queryTab.id)"
           >
             <BaseIcon name="play" /> {{ $t('query.run') }}
           </BaseButton>
           <BaseButton
             v-else
+            title="Cancel"
             variant="danger"
-            @click="tabStore.cancelQuery()"
+            @click="queryStore.cancelQuery(queryTab.id)"
           >
             <BaseIcon name="square" /> {{ $t('common.cancel') }}
           </BaseButton>
@@ -37,31 +38,45 @@
     </ControlPanel>
 
     <div class="editor-wrapper" :style="{ height: editorHeight + 'px' }">
-      <SqlEditor v-if="currentQueryTab" v-model="currentQueryTab.sql" @run="tabStore.runQuery" />
+      <SqlEditor v-if="queryTab" v-model="queryTab.sql" @run="onRunQuery" />
     </div>
 
     <div class="resizer-horizontal" @mousedown="startResize"></div>
 
     <div class="grid-wrapper">
 
-      <div v-if="currentQueryTab" class="view-panel-header">
+      <div v-if="queryTab" class="view-panel-header">
          <ControlPanel>
             <div class="pagination-controls">
               <BaseButton :disabled="!canGoPrev" variant="ghost" icon-only @click="goFirst">
                 <BaseIcon name="chevronsLeft" />
               </BaseButton>
-              <BaseButton :disabled="!canGoPrev" variant="ghost" icon-only @click="tabStore.prevPage">
+              <BaseButton
+                :disabled="queryTab.pagination.offset === 0"
+                variant="ghost" 
+                icon-only
+                @click="() => {
+                  queryTab.pagination.offset = Math.max(0, queryTab.pagination.offset - queryTab.pagination.limit);
+                  queryStore.runQuery(queryTab.id);
+                }"
+              >
                 <BaseIcon name="chevronLeft" />
               </BaseButton>
-
-              <div class="pagination-info">
-                <span class="pagination-range">{{ paginationRangeText }}</span>
-                <span v-if="currentQueryTab.pagination.total !== null" class="pagination-total">{{
-                  paginationTotalText
-                }}</span>
-              </div>
-
-              <BaseButton :disabled="!canGoNext" variant="ghost" icon-only @click="tabStore.nextPage">
+              <span class="pagination-text">
+                {{ queryTab.pagination.offset + 1 }} -
+                {{ queryTab.pagination.offset + queryTab.rows.length }}
+                <span v-if="queryTab.pagination.total !== null">
+                  {{ $t('common.of') }} {{ queryTab.pagination.total }}
+                </span>
+              </span>
+              <BaseButton
+                icon-only
+                title="Next Page"
+                variant="ghost"
+                @click="() => {
+                   queryTab.pagination.offset += queryTab.pagination.limit;
+                   queryStore.runQuery(queryTab.id);
+                }">
                 <BaseIcon name="chevronRight" />
               </BaseButton>
               <BaseButton :disabled="!canGoLast" variant="ghost" icon-only @click="goLast">
@@ -72,8 +87,8 @@
             <div class="toolbar-divider"></div>
 
             <BaseSelect
-                      v-if="currentQueryTab"
-                      :model-value="currentQueryTab.pagination.limit"
+                      v-if="queryTab"
+                      :model-value="queryTab.pagination.limit"
                       :options="limitOptions"
                       :label="$t('pagination.limit')"
                       inline-label
@@ -88,7 +103,7 @@
                       :title="$t('query.refresh')"
                       variant="ghost"
                       icon-only
-                      @click="tabStore.runQuery()"
+                      @click="queryStore.runQuery(queryTab.id)"
                     >
                       <BaseIcon name="refresh" />
                     </BaseButton>
@@ -108,7 +123,7 @@
                         variant="ghost"
                         icon-only
 
-                        :disabled="!currentQueryTab?.rows?.length"
+                        :disabled="!queryTab?.rows?.length"
                         @click="exportCsv"
                     >
                       <BaseIcon name="download" />
@@ -121,7 +136,7 @@
                       :title="$t('query.revertChanges')"
                       class="revert-btn"
                       :disabled="!hasChanges"
-                      @click="tabStore.revertChanges"
+                      @click="tableDataStore.revertChanges(queryTab.id)"
                     >
                       <BaseIcon name="undo" />
                     </BaseButton>
@@ -133,7 +148,7 @@
                       class="action-btn"
                       :class="{ 'primary-icon': hasChanges }"
                       :disabled="!hasChanges"
-                      @click="tabStore.commitChanges"
+                      @click="tableDataStore.commitChanges(queryTab.id)"
                     >
                       <BaseIcon name="save" />
                     </BaseButton>
@@ -162,22 +177,25 @@
          </ControlPanel>
       </div>
 
+
+
+      <!-- Table -->
       <div class="table-area">
 
       <BaseTable
-        v-if="currentQueryTab"
-        :key="currentQueryTab.id"
-        :columns="tableColumns"
-        :data="currentQueryTab.rows"
-        :row-offset="currentQueryTab.pagination.offset"
-        :editable="canEdit"
-        :changed-cells="changedCellsSet"
-        :primary-keys="currentQueryTab?.primaryKeys || []"
-        :loading="!!currentQueryTab?.loading"
+        v-if="queryTab"
+        :key="queryTab.id"
+        :columns="transformedColumns"
+        :data="queryTab.rows"
+        :row-offset="queryTab.pagination.offset"
+        :editable="true"
+        :changed-cells="changedCells"
+        :primary-keys="queryTab.primaryKeys"
+        :loading="queryTab.loading"
         style="width: 100%; height: 100%"
         @sort-change="onSortChange"
         @cell-context-menu="onCellContextMenu"
-        @cell-change="onCellChange"
+        @cell-change="({ rowIndex, column, value }) => tableDataStore.updateCellValue(queryTab.id, rowIndex, column, value)"
         @cell-focus="onCellFocus"
       >
         <template #empty>
@@ -269,6 +287,8 @@ import { isWrappedValue } from '@/types';
 
 import { useTabStore, QueryTab } from '../stores/tabs';
 import { useConnectionStore } from '../stores/connections';
+import { useQueryStore } from '../stores/query';
+import { useTableDataStore } from '../stores/tableData';
 import SqlEditor from '../components/editor/SqlEditor.vue';
 import ValueEditor from '../components/editor/ValueEditor.vue';
 import BaseIcon from '../components/ui/BaseIcon.vue';
@@ -281,9 +301,11 @@ import i18n from '../i18n';
 
 const tabStore = useTabStore();
 const connStore = useConnectionStore();
+const queryStore = useQueryStore();
+const tableDataStore = useTableDataStore();
 
 // Helper to get typed current tab
-const currentQueryTab = computed<QueryTab | null>(() => {
+const queryTab = computed<QueryTab | null>(() => {
   return tabStore.currentTab?.type === 'query' ? tabStore.currentTab : null;
 });
 
@@ -387,7 +409,7 @@ function toggleDetailPane() {
 }
 
 async function applyDetailChanges() {
-  if (!activeCell.value) return;
+  if (!activeCell.value || !queryTab.value) return;
   // We assume the user edits the string representation.
   // Ideally we should try to parse JSON if the original was JSON/Object.
   let newValue: unknown = editorContent.value;
@@ -407,7 +429,7 @@ async function applyDetailChanges() {
     }
   }
 
-  tabStore.updateCellValue(activeCell.value.rowIndex, activeCell.value.colKey, newValue);
+  tableDataStore.updateCellValue(queryTab.value.id, activeCell.value.rowIndex, activeCell.value.colKey, newValue);
   // Update original content to matches what we just saved (approx)
   // But strictly, we should wait for re-sync.
   // For now, let's assume success and update original to avoid dirty state flickering if sync is delayed
@@ -517,23 +539,23 @@ async function copyRow(): Promise<void> {
 }
 
 async function formatCurrentSql(): Promise<void> {
-  if (!currentQueryTab.value) return;
+  if (!queryTab.value) return;
 
-  const connId = currentQueryTab.value.connectionId;
+  const connId = queryTab.value.connectionId;
   const conn = connStore.savedConnections.find((c) => c.id === connId);
 
   const dialect = conn?.type === 'postgres' ? 'postgresql' : 'mysql';
 
-  currentQueryTab.value.sql = format(currentQueryTab.value.sql, {
+  queryTab.value.sql = format(queryTab.value.sql, {
     language: dialect,
     keywordCase: 'upper',
   });
 }
 
 function exportCsv(): void {
-  if (!currentQueryTab.value?.rows.length) return;
-  const header = Object.keys(currentQueryTab.value.rows[0]).join(',');
-  const csv = currentQueryTab.value.rows
+  if (!queryTab.value?.rows.length) return;
+  const header = Object.keys(queryTab.value.rows[0]).join(',');
+  const csv = queryTab.value.rows
     .map((r) =>
       Object.values(r)
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
@@ -550,98 +572,78 @@ function exportCsv(): void {
 
 // Pagination & Toolbar Logic
 const canGoPrev = computed(() => {
-  if (!currentQueryTab.value) return false;
-  return currentQueryTab.value.pagination.offset > 0;
+  if (!queryTab.value) return false;
+  return queryTab.value.pagination.offset > 0;
 });
 
 const canGoNext = computed(() => {
-  if (!currentQueryTab.value) return false;
+  if (!queryTab.value) return false;
   // If total is known
-  if (currentQueryTab.value.pagination.total !== null) {
+  if (queryTab.value.pagination.total !== null) {
     return (
-      currentQueryTab.value.pagination.offset + currentQueryTab.value.pagination.limit <
-      currentQueryTab.value.pagination.total
+      queryTab.value.pagination.offset + queryTab.value.pagination.limit <
+      queryTab.value.pagination.total
     );
   }
   // If total unknown, check if we have full page of rows
   // If we have fewer rows than limit, we are at end
-  return currentQueryTab.value.rows.length === currentQueryTab.value.pagination.limit;
+  return queryTab.value.rows.length === queryTab.value.pagination.limit;
 });
 
 const canGoLast = computed(() => {
-  if (!currentQueryTab.value || currentQueryTab.value.pagination.total === null) return false;
+  if (!queryTab.value || queryTab.value.pagination.total === null) return false;
   return canGoNext.value;
-});
-
-const paginationRangeText = computed(() => {
-  if (!currentQueryTab.value) return '';
-  const { offset } = currentQueryTab.value.pagination;
-  const count = currentQueryTab.value.rows.length;
-  const start = count > 0 ? offset + 1 : 0;
-  const end = offset + count;
-  return `${start} - ${end}`;
-});
-
-const paginationTotalText = computed(() => {
-  if (!currentQueryTab.value) return '';
-  const { total } = currentQueryTab.value.pagination;
-  const count = currentQueryTab.value.rows.length;
-  const offset = currentQueryTab.value.pagination.offset;
-  const end = offset + count;
-
-  if (total !== null) {
-    return `${i18n.global.t('common.of')} ${total}`;
-  }
-  return `${i18n.global.t('common.of')} ${end}+`;
 });
 
 // Auto Refresh (Timer logic is below)
 
+function onRunQuery(): void {
+  if (queryTab.value) {
+    queryStore.runQuery(queryTab.value.id);
+  }
+}
+
 function goFirst(): void {
-  if (currentQueryTab.value) {
-    currentQueryTab.value.pagination.offset = 0;
-    tabStore.runQuery();
+  if (queryTab.value) {
+    queryTab.value.pagination.offset = 0;
+    queryStore.runQuery(queryTab.value.id);
   }
 }
 
 function goLast(): void {
-  if (currentQueryTab.value && currentQueryTab.value.pagination.total !== null) {
-    const { total, limit } = currentQueryTab.value.pagination;
+  if (queryTab.value && queryTab.value.pagination.total !== null) {
+    const { total, limit } = queryTab.value.pagination;
     const newOffset = Math.max(0, Math.floor((total - 1) / limit) * limit);
-    currentQueryTab.value.pagination.offset = newOffset;
-    tabStore.runQuery();
+    queryTab.value.pagination.offset = newOffset;
+    queryStore.runQuery(queryTab.value.id);
   }
 }
 
 const hasChanges = computed(() => {
-  if (!currentQueryTab.value || currentQueryTab.value.type !== 'query') return false;
-  if (!currentQueryTab.value.pendingChanges) return false;
-  return currentQueryTab.value.pendingChanges.size > 0;
+  if (!queryTab.value) return false;
+  return queryTab.value.pendingChanges.size > 0;
 });
 
 const changesCount = computed(() => {
-  if (!currentQueryTab.value || currentQueryTab.value.type !== 'query') return 0;
-  if (!currentQueryTab.value.pendingChanges) return 0;
-  return currentQueryTab.value.pendingChanges.size;
+  if (!queryTab.value) return 0;
+  return queryTab.value.pendingChanges.size;
 });
 
-const changedCellsSet = computed((): Set<string> => {
-  if (!currentQueryTab.value || currentQueryTab.value.type !== 'query') return new Set();
-  if (!currentQueryTab.value.pendingChanges) return new Set();
-  const result = new Set<string>();
-  for (const [rowKey, changes] of currentQueryTab.value.pendingChanges) {
+const changedCells = computed((): Set<string> => {
+  if (!queryTab.value) return new Set();
+  const set = new Set<string>();
+  for (const [rowKey, changes] of queryTab.value.pendingChanges) {
     for (const colName of Object.keys(changes)) {
-      const row = currentQueryTab.value.rows.find(
+      const rowIndex = queryTab.value.rows.findIndex(
         (r) =>
-          currentQueryTab.value!.primaryKeys.map((pk) => String(r[pk] ?? '')).join('|') === rowKey,
+          queryTab.value!.primaryKeys.map((pk) => String(r[pk] ?? '')).join('|') === rowKey,
       );
-      if (row) {
-        const rowIndex = currentQueryTab.value.rows.indexOf(row);
-        result.add(`${rowIndex}:${colName}`);
+      if (rowIndex !== -1) {
+        set.add(`${rowIndex}:${colName}`);
       }
     }
   }
-  return result;
+  return set;
 });
 
 const changesCountText = computed(() => {
@@ -650,13 +652,26 @@ const changesCountText = computed(() => {
 });
 
 const canEdit = computed(() => {
-  if (!currentQueryTab.value || currentQueryTab.value.type !== 'query') return false;
-  if (!currentQueryTab.value.primaryKeys) return false;
-  return currentQueryTab.value.primaryKeys.length > 0;
+  if (!queryTab.value) return false;
+  if (!queryTab.value.primaryKeys) return false;
+  return queryTab.value.primaryKeys.length > 0;
 });
 
 function onCellChange(payload: { rowIndex: number; column: string; value: unknown }): void {
-  tabStore.updateCellValue(payload.rowIndex, payload.column, payload.value);
+  if (!queryTab.value) return;
+  // Check if changed
+  const row = queryTab.value.rows[payload.rowIndex];
+  const oldVal = row ? row[payload.column] : undefined;
+
+  // TODO: better type check
+  if (String(oldVal) !== String(payload.value)) {
+     tableDataStore.updateCellValue(
+       queryTab.value.id,
+       payload.rowIndex,
+       payload.column,
+       payload.value
+     );
+  }
 }
 
 // Auto Refresh
@@ -679,9 +694,9 @@ const limitOptions = [
 ];
 
 function onLimitChange(val: string | number): void {
-  if (currentQueryTab.value && val !== 0) {
-    currentQueryTab.value.pagination.limit = Number(val);
-    tabStore.runQuery();
+  if (queryTab.value && val !== 0) {
+    queryTab.value.pagination.limit = Number(val);
+    queryStore.runQuery(queryTab.value.id);
   }
 }
 
@@ -696,8 +711,8 @@ function onAutoRefreshChange(val: string | number): void {
 
   if (ms > 0) {
     autoRefreshTimer.value = window.setInterval(() => {
-      if (currentQueryTab.value && !connStore.loading && !currentQueryTab.value.loading) {
-        tabStore.runQuery();
+      if (queryTab.value && !connStore.loading && !queryTab.value.loading) {
+        queryStore.runQuery(queryTab.value.id);
       }
     }, ms);
   }
@@ -707,7 +722,7 @@ function onAutoRefreshChange(val: string | number): void {
 // (Moved to combined onUnmounted above)
 
 watch(
-  () => currentQueryTab.value?.id,
+  () => queryTab.value?.id,
   () => {
     // Reset auto refresh on tab switch/close? Or keep it per tab?
     // User request didn't specify. Usually per-view.
@@ -736,29 +751,29 @@ const connectionOptions = computed(() => {
 });
 
 async function onTabConnectionChange(val: string | number): Promise<void> {
-  if (currentQueryTab.value) {
+  if (queryTab.value) {
     if (val === '') {
-      currentQueryTab.value.connectionId = null;
+      queryTab.value.connectionId = null;
     } else {
-      currentQueryTab.value.connectionId = String(val);
+      queryTab.value.connectionId = String(val);
     }
 
-    if (currentQueryTab.value.connectionId !== null) {
-      await connStore.ensureConnection(currentQueryTab.value.connectionId);
+    if (queryTab.value.connectionId !== null) {
+      await connStore.ensureConnection(queryTab.value.connectionId);
     }
   }
 }
 
 function onSortChange(sort: { colId: string | null; sort: 'asc' | 'desc' | null }): void {
   if (!sort.colId || !sort.sort) return;
-  if (!currentQueryTab.value) return;
-  const match = currentQueryTab.value.sql.match(/FROM\s+([`'"]?[\w.]+[`'"]?)/i);
+  if (!queryTab.value) return;
+  const match = queryTab.value.sql.match(/FROM\s+([`'"]?[\w.]+[`'"]?)/i);
   if (match) {
     let newSql = `SELECT * FROM ${match[1]}`;
     newSql += ` ORDER BY "${sort.colId}" ${sort.sort.toUpperCase()}`;
 
-    currentQueryTab.value.sql = newSql;
-    tabStore.runQuery();
+    queryTab.value.sql = newSql;
+    queryStore.runQuery(queryTab.value.id);
   }
 }
 
@@ -792,9 +807,9 @@ function doResize(e: MouseEvent): void {
   if (newHeight > 100 && newHeight < window.innerHeight - 200) editorHeight.value = newHeight;
 }
 
-const tableColumns = computed(() => {
-  if (!currentQueryTab.value?.colDefs) return [];
-  return currentQueryTab.value.colDefs.map((def) => ({
+const transformedColumns = computed(() => {
+  if (!queryTab.value?.colDefs) return [];
+  return queryTab.value.colDefs.map((def) => ({
     prop: def.field,
     label: def.headerName || def.field,
     sortable: true,
@@ -815,14 +830,14 @@ onUnmounted(() => {
 });
 
 function handleKeydown(e: KeyboardEvent): void {
-  // Only handle if this view is active (currentQueryTab is populated)
-  if (!currentQueryTab.value) return;
+  // Only handle if this view is active (queryTab is populated)
+  if (!queryTab.value) return;
 
   // Save: Ctrl+S or Cmd+S
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
     e.preventDefault();
     if (hasChanges.value) {
-      tabStore.commitChanges();
+      tableDataStore.commitChanges(queryTab.value.id);
     }
     return;
   }
@@ -831,7 +846,7 @@ function handleKeydown(e: KeyboardEvent): void {
   // Note: Electron/Browser might block F5 or reload page unless prevented
   if (e.key === 'F5') {
     e.preventDefault();
-    tabStore.runQuery();
+    queryStore.runQuery(queryTab.value.id);
     return;
   }
 }

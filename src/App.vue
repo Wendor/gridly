@@ -25,10 +25,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useConnectionStore } from './stores/connections';
 import { useTabStore } from './stores/tabs';
 import { useSettingsStore } from './stores/settings';
+import { useQueryStore } from './stores/query';
 
 import TheTitleBar from './components/layout/TheTitleBar.vue';
 import TheActivityBar from './components/layout/TheActivityBar.vue';
@@ -38,6 +39,27 @@ import TheStatusBar from './components/layout/TheStatusBar.vue';
 const connStore = useConnectionStore();
 const tabStore = useTabStore();
 const settingsStore = useSettingsStore();
+const queryStore = useQueryStore();
+
+// Restore DB Context Watcher
+watch(
+  () => tabStore.currentTab,
+  async (newTab) => {
+    if (newTab?.type === 'query' && newTab.connectionId && newTab.database) {
+      const cached = queryStore.activeDatabaseCache.get(newTab.connectionId);
+      if (cached !== newTab.database) {
+        try {
+          // Silent switch to ensure context is correct for the active tab
+          await window.dbApi.setActiveDatabase(newTab.connectionId, newTab.database);
+          queryStore.activeDatabaseCache.set(newTab.connectionId, newTab.database);
+        } catch (e) {
+          console.error('Failed to switch database context on tab change', e);
+        }
+      }
+    }
+  },
+  { immediate: true }
+);
 
 const sidebarWidth = ref(250);
 const isResizingSidebar = ref(false);
