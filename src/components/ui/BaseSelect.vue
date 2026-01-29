@@ -12,7 +12,7 @@
           `variant-${variant}`,
           {
             'is-active': isOpen,
-            'icon-mode': !!icon,
+            'icon-mode': !!icon && !label, /* Only icon mode if no label provided */
             'active-highlight': highlightActive && !!modelValue
           }
         ]"
@@ -220,17 +220,21 @@ onBeforeUnmount(() => {
 }
 
 .base-select.icon-mode {
-  padding: 6px;
-  width: auto;
-  border-color: transparent;
+  padding: 6px; /* Match standard button padding size usually */
+  width: 28px; /* Fixed width for square look like BaseButton icon-only */
+  height: 28px;
+  justify-content: center;
+  border: 1px solid transparent; /* Ensure transparent border by default */
   background: transparent;
   color: var(--text-primary);
+  border-radius: 4px;
 }
 
 .base-select.icon-mode:hover,
 .base-select.icon-mode.is-active {
   color: var(--text-primary);
-  background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+  background: var(--bg-input); /* Match BaseButton ghost hover */
+  border-color: transparent;
 }
 .base-select.icon-mode.active-highlight {
   color: var(--accent-primary);
@@ -252,6 +256,7 @@ onBeforeUnmount(() => {
   z-index: 1000;
   padding: 4px;
   box-sizing: border-box;
+  margin-top: 4px; /* Separation from trigger */
 }
 
 .dropdown-item {

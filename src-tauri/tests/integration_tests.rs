@@ -30,7 +30,7 @@ async fn test_real_postgres_connection() {
     let tables = tables.unwrap();
     assert!(tables.contains(&"users".to_string()));
 
-    let query_res = manager.execute("test_pg".to_string(), "SELECT * FROM users".to_string()).await;
+    let query_res = manager.execute("test_pg".to_string(), "SELECT * FROM users".to_string(), None).await;
     assert!(query_res.is_ok());
     let rows = query_res.unwrap().rows;
     assert!(rows.len() >= 2);
@@ -137,7 +137,7 @@ async fn test_real_clickhouse_connection() {
     let tables = tables.unwrap();
     assert!(tables.contains(&"users".to_string()));
 
-    let query_res = manager.execute("test_ch".to_string(), "SELECT * FROM users".to_string()).await;
+    let query_res = manager.execute("test_ch".to_string(), "SELECT * FROM users".to_string(), None).await;
     assert!(query_res.is_ok());
     let rows = query_res.unwrap().rows;
     // We expect at least the initial rows seeded by init.sql

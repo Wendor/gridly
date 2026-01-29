@@ -119,15 +119,15 @@
 
                     <div class="toolbar-divider"></div>
 
-                    <BaseButton
+                    <BaseSelect
+                        :model-value="''"
+                        :options="exportOptions"
+                        icon="download"
                         variant="ghost"
-                        icon-only
-
+                        class="export-select"
                         :disabled="!queryTab?.rows?.length"
-                        @click="exportCsv"
-                    >
-                      <BaseIcon name="download" />
-                    </BaseButton>
+                        @update:model-value="(val) => handleExport(String(val))"
+                    />
                     <div class="toolbar-divider"></div>
 
                     <BaseButton
@@ -284,6 +284,8 @@
 import { ref, onMounted, onUnmounted, reactive, computed, watch } from 'vue';
 import { format } from 'sql-formatter';
 import { isWrappedValue } from '@/types';
+import { save } from '@tauri-apps/plugin-dialog';
+import { invoke } from '@tauri-apps/api/core';
 
 import { useTabStore, QueryTab } from '../stores/tabs';
 import { useConnectionStore } from '../stores/connections';
@@ -552,22 +554,48 @@ async function formatCurrentSql(): Promise<void> {
   });
 }
 
-function exportCsv(): void {
-  if (!queryTab.value?.rows.length) return;
-  const header = Object.keys(queryTab.value.rows[0]).join(',');
-  const csv = queryTab.value.rows
-    .map((r) =>
-      Object.values(r)
-        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-        .join(','),
-    )
-    .join('\n');
-  const blob = new Blob([header + '\n' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `export_${Date.now()}.csv`;
-  link.click();
+const exportOptions = [
+  { label: 'Export CSV', value: 'csv' },
+  { label: 'Export JSON', value: 'json' },
+  { label: 'Export SQL Inserts', value: 'sql' },
+];
+
+async function handleExport(format: string): Promise<void> {
+  if (!queryTab.value?.rows.length || !format) return;
+
+  try {
+    const suggestedName = `export_${Date.now()}.${format}`;
+    const filePath = await save({
+      defaultPath: suggestedName,
+      filters: [
+        {
+          name: format.toUpperCase(),
+          extensions: [format],
+        },
+      ],
+    });
+
+    if (!filePath) return;
+
+    if (!queryTab.value.connectionId) {
+        alert('No active connection for this tab');
+        return;
+    }
+
+    await invoke('export_query', {
+      id: queryTab.value.connectionId,
+      sql: queryTab.value.sql,
+      format,
+      path: filePath,
+    });
+    
+    // You might want to use a toast notification here if available
+    console.log('Export successful');
+    alert(`Export successful to ${filePath}`);
+  } catch (e) {
+    console.error('Export failed:', e);
+    alert(`Export failed: ${e}`);
+  }
 }
 
 // Pagination & Toolbar Logic
@@ -967,13 +995,23 @@ function handleKeydown(e: KeyboardEvent): void {
   display: flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
+}
+
+.pagination-controls > * {
+    flex-shrink: 0;
+}
+
+.pagination-text {
+    white-space: nowrap;
 }
 
 .toolbar-divider {
   width: 1px;
   height: 20px;
   background: var(--border-color);
-  margin: 0 4px;
+  margin: 0; /* Parent gap handles spacing */
+  flex-shrink: 0;
 }
 
 .auto-refresh-select {

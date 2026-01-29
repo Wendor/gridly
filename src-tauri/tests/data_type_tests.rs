@@ -32,7 +32,7 @@ async fn test_mysql_all_types() {
 
     // 2. Setup Table
     let drop_sql = "DROP TABLE IF EXISTS all_types_mysql";
-    let _ = manager.execute(conn_id.to_string(), drop_sql.to_string()).await;
+    let _ = manager.execute(conn_id.to_string(), drop_sql.to_string(), None).await;
 
     let create_sql = r#"
     CREATE TABLE all_types_mysql (
@@ -75,7 +75,7 @@ async fn test_mysql_all_types() {
     )
     "#;
 
-    let create_res = manager.execute(conn_id.to_string(), create_sql.to_string()).await;
+    let create_res = manager.execute(conn_id.to_string(), create_sql.to_string(), None).await;
     assert!(create_res.is_ok(), "Failed to create MySQL table: {:?}", create_res.err());
 
     // 3. Insert Data
@@ -96,12 +96,12 @@ async fn test_mysql_all_types() {
         b'10101010', 'a', 'x,y', '{"key": "value"}'
     )
     "#;
-    let insert_res = manager.execute(conn_id.to_string(), insert_sql.to_string()).await;
+    let insert_res = manager.execute(conn_id.to_string(), insert_sql.to_string(), None).await;
     assert!(insert_res.is_ok(), "Failed to insert MySQL data: {:?}", insert_res.err());
 
     // 4. Select and Verify
     let select_sql = "SELECT * FROM all_types_mysql WHERE id = 1";
-    let select_res = manager.execute(conn_id.to_string(), select_sql.to_string()).await;
+    let select_res = manager.execute(conn_id.to_string(), select_sql.to_string(), None).await;
     assert!(select_res.is_ok());
     
     let result = select_res.unwrap();
@@ -179,7 +179,7 @@ async fn test_postgres_all_types() {
 
     // 2. Setup Table
     let drop_sql = "DROP TABLE IF EXISTS all_types_pg";
-    let _ = manager.execute(conn_id.to_string(), drop_sql.to_string()).await;
+    let _ = manager.execute(conn_id.to_string(), drop_sql.to_string(), None).await;
 
     let create_sql = r#"
     CREATE TABLE all_types_pg (
@@ -234,7 +234,7 @@ async fn test_postgres_all_types() {
     )
     "#;
 
-    let create_res = manager.execute(conn_id.to_string(), create_sql.to_string()).await;
+    let create_res = manager.execute(conn_id.to_string(), create_sql.to_string(), None).await;
     assert!(create_res.is_ok(), "Failed to create PG table: {:?}", create_res.err());
 
     // 3. Insert Data
@@ -265,12 +265,12 @@ async fn test_postgres_all_types() {
         ARRAY[1, 2, 3], ARRAY['a', 'b', 'c']
     )
     "#;
-    let insert_res = manager.execute(conn_id.to_string(), insert_sql.to_string()).await;
+    let insert_res = manager.execute(conn_id.to_string(), insert_sql.to_string(), None).await;
     assert!(insert_res.is_ok(), "Failed to insert PG data: {:?}", insert_res.err());
 
     // 4. Select and Verify
     let select_sql = "SELECT * FROM all_types_pg WHERE id = 1";
-    let select_res = manager.execute(conn_id.to_string(), select_sql.to_string()).await;
+    let select_res = manager.execute(conn_id.to_string(), select_sql.to_string(), None).await;
     assert!(select_res.is_ok());
     
     let result = select_res.unwrap();
@@ -353,7 +353,7 @@ async fn test_clickhouse_all_types() {
 
     // 2. Setup Table
     let drop_sql = "DROP TABLE IF EXISTS all_types_ch";
-    let _ = manager.execute(conn_id.to_string(), drop_sql.to_string()).await;
+    let _ = manager.execute(conn_id.to_string(), drop_sql.to_string(), None).await;
 
     // ClickHouse uses specific engine, usually MergeTree
     let create_sql = r#"
@@ -402,7 +402,7 @@ async fn test_clickhouse_all_types() {
     ) ENGINE = MergeTree() ORDER BY id
     "#;
 
-    let create_res = manager.execute(conn_id.to_string(), create_sql.to_string()).await;
+    let create_res = manager.execute(conn_id.to_string(), create_sql.to_string(), None).await;
     assert!(create_res.is_ok(), "Failed to create CH table: {:?}", create_res.err());
 
     // 3. Insert Data
@@ -429,12 +429,12 @@ async fn test_clickhouse_all_types() {
         'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'a'
     )
     "#;
-    let insert_res = manager.execute(conn_id.to_string(), insert_sql.to_string()).await;
+    let insert_res = manager.execute(conn_id.to_string(), insert_sql.to_string(), None).await;
     assert!(insert_res.is_ok(), "Failed to insert CH data: {:?}", insert_res.err());
 
     // 4. Select and Verify
     let select_sql = "SELECT * FROM all_types_ch WHERE id = 1";
-    let select_res = manager.execute(conn_id.to_string(), select_sql.to_string()).await;
+    let select_res = manager.execute(conn_id.to_string(), select_sql.to_string(), None).await;
     assert!(select_res.is_ok(), "Failed to select: {:?}", select_res.err());
     
     let result = select_res.unwrap();
